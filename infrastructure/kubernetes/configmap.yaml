@@ -1,0 +1,39 @@
+# Nexus Protocol - ConfigMap
+# Non-sensitive configuration for the API server
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nexus-api-config
+  namespace: nexus-protocol
+  labels:
+    app.kubernetes.io/name: nexus-api
+    app.kubernetes.io/component: backend
+data:
+  # Server configuration
+  GIN_MODE: "release"
+  PORT: "8080"
+  LOG_LEVEL: "info"
+  LOG_FORMAT: "json"
+  
+  # Database configuration
+  DB_DRIVER: "postgres"
+  DB_HOST: "postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "nexus"
+  DB_SSL_MODE: "require"
+  DB_MAX_CONNECTIONS: "100"
+  DB_MAX_IDLE: "10"
+  
+  # Cache configuration
+  CACHE_DRIVER: "redis"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  
+  # Rate limiting
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_RPS: "1000"
+  
+  # Observability
+  METRICS_ENABLED: "true"
+  TRACING_ENABLED: "true"

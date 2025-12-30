@@ -1,0 +1,86 @@
+# Nexus Protocol - Kubernetes Services
+# Exposes the API and databases within the cluster
+
+---
+# API Service - ClusterIP for internal access
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-api-service
+  namespace: nexus-protocol
+  labels:
+    app.kubernetes.io/name: nexus-api
+    app.kubernetes.io/component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nexus-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+
+---
+# API Service - LoadBalancer for external access (if needed)
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-api-lb
+  namespace: nexus-protocol
+  labels:
+    app.kubernetes.io/name: nexus-api
+    app.kubernetes.io/component: backend
+  annotations:
+    # Azure-specific annotations (adjust for AWS/GCP)
+    service.beta.kubernetes.io/azure-load-balancer-internal: "false"
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: nexus-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+
+---
+# PostgreSQL Service (Headless for StatefulSet)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: nexus-protocol
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: nexus-protocol
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP

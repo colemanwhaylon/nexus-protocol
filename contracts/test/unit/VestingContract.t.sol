@@ -1337,6 +1337,9 @@ contract VestingContractTest is Test {
             assertEq(claimable, 0, "Nothing claimable before cliff");
         } else if (timeElapsed >= vestingDuration) {
             assertEq(claimable, GRANT_AMOUNT, "Full amount claimable after vesting");
+        } else if (timeElapsed == 0) {
+            // At exactly startTime (t=0), no time has elapsed for linear vesting
+            assertEq(claimable, 0, "Nothing claimable at exactly start time");
         } else {
             assertTrue(claimable > 0, "Some amount claimable after cliff");
             assertTrue(claimable <= GRANT_AMOUNT, "Claimable should not exceed total");

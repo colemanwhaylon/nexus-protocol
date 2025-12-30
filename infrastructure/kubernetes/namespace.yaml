@@ -1,0 +1,11 @@
+# Nexus Protocol - Kubernetes Namespace
+# Creates isolated namespace for all Nexus Protocol resources
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nexus-protocol
+  labels:
+    app.kubernetes.io/name: nexus-protocol
+    app.kubernetes.io/managed-by: kubectl
+    environment: production
