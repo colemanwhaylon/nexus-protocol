@@ -1,0 +1,39 @@
+# Nexus Protocol - Echidna Configuration
+# Fuzzing configuration for property-based testing
+
+# Test settings
+testMode: assertion       # Use assertion mode for property testing
+testLimit: 50000          # Number of test sequences to run
+shrinkLimit: 5000         # Maximum shrinking iterations
+seqLen: 100              # Maximum sequence length
+
+# Contract settings
+deployer: "0x10000"       # Address that deploys contracts
+sender: ["0x20000", "0x30000", "0x40000"]  # Addresses that call functions
+
+# Corpus settings
+corpusDir: "corpus"       # Directory for saving corpus
+coverage: true            # Enable coverage-guided fuzzing
+
+# Mutation settings
+dictFile: ""              # Custom dictionary file
+mutConsts: [1, 2, 3, 4, 5, 10, 100, 1000, 10000]  # Common constant mutations
+
+# RPC settings (optional, for fork testing)
+# rpcUrl: "http://127.0.0.1:8545"
+# rpcBlock: "latest"
+
+# Filtering
+filterBlacklist: true     # Use blacklist filtering
+filterFunctions: []       # Functions to filter out
+
+# Crytic compile settings
+cryticArgs:
+  - "--solc-remaps"
+  - "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"
+  - "--solc-remaps"
+  - "forge-std/=lib/forge-std/src/"
+
+# Display settings
+format: text              # Output format (text, json, none)
+workers: 4                # Number of parallel workers
