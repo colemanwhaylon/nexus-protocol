@@ -1,0 +1,191 @@
+# =============================================================================
+# NEXUS PROTOCOL .gitignore
+# =============================================================================
+
+# =============================================================================
+# PRIVATE & SENSITIVE FILES - NEVER COMMIT
+# =============================================================================
+private/
+*.pdf
+*.env
+*.env.*
+.env.local
+.env.*.local
+secrets/
+credentials/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# =============================================================================
+# FOUNDRY / SOLIDITY
+# =============================================================================
+# Build artifacts
+contracts/out/
+contracts/cache/
+contracts/artifacts/
+contracts/broadcast/
+contracts/cache_forge/
+
+# Coverage
+contracts/coverage/
+contracts/lcov.info
+
+# Dependency directories
+contracts/lib/
+contracts/node_modules/
+
+# Gas snapshots
+contracts/.gas-snapshot
+
+# Slither outputs
+contracts/slither-results/
+
+# Echidna outputs
+contracts/echidna-corpus/
+contracts/crytic-export/
+
+# Certora outputs
+contracts/.certora_internal/
+contracts/.certora_config/
+contracts/certora_output/
+
+# =============================================================================
+# GO / BACKEND
+# =============================================================================
+# Binaries
+backend/bin/
+backend/*.exe
+backend/*.exe~
+backend/*.dll
+backend/*.so
+backend/*.dylib
+
+# Test binary
+backend/*.test
+
+# Output of go coverage tool
+backend/*.out
+backend/coverage.html
+
+# Dependency directories
+backend/vendor/
+
+# IDE
+backend/.idea/
+
+# Database files
+backend/*.db
+backend/*.sqlite
+backend/data/
+
+# =============================================================================
+# RUST / TOOLS
+# =============================================================================
+tools/*/target/
+tools/**/*.rs.bk
+tools/Cargo.lock
+
+# =============================================================================
+# PYTHON / SCRIPTS
+# =============================================================================
+scripts/__pycache__/
+scripts/*.py[cod]
+scripts/*$py.class
+scripts/.Python
+scripts/venv/
+scripts/env/
+scripts/.venv/
+scripts/ENV/
+scripts/*.egg-info/
+scripts/dist/
+scripts/build/
+scripts/.eggs/
+scripts/*.egg
+
+# Jupyter
+scripts/.ipynb_checkpoints/
+
+# =============================================================================
+# NODE.JS / FRONTEND
+# =============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+
+# =============================================================================
+# INFRASTRUCTURE
+# =============================================================================
+# Terraform
+infrastructure/terraform/**/*.tfstate
+infrastructure/terraform/**/*.tfstate.*
+infrastructure/terraform/**/.terraform/
+infrastructure/terraform/**/*.tfvars
+infrastructure/terraform/**/crash.log
+infrastructure/terraform/**/override.tf
+infrastructure/terraform/**/override.tf.json
+infrastructure/terraform/**/*_override.tf
+infrastructure/terraform/**/*_override.tf.json
+
+# Kubernetes
+infrastructure/kubernetes/**/*-secret.yaml
+infrastructure/kubernetes/**/*-secrets.yaml
+
+# Docker
+*.log
+
+# =============================================================================
+# IDE & EDITORS
+# =============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# =============================================================================
+# OPERATING SYSTEM
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# =============================================================================
+# MISC
+# =============================================================================
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+
+# Local development
+.local/
+.cache/
+tmp/
+temp/
+
+# Test artifacts
+test-results/
+coverage/
+
