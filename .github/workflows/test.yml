@@ -32,6 +32,10 @@ jobs:
         with:
           version: nightly
 
+      - name: Install dependencies
+        working-directory: ./contracts
+        run: forge install
+
       - name: Run Forge build
         working-directory: ./contracts
         run: |
@@ -68,6 +72,10 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        working-directory: ./contracts
+        run: forge install
 
       - name: Build contracts
         working-directory: ./contracts
@@ -125,6 +133,10 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        working-directory: ./contracts
+        run: forge install
 
       - name: Run forge fmt check
         working-directory: ./contracts
