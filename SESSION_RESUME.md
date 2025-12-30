@@ -141,6 +141,8 @@ $HOME/.foundry/bin/forge test --gas-report
 
 ## Notes
 
+> **IMPORTANT: YOU SHOULD ALWAYS WORK IN PARALLEL ACROSS ALL MACHINES, AT ALL TIMES DURING THIS PROJECT.**
+
 1. **Foundry Path**: Use `$HOME/.foundry/bin/forge` (not just `forge`)
 2. **OpenZeppelin v5.x**: Using latest patterns (AccessControl, not Ownable)
 3. **Solidity 0.8.24**: Strict version for all contracts
