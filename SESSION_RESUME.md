@@ -1,30 +1,43 @@
 # Nexus Protocol - Session Resume Document
 
-**Last Updated**: 2025-12-29 (Session 2)
-**M1 Commit**: 6c28ae2 (1 commit ahead of origin/main, needs push)
-**Working Directory**: `/home/whaylon/Downloads/Blockchain/nexus-protocol/contracts`
+**Last Updated**: 2025-12-29 (Session 3)
+**All branches pushed to origin**
+**Working Directory**: `/home/whaylon/Downloads/Blockchain/nexus-protocol`
 
 ---
 
 ## What's Been Completed
 
-### Smart Contracts (on M1 - main branch)
+### Smart Contracts (on main branch - pushed)
 | Contract | Path | Status | Lines |
 |----------|------|--------|-------|
-| NexusToken | `src/core/NexusToken.sol` | Complete | ~350 |
-| NexusStaking | `src/defi/NexusStaking.sol` | Complete | ~884 |
-| NexusAccessControl | `src/security/NexusAccessControl.sol` | Complete | ~352 |
-| NexusEmergency | `src/security/NexusEmergency.sol` | Complete | ~471 |
-| NexusNFT | `src/core/NexusNFT.sol` | Complete | ~600 |
-| NexusSecurityToken | `src/core/NexusSecurityToken.sol` | Complete | ~800 |
-| NexusKYCRegistry | `src/security/NexusKYCRegistry.sol` | Complete | ~400 |
-| RewardsDistributor | `src/defi/RewardsDistributor.sol` | Complete | ~1100 |
-| VestingContract | `src/defi/VestingContract.sol` | Complete | ~821 |
+| NexusToken | `contracts/src/core/NexusToken.sol` | Complete | ~350 |
+| NexusStaking | `contracts/src/defi/NexusStaking.sol` | Complete | ~884 |
+| NexusAccessControl | `contracts/src/security/NexusAccessControl.sol` | Complete | ~352 |
+| NexusEmergency | `contracts/src/security/NexusEmergency.sol` | Complete | ~471 |
+| NexusNFT | `contracts/src/core/NexusNFT.sol` | Complete | ~600 |
+| NexusSecurityToken | `contracts/src/core/NexusSecurityToken.sol` | Complete | ~800 |
+| NexusKYCRegistry | `contracts/src/security/NexusKYCRegistry.sol` | Complete | ~400 |
+| RewardsDistributor | `contracts/src/defi/RewardsDistributor.sol` | Complete | ~1100 |
+| VestingContract | `contracts/src/defi/VestingContract.sol` | Complete | ~821 |
 
-### Smart Contracts (on M3 - feature/m3-defi branch)
+### Smart Contracts (on feature/m3-defi - pushed)
 | Contract | Path | Status | Notes |
 |----------|------|--------|-------|
-| NexusGovernor | `src/governance/NexusGovernor.sol` | Complete | ~500 lines, staged but not committed |
+| NexusGovernor | `contracts/src/governance/NexusGovernor.sol` | Complete | ~500 lines, pushed |
+| RewardsDistributor | `contracts/src/defi/RewardsDistributor.sol` | Complete | Duplicate on M3 |
+
+### Go Backend (on feature/m2-backend - pushed)
+| File | Path | Status |
+|------|------|--------|
+| main.go | `backend/cmd/server/main.go` | Complete |
+| config.go | `backend/internal/config/config.go` | Complete |
+| database.go | `backend/internal/database/database.go` | Complete |
+| health.go | `backend/internal/handlers/health.go` | Complete |
+| cors.go | `backend/internal/middleware/cors.go` | Complete |
+| ratelimit.go | `backend/internal/middleware/ratelimit.go` | Complete |
+| stake.go | `backend/internal/models/stake.go` | Complete |
+| token.go | `backend/internal/models/token.go` | Complete |
 
 ### Security Requirements Implemented
 - SEC-002: 7-day unbonding period with queue system
@@ -37,72 +50,59 @@
 - SEC-012: Merkle replay prevention
 - SEC-013: Comprehensive event emissions
 
-### Go Backend (on M2 - feature/m2-backend)
-Files on 192.168.1.109 (UNTRACKED - needs git add/commit):
-- `backend/cmd/server/main.go`
-- `backend/internal/config/config.go`
-- `backend/internal/database/database.go`
-- `backend/internal/handlers/health.go`
-- `backend/internal/middleware/cors.go`
-- `backend/internal/middleware/ratelimit.go`
-- `backend/internal/models/stake.go`
-- `backend/internal/models/token.go`
-
-**Note**: staking.go handler was attempted but not completed. Agent struggled with heredoc escaping over SSH.
-
 ---
 
-## Current Git Status (Per Machine)
+## Current Git Status (All Clean & Pushed)
 
 ### M1 (192.168.1.41 - main)
 ```
-On branch main
-Your branch is ahead of 'origin/main' by 1 commit.
+On branch main - up to date with origin/main
 nothing to commit, working tree clean
 ```
-**Action needed**: `git push origin main`
 
 ### M2 (192.168.1.109 - feature/m2-backend)
 ```
-On branch feature/m2-backend
-Up to date with origin, but has UNTRACKED backend files
+On branch feature/m2-backend - up to date with origin
+nothing to commit, working tree clean
 ```
-**Action needed**: `git add backend/ && git commit -m "feat(backend): Add Go API structure"  && git push`
 
 ### M3 (192.168.1.224 - feature/m3-defi)
 ```
-On branch feature/m3-defi
-Ahead of origin by 3 commits (RewardsDistributor + NexusGovernor staged)
+On branch feature/m3-defi - up to date with origin
+nothing to commit, working tree clean
 ```
-**Action needed**: `git commit -m "feat(governance): Add NexusGovernor" && git push`
 
 ---
 
 ## What's Remaining
 
 ### Priority 1 - Governance Contracts (M3)
-1. **NexusTimelock** (`src/governance/NexusTimelock.sol`)
+1. **NexusTimelock** (`contracts/src/governance/NexusTimelock.sol`)
    - 48-hour execution delay
    - Cancellation capability
+   - Integration with NexusGovernor
 
-2. **NexusMultiSig** (`src/governance/NexusMultiSig.sol`)
+2. **NexusMultiSig** (`contracts/src/governance/NexusMultiSig.sol`)
    - N-of-M signatures
    - Transaction batching
 
-### Priority 2 - Bridge Contract
-3. **NexusBridge** (`src/bridge/NexusBridge.sol`)
+### Priority 2 - Backend Handlers (M2)
+3. **Staking Handler** (`backend/internal/handlers/staking.go`)
+   - POST /api/v1/staking/stake
+   - POST /api/v1/staking/unstake
+   - GET /api/v1/staking/position/:address
+
+4. **Token Handler** (`backend/internal/handlers/token.go`)
+   - GET /api/v1/token/balance/:address
+   - POST /api/v1/token/transfer
+
+### Priority 3 - Bridge Contract
+5. **NexusBridge** (`contracts/src/bridge/NexusBridge.sol`)
    - Cross-chain messaging
    - Lock/mint pattern
 
-### Priority 3 - Backend (M2)
-4. **Complete Go API**
-   - Staking handler (needs retry)
-   - Token handler
-   - Router setup
-   - Main.go integration
-
 ### Priority 4 - Testing
-5. **Foundry Tests**
+6. **Foundry Tests**
    - Unit tests for all contracts
    - Fuzz tests
    - Invariant tests
@@ -113,9 +113,9 @@ Ahead of origin by 3 commits (RewardsDistributor + NexusGovernor staged)
 
 | Machine | IP | User | Branch | Role | Status |
 |---------|-----|------|--------|------|--------|
-| M1 (Controller) | 192.168.1.41 | whaylon | main | Core contracts | 1 commit ahead |
-| M2 (Worker) | 192.168.1.109 | aiagent | feature/m2-backend | Go API | Untracked files |
-| M3 (Worker) | 192.168.1.224 | aiagent | feature/m3-defi | DeFi/Governance | 3 commits ahead |
+| M1 (Controller) | 192.168.1.41 | whaylon | main | Core contracts | Clean |
+| M2 (Worker) | 192.168.1.109 | aiagent | feature/m2-backend | Go API | Clean |
+| M3 (Worker) | 192.168.1.224 | aiagent | feature/m3-defi | DeFi/Governance | Clean |
 
 **SSH Commands**:
 ```bash
@@ -123,20 +123,25 @@ ssh aiagent@192.168.1.109  # M2
 ssh aiagent@192.168.1.224  # M3
 ```
 
+**Git Remotes Configured on M1**:
+- origin: https://github.com/colemanwhaylon/nexus-protocol.git
+- m2: aiagent@192.168.1.109:~/nexus-protocol
+- m3: aiagent@192.168.1.224:~/nexus-protocol
+
 ---
 
 ## Quick Actions for Next Session
 
-### Step 1: Push pending changes
+### Step 1: Sync all machines with origin
 ```bash
 # On M1 (this machine)
-git push origin main
+git pull origin main
 
 # On M2
-ssh aiagent@192.168.1.109 "cd ~/nexus-protocol && git add backend/ && git commit -m 'feat(backend): Add Go API structure with models and handlers' && git push"
+ssh aiagent@192.168.1.109 "cd ~/nexus-protocol && git pull origin feature/m2-backend"
 
 # On M3
-ssh aiagent@192.168.1.224 "cd ~/nexus-protocol && git commit -m 'feat(governance): Add NexusGovernor contract' && git push"
+ssh aiagent@192.168.1.224 "cd ~/nexus-protocol && git pull origin feature/m3-defi"
 ```
 
 ### Step 2: Continue development in parallel
@@ -144,11 +149,8 @@ ssh aiagent@192.168.1.224 "cd ~/nexus-protocol && git commit -m 'feat(governance
 # M1: Compile and verify
 $HOME/.foundry/bin/forge build
 
-# M2: Complete staking handler
-ssh aiagent@192.168.1.109
-
+# M2: Implement staking handler (use scp approach - heredocs fail over SSH)
 # M3: Implement NexusTimelock
-ssh aiagent@192.168.1.224
 ```
 
 ---
@@ -175,16 +177,17 @@ Only read these if needed for specific tasks:
 1. **Foundry Path**: Use `$HOME/.foundry/bin/forge` (not just `forge`)
 2. **OpenZeppelin v5.x**: Using latest patterns (AccessControl, not Ownable)
 3. **Solidity 0.8.24**: Strict version for all contracts
-4. **SSH Heredoc Issue**: Creating large files over SSH is problematic - use scp or write locally first
+4. **SSH File Creation**: Use scp for large files, heredocs struggle over SSH
 5. **All contracts compile**: Just lint warnings (modifier optimization suggestions)
+6. **Push from M1**: M2/M3 can't push to GitHub directly, use M1 as relay via git remotes
 
 ---
 
 ## Suggested Next Session Start
 
 1. Read this file (`SESSION_RESUME.md`)
-2. Push all pending changes (see Quick Actions Step 1)
+2. Sync all machines (see Quick Actions Step 1)
 3. Implement NexusTimelock on M3
-4. Complete M2 staking handler (use scp approach)
+4. Implement staking handler on M2 (use scp approach)
 5. Implement NexusMultiSig on M3
 6. Create Foundry tests
