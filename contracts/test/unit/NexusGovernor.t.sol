@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {NexusGovernor} from "../../src/governance/NexusGovernor.sol";
-import {NexusTimelock} from "../../src/governance/NexusTimelock.sol";
-import {NexusToken} from "../../src/core/NexusToken.sol";
-import {IGovernor} from "@openzeppelin/contracts/governance/IGovernor.sol";
-import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
-import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { NexusGovernor } from "../../src/governance/NexusGovernor.sol";
+import { NexusTimelock } from "../../src/governance/NexusTimelock.sol";
+import { NexusToken } from "../../src/core/NexusToken.sol";
+import { IGovernor } from "@openzeppelin/contracts/governance/IGovernor.sol";
+import { IVotes } from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+import { TimelockController } from "@openzeppelin/contracts/governance/TimelockController.sol";
 
 /**
  * @title NexusGovernorTest
@@ -38,7 +38,7 @@ contract NexusGovernorTest is Test {
     uint256 public constant VOTER_BALANCE = 10_000_000 * 1e18; // 10M tokens each
     uint256 public constant QUORUM_PERCENTAGE = 4; // 4%
     uint48 public constant VOTING_DELAY = 7200; // ~1 day
-    uint32 public constant VOTING_PERIOD = 36000; // ~5 days
+    uint32 public constant VOTING_PERIOD = 36_000; // ~5 days
     uint256 public constant TIMELOCK_DELAY = 48 hours;
 
     // Events
@@ -54,19 +54,9 @@ contract NexusGovernorTest is Test {
         string description
     );
     event ProposalCreatedWithDetails(
-        uint256 indexed proposalId,
-        address indexed proposer,
-        uint256 votingPower,
-        uint256 startBlock,
-        uint256 endBlock
+        uint256 indexed proposalId, address indexed proposer, uint256 votingPower, uint256 startBlock, uint256 endBlock
     );
-    event VoteCast(
-        address indexed voter,
-        uint256 proposalId,
-        uint8 support,
-        uint256 weight,
-        string reason
-    );
+    event VoteCast(address indexed voter, uint256 proposalId, uint8 support, uint256 weight, string reason);
     event ProposalQueued(uint256 proposalId, uint256 eta);
     event ProposalExecuted(uint256 proposalId);
     event GovernorInitialized(
@@ -94,12 +84,7 @@ contract NexusGovernorTest is Test {
         executors[0] = address(0); // Open execution
 
         // Deploy timelock with 48 hour delay
-        timelock = new NexusTimelock(
-            TIMELOCK_DELAY,
-            proposers,
-            executors,
-            admin
-        );
+        timelock = new NexusTimelock(TIMELOCK_DELAY, proposers, executors, admin);
 
         // Deploy governor
         governor = new NexusGovernor(IVotes(address(token)), timelock);
@@ -153,12 +138,7 @@ contract NexusGovernorTest is Test {
         proposers[0] = address(governor);
         executors[0] = address(0);
 
-        NexusTimelock newTimelock = new NexusTimelock(
-            TIMELOCK_DELAY,
-            proposers,
-            executors,
-            admin
-        );
+        NexusTimelock newTimelock = new NexusTimelock(TIMELOCK_DELAY, proposers, executors, admin);
 
         vm.expectRevert(); // OpenZeppelin GovernorVotes reverts before our check
         new NexusGovernor(IVotes(address(0)), newTimelock);
@@ -172,12 +152,8 @@ contract NexusGovernorTest is Test {
     // ============ Proposal Creation Tests ============
 
     function test_Propose() public {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
@@ -187,12 +163,8 @@ contract NexusGovernorTest is Test {
     }
 
     function test_Propose_EmitsEvents() public {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
@@ -202,12 +174,8 @@ contract NexusGovernorTest is Test {
     }
 
     function test_Propose_RevertInsufficientVotingPower() public {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         // nonVoter has no tokens
         vm.prank(nonVoter);
@@ -317,12 +285,8 @@ contract NexusGovernorTest is Test {
     }
 
     function test_CastVote_RevertNotActive() public {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
@@ -388,12 +352,7 @@ contract NexusGovernorTest is Test {
         proposers[0] = admin;
         executors[0] = address(0);
 
-        NexusTimelock newTimelock = new NexusTimelock(
-            TIMELOCK_DELAY,
-            proposers,
-            executors,
-            admin
-        );
+        NexusTimelock newTimelock = new NexusTimelock(TIMELOCK_DELAY, proposers, executors, admin);
 
         NexusGovernor newGovernor = new NexusGovernor(IVotes(address(newToken)), newTimelock);
         newTimelock.grantRole(newTimelock.PROPOSER_ROLE(), address(newGovernor));
@@ -445,12 +404,8 @@ contract NexusGovernorTest is Test {
     // ============ Proposal State Tests ============
 
     function test_ProposalState_Pending() public {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
@@ -513,12 +468,8 @@ contract NexusGovernorTest is Test {
     function test_Queue_AfterSucceeded() public {
         uint256 proposalId = _createSucceededProposal();
 
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         bytes32 descriptionHash = keccak256(bytes(description));
 
@@ -531,12 +482,8 @@ contract NexusGovernorTest is Test {
     function test_Queue_RevertNotSucceeded() public {
         uint256 proposalId = _createAndActivateProposal();
 
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         bytes32 descriptionHash = keccak256(bytes(description));
 
@@ -548,12 +495,8 @@ contract NexusGovernorTest is Test {
 
     function test_Execute_AfterTimelock() public {
         // Create and pass a proposal
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
@@ -589,12 +532,8 @@ contract NexusGovernorTest is Test {
 
     function test_Execute_RevertBeforeTimelock() public {
         // Create and pass a proposal
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(proposer);
         governor.propose(targets, values, calldatas, description);
@@ -626,12 +565,8 @@ contract NexusGovernorTest is Test {
     // ============ Cancel Tests ============
 
     function test_Cancel_ByProposer() public {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
@@ -702,12 +637,8 @@ contract NexusGovernorTest is Test {
     }
 
     function test_ProposalSnapshot() public {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         uint256 blockBefore = block.number;
 
@@ -719,12 +650,8 @@ contract NexusGovernorTest is Test {
     }
 
     function test_ProposalDeadline() public {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         uint256 blockBefore = block.number;
 
@@ -738,12 +665,8 @@ contract NexusGovernorTest is Test {
     // ============ Edge Cases ============
 
     function test_VotingPowerAtSnapshot() public {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(proposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
@@ -783,12 +706,8 @@ contract NexusGovernorTest is Test {
 
         vm.roll(block.number + 1);
 
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(newProposer);
         uint256 proposalId = governor.propose(targets, values, calldatas, description);
@@ -801,12 +720,7 @@ contract NexusGovernorTest is Test {
     function _createSimpleProposal()
         internal
         view
-        returns (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        )
+        returns (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description)
     {
         targets = new address[](1);
         values = new uint256[](1);
@@ -821,12 +735,8 @@ contract NexusGovernorTest is Test {
     }
 
     function _createAndActivateProposal() internal returns (uint256 proposalId) {
-        (
-            address[] memory targets,
-            uint256[] memory values,
-            bytes[] memory calldatas,
-            string memory description
-        ) = _createSimpleProposal();
+        (address[] memory targets, uint256[] memory values, bytes[] memory calldatas, string memory description) =
+            _createSimpleProposal();
 
         vm.prank(proposer);
         proposalId = governor.propose(targets, values, calldatas, description);

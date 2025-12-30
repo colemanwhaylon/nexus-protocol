@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {NexusAirdrop} from "../../src/defi/NexusAirdrop.sol";
-import {ERC20Mock} from "../mocks/ERC20Mock.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { NexusAirdrop } from "../../src/defi/NexusAirdrop.sol";
+import { ERC20Mock } from "../mocks/ERC20Mock.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title NexusAirdropTest
@@ -127,8 +127,8 @@ contract NexusAirdropTest is Test {
             TOTAL_ALLOCATION,
             startTime,
             endTime,
-            0,  // No vesting
-            0,  // No cliff
+            0, // No vesting
+            0, // No cliff
             "Test Campaign"
         );
 
@@ -181,14 +181,7 @@ contract NexusAirdropTest is Test {
         vm.expectRevert(NexusAirdrop.ZeroAddress.selector);
         vm.prank(campaignManager);
         airdrop.createCampaign(
-            address(0),
-            merkleRoot,
-            TOTAL_ALLOCATION,
-            block.timestamp + 1 hours,
-            block.timestamp + 30 days,
-            0,
-            0,
-            "Test"
+            address(0), merkleRoot, TOTAL_ALLOCATION, block.timestamp + 1 hours, block.timestamp + 30 days, 0, 0, "Test"
         );
     }
 
@@ -196,14 +189,7 @@ contract NexusAirdropTest is Test {
         vm.expectRevert(NexusAirdrop.ZeroAmount.selector);
         vm.prank(campaignManager);
         airdrop.createCampaign(
-            address(token),
-            merkleRoot,
-            0,
-            block.timestamp + 1 hours,
-            block.timestamp + 30 days,
-            0,
-            0,
-            "Test"
+            address(token), merkleRoot, 0, block.timestamp + 1 hours, block.timestamp + 30 days, 0, 0, "Test"
         );
     }
 
@@ -212,14 +198,7 @@ contract NexusAirdropTest is Test {
         vm.expectRevert(NexusAirdrop.StartTimeInPast.selector);
         vm.prank(campaignManager);
         airdrop.createCampaign(
-            address(token),
-            merkleRoot,
-            TOTAL_ALLOCATION,
-            block.timestamp - 1,
-            block.timestamp + 30 days,
-            0,
-            0,
-            "Test"
+            address(token), merkleRoot, TOTAL_ALLOCATION, block.timestamp - 1, block.timestamp + 30 days, 0, 0, "Test"
         );
     }
 
@@ -229,16 +208,7 @@ contract NexusAirdropTest is Test {
 
         vm.expectRevert(NexusAirdrop.InvalidCampaignDuration.selector);
         vm.prank(campaignManager);
-        airdrop.createCampaign(
-            address(token),
-            merkleRoot,
-            TOTAL_ALLOCATION,
-            startTime,
-            endTime,
-            0,
-            0,
-            "Test"
-        );
+        airdrop.createCampaign(address(token), merkleRoot, TOTAL_ALLOCATION, startTime, endTime, 0, 0, "Test");
     }
 
     function test_CreateCampaign_RevertDurationTooLong() public {
@@ -247,16 +217,7 @@ contract NexusAirdropTest is Test {
 
         vm.expectRevert(NexusAirdrop.InvalidCampaignDuration.selector);
         vm.prank(campaignManager);
-        airdrop.createCampaign(
-            address(token),
-            merkleRoot,
-            TOTAL_ALLOCATION,
-            startTime,
-            endTime,
-            0,
-            0,
-            "Test"
-        );
+        airdrop.createCampaign(address(token), merkleRoot, TOTAL_ALLOCATION, startTime, endTime, 0, 0, "Test");
     }
 
     function test_CreateCampaign_RevertInvalidVestingDuration() public {
@@ -289,8 +250,8 @@ contract NexusAirdropTest is Test {
             TOTAL_ALLOCATION,
             startTime,
             endTime,
-            30 days,  // Vesting duration
-            60 days,  // Cliff longer than vesting
+            30 days, // Vesting duration
+            60 days, // Cliff longer than vesting
             "Test"
         );
     }
@@ -323,13 +284,8 @@ contract NexusAirdropTest is Test {
         airdrop.claim(campaignId, USER1_ALLOCATION, user1Proof);
 
         // Verify claim
-        (
-            uint256 totalAllocation,
-            uint256 claimedAmount,
-            uint256 claimable,
-            ,
-            bool initialized
-        ) = airdrop.getUserClaim(campaignId, user1);
+        (uint256 totalAllocation, uint256 claimedAmount, uint256 claimable,, bool initialized) =
+            airdrop.getUserClaim(campaignId, user1);
 
         assertEq(totalAllocation, USER1_ALLOCATION);
         assertEq(claimedAmount, USER1_ALLOCATION);
@@ -355,7 +311,7 @@ contract NexusAirdropTest is Test {
         assertEq(token.balanceOf(user2), USER2_ALLOCATION);
 
         // Verify campaign state
-        (, , , uint256 claimedAmount, , , , ) = airdrop.getCampaign(campaignId);
+        (,,, uint256 claimedAmount,,,,) = airdrop.getCampaign(campaignId);
         assertEq(claimedAmount, USER1_ALLOCATION + USER2_ALLOCATION);
     }
 
@@ -457,12 +413,8 @@ contract NexusAirdropTest is Test {
         vm.warp(block.timestamp + 2 hours);
 
         // canClaim view function reports full amount claimable for uninitialized vesting
-        (bool canClaimResult, uint256 claimableAmount) = airdrop.canClaim(
-            campaignId,
-            user1,
-            USER1_ALLOCATION,
-            user1Proof
-        );
+        (bool canClaimResult, uint256 claimableAmount) =
+            airdrop.canClaim(campaignId, user1, USER1_ALLOCATION, user1Proof);
 
         // The view function says it's claimable (design inconsistency with actual claim behavior)
         assertTrue(canClaimResult);
@@ -490,12 +442,8 @@ contract NexusAirdropTest is Test {
         vm.warp(block.timestamp + 2 hours);
 
         // canClaim view function correctly indicates cliff campaigns can't be claimed
-        (bool canClaimResult, uint256 claimableAmount) = airdrop.canClaim(
-            campaignId,
-            user1,
-            USER1_ALLOCATION,
-            user1Proof
-        );
+        (bool canClaimResult, uint256 claimableAmount) =
+            airdrop.canClaim(campaignId, user1, USER1_ALLOCATION, user1Proof);
 
         assertFalse(canClaimResult);
         assertEq(claimableAmount, 0);
@@ -511,7 +459,7 @@ contract NexusAirdropTest is Test {
         vm.prank(campaignManager);
         airdrop.updateCampaignMerkleRoot(campaignId, newRoot);
 
-        (, bytes32 storedRoot, , , , , , ) = airdrop.getCampaign(campaignId);
+        (, bytes32 storedRoot,,,,,,) = airdrop.getCampaign(campaignId);
         assertEq(storedRoot, newRoot);
     }
 
@@ -529,20 +477,20 @@ contract NexusAirdropTest is Test {
     function test_ExtendCampaign() public {
         uint256 campaignId = _createDefaultCampaign();
 
-        (, , , , uint256 originalStart, uint256 originalEnd, , ) = airdrop.getCampaign(campaignId);
+        (,,,, uint256 originalStart, uint256 originalEnd,,) = airdrop.getCampaign(campaignId);
         uint256 newEndTime = originalEnd + 30 days;
 
         vm.prank(campaignManager);
         airdrop.extendCampaign(campaignId, newEndTime);
 
-        (, , , , , uint256 updatedEnd, , ) = airdrop.getCampaign(campaignId);
+        (,,,,, uint256 updatedEnd,,) = airdrop.getCampaign(campaignId);
         assertEq(updatedEnd, newEndTime);
     }
 
     function test_ExtendCampaign_RevertShorterDuration() public {
         uint256 campaignId = _createDefaultCampaign();
 
-        (, , , , , uint256 originalEnd, , ) = airdrop.getCampaign(campaignId);
+        (,,,,, uint256 originalEnd,,) = airdrop.getCampaign(campaignId);
 
         vm.expectRevert(NexusAirdrop.InvalidCampaignDuration.selector);
         vm.prank(campaignManager);
@@ -552,7 +500,7 @@ contract NexusAirdropTest is Test {
     function test_ExtendCampaign_RevertExceedsMax() public {
         uint256 campaignId = _createDefaultCampaign();
 
-        (, , , , uint256 startTime, , , ) = airdrop.getCampaign(campaignId);
+        (,,,, uint256 startTime,,,) = airdrop.getCampaign(campaignId);
         uint256 newEndTime = startTime + 400 days; // Exceeds MAX_CAMPAIGN_DURATION
 
         vm.expectRevert(NexusAirdrop.InvalidCampaignDuration.selector);
@@ -566,7 +514,7 @@ contract NexusAirdropTest is Test {
         vm.prank(admin);
         airdrop.deactivateCampaign(campaignId);
 
-        (, , , , , , bool active, ) = airdrop.getCampaign(campaignId);
+        (,,,,,, bool active,) = airdrop.getCampaign(campaignId);
         assertFalse(active);
     }
 
@@ -718,13 +666,8 @@ contract NexusAirdropTest is Test {
         vm.warp(block.timestamp + 2 hours);
 
         // Before claim
-        (
-            uint256 totalAllocation,
-            uint256 claimedAmount,
-            uint256 claimable,
-            uint256 vestingStart,
-            bool initialized
-        ) = airdrop.getUserClaim(campaignId, user1);
+        (uint256 totalAllocation, uint256 claimedAmount, uint256 claimable, uint256 vestingStart, bool initialized) =
+            airdrop.getUserClaim(campaignId, user1);
 
         assertEq(totalAllocation, 0);
         assertEq(claimedAmount, 0);
@@ -750,12 +693,8 @@ contract NexusAirdropTest is Test {
         vm.warp(block.timestamp + 2 hours);
 
         // Check can claim
-        (bool canClaimResult, uint256 claimableAmount) = airdrop.canClaim(
-            campaignId,
-            user1,
-            USER1_ALLOCATION,
-            user1Proof
-        );
+        (bool canClaimResult, uint256 claimableAmount) =
+            airdrop.canClaim(campaignId, user1, USER1_ALLOCATION, user1Proof);
 
         assertTrue(canClaimResult);
         assertEq(claimableAmount, USER1_ALLOCATION);
@@ -764,12 +703,7 @@ contract NexusAirdropTest is Test {
         vm.prank(user1);
         airdrop.claim(campaignId, USER1_ALLOCATION, user1Proof);
 
-        (canClaimResult, claimableAmount) = airdrop.canClaim(
-            campaignId,
-            user1,
-            USER1_ALLOCATION,
-            user1Proof
-        );
+        (canClaimResult, claimableAmount) = airdrop.canClaim(campaignId, user1, USER1_ALLOCATION, user1Proof);
 
         assertFalse(canClaimResult);
         assertEq(claimableAmount, 0);
@@ -779,12 +713,8 @@ contract NexusAirdropTest is Test {
         uint256 campaignId = _createDefaultCampaign();
         // Don't warp - before start
 
-        (bool canClaimResult, uint256 claimableAmount) = airdrop.canClaim(
-            campaignId,
-            user1,
-            USER1_ALLOCATION,
-            user1Proof
-        );
+        (bool canClaimResult, uint256 claimableAmount) =
+            airdrop.canClaim(campaignId, user1, USER1_ALLOCATION, user1Proof);
 
         assertFalse(canClaimResult);
         assertEq(claimableAmount, 0);
@@ -797,12 +727,8 @@ contract NexusAirdropTest is Test {
         bytes32[] memory wrongProof = new bytes32[](1);
         wrongProof[0] = bytes32(0);
 
-        (bool canClaimResult, uint256 claimableAmount) = airdrop.canClaim(
-            campaignId,
-            user1,
-            USER1_ALLOCATION,
-            wrongProof
-        );
+        (bool canClaimResult, uint256 claimableAmount) =
+            airdrop.canClaim(campaignId, user1, USER1_ALLOCATION, wrongProof);
 
         assertFalse(canClaimResult);
         assertEq(claimableAmount, 0);
@@ -829,26 +755,11 @@ contract NexusAirdropTest is Test {
 
         vm.expectEmit(true, true, false, true);
         emit NexusAirdrop.CampaignCreated(
-            0,
-            address(token),
-            merkleRoot,
-            TOTAL_ALLOCATION,
-            startTime,
-            endTime,
-            "Test Campaign"
+            0, address(token), merkleRoot, TOTAL_ALLOCATION, startTime, endTime, "Test Campaign"
         );
 
         vm.prank(campaignManager);
-        airdrop.createCampaign(
-            address(token),
-            merkleRoot,
-            TOTAL_ALLOCATION,
-            startTime,
-            endTime,
-            0,
-            0,
-            "Test Campaign"
-        );
+        airdrop.createCampaign(address(token), merkleRoot, TOTAL_ALLOCATION, startTime, endTime, 0, 0, "Test Campaign");
     }
 
     function test_Event_TokensClaimed() public {
@@ -959,14 +870,7 @@ contract NexusAirdropTest is Test {
 
         vm.prank(campaignManager);
         return airdrop.createCampaign(
-            address(token),
-            merkleRoot,
-            TOTAL_ALLOCATION,
-            startTime,
-            endTime,
-            0,
-            0,
-            "Test Campaign"
+            address(token), merkleRoot, TOTAL_ALLOCATION, startTime, endTime, 0, 0, "Test Campaign"
         );
     }
 

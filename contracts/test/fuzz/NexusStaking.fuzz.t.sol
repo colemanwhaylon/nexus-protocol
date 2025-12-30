@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {NexusStaking} from "../../src/defi/NexusStaking.sol";
-import {ERC20Mock} from "../mocks/ERC20Mock.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { NexusStaking } from "../../src/defi/NexusStaking.sol";
+import { ERC20Mock } from "../mocks/ERC20Mock.sol";
 
 /**
  * @title NexusStakingFuzzTest
@@ -20,7 +20,7 @@ contract NexusStakingFuzzTest is Test {
 
     uint256 public constant INITIAL_BALANCE = 1_000_000_000e18;
     uint256 public constant MIN_STAKE_FOR_SLASHING = 1000e18;
-    uint256 public constant BPS_DENOMINATOR = 10000;
+    uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant MAX_SLASH_BPS = 5000;
     uint256 public constant EARLY_EXIT_PENALTY_BPS = 500;
     uint256 public constant MIN_STAKE_DURATION = 24 hours;
@@ -89,11 +89,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Multiple stakes should accumulate correctly
      */
-    function testFuzz_MultipleStakes_Accumulate(
-        address staker,
-        uint256 stake1,
-        uint256 stake2
-    ) public {
+    function testFuzz_MultipleStakes_Accumulate(address staker, uint256 stake1, uint256 stake2) public {
         vm.assume(staker != address(0) && staker != address(staking));
         stake1 = bound(stake1, 1, INITIAL_BALANCE / 2);
         stake2 = bound(stake2, 1, INITIAL_BALANCE / 2);
@@ -115,11 +111,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Unbonding should not exceed staked amount
      */
-    function testFuzz_Unbonding_CannotExceedStake(
-        address staker,
-        uint256 stakeAmount,
-        uint256 unbondAmount
-    ) public {
+    function testFuzz_Unbonding_CannotExceedStake(address staker, uint256 stakeAmount, uint256 unbondAmount) public {
         vm.assume(staker != address(0) && staker != address(staking));
         stakeAmount = bound(stakeAmount, MIN_STAKE_DURATION, INITIAL_BALANCE / 2);
         unbondAmount = bound(unbondAmount, stakeAmount + 1, INITIAL_BALANCE);
@@ -140,11 +132,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Unbonding decreases stake correctly
      */
-    function testFuzz_Unbonding_DecreasesStake(
-        address staker,
-        uint256 stakeAmount,
-        uint256 unbondPercent
-    ) public {
+    function testFuzz_Unbonding_DecreasesStake(address staker, uint256 stakeAmount, uint256 unbondPercent) public {
         vm.assume(staker != address(0) && staker != address(staking));
         stakeAmount = bound(stakeAmount, 1e18, INITIAL_BALANCE / 10);
         unbondPercent = bound(unbondPercent, 1, 100);
@@ -170,10 +158,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Complete unbonding returns correct amount
      */
-    function testFuzz_CompleteUnbonding_ReturnsCorrectAmount(
-        address staker,
-        uint256 stakeAmount
-    ) public {
+    function testFuzz_CompleteUnbonding_ReturnsCorrectAmount(address staker, uint256 stakeAmount) public {
         vm.assume(staker != address(0) && staker != address(staking));
         stakeAmount = bound(stakeAmount, 1e18, INITIAL_BALANCE / 10);
 
@@ -204,10 +189,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Slashing should not exceed maximum percentage
      */
-    function testFuzz_Slash_RespectsBounds(
-        address staker,
-        uint256 slashBps
-    ) public {
+    function testFuzz_Slash_RespectsBounds(address staker, uint256 slashBps) public {
         vm.assume(staker != address(0) && staker != address(staking) && staker != slasher);
         slashBps = bound(slashBps, 1, MAX_SLASH_BPS);
 
@@ -230,10 +212,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Cannot slash above maximum BPS
      */
-    function testFuzz_Slash_CannotExceedMax(
-        address staker,
-        uint256 slashBps
-    ) public {
+    function testFuzz_Slash_CannotExceedMax(address staker, uint256 slashBps) public {
         vm.assume(staker != address(0) && staker != address(staking) && staker != slasher);
         slashBps = bound(slashBps, MAX_SLASH_BPS + 1, BPS_DENOMINATOR);
 
@@ -252,10 +231,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Cannot slash below minimum threshold
      */
-    function testFuzz_Slash_RequiresMinimumStake(
-        address staker,
-        uint256 stakeAmount
-    ) public {
+    function testFuzz_Slash_RequiresMinimumStake(address staker, uint256 stakeAmount) public {
         vm.assume(staker != address(0) && staker != address(staking) && staker != slasher);
         stakeAmount = bound(stakeAmount, 1, MIN_STAKE_FOR_SLASHING - 1);
 
@@ -275,11 +251,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Delegation updates voting power correctly
      */
-    function testFuzz_Delegation_UpdatesVotingPower(
-        address staker,
-        address delegatee,
-        uint256 stakeAmount
-    ) public {
+    function testFuzz_Delegation_UpdatesVotingPower(address staker, address delegatee, uint256 stakeAmount) public {
         vm.assume(staker != address(0) && staker != address(staking));
         vm.assume(delegatee != address(0) && delegatee != staker);
         // Exclude seeder address to avoid interference
@@ -308,10 +280,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Cannot delegate to self
      */
-    function testFuzz_Delegation_CannotDelegateToSelf(
-        address staker,
-        uint256 stakeAmount
-    ) public {
+    function testFuzz_Delegation_CannotDelegateToSelf(address staker, uint256 stakeAmount) public {
         vm.assume(staker != address(0) && staker != address(staking));
         stakeAmount = bound(stakeAmount, 1e18, INITIAL_BALANCE / 10);
 
@@ -330,10 +299,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Rate limit resets after window
      */
-    function testFuzz_RateLimit_ResetsAfterWindow(
-        address staker,
-        uint256 stakeAmount
-    ) public {
+    function testFuzz_RateLimit_ResetsAfterWindow(address staker, uint256 stakeAmount) public {
         vm.assume(staker != address(0) && staker != address(staking));
         vm.assume(staker != address(999)); // Exclude seeder
         // Use smaller amounts relative to total staked (100M from seeder)
@@ -372,10 +338,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Total staked + total unbonding should equal contract balance
      */
-    function testFuzz_Invariant_BalanceConsistency(
-        address[5] memory stakers,
-        uint256[5] memory amounts
-    ) public {
+    function testFuzz_Invariant_BalanceConsistency(address[5] memory stakers, uint256[5] memory amounts) public {
         uint256 totalDeposited = 0;
 
         for (uint256 i = 0; i < 5; i++) {
@@ -402,10 +365,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Early exit penalty is calculated correctly
      */
-    function testFuzz_EarlyExitPenalty_Calculation(
-        address staker,
-        uint256 stakeAmount
-    ) public {
+    function testFuzz_EarlyExitPenalty_Calculation(address staker, uint256 stakeAmount) public {
         vm.assume(staker != address(0) && staker != address(staking));
         stakeAmount = bound(stakeAmount, 1e18, INITIAL_BALANCE / 10);
 
@@ -441,10 +401,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Slashing cooldown prevents restaking
      */
-    function testFuzz_SlashingCooldown_PreventsRestake(
-        address staker,
-        uint256 waitTime
-    ) public {
+    function testFuzz_SlashingCooldown_PreventsRestake(address staker, uint256 waitTime) public {
         vm.assume(staker != address(0) && staker != address(staking) && staker != slasher);
         waitTime = bound(waitTime, 1, SLASHING_COOLDOWN - 1);
 
@@ -470,9 +427,7 @@ contract NexusStakingFuzzTest is Test {
     /**
      * @notice Fuzz test: Slashing cooldown allows restaking after period
      */
-    function testFuzz_SlashingCooldown_AllowsRestakeAfterPeriod(
-        address staker
-    ) public {
+    function testFuzz_SlashingCooldown_AllowsRestakeAfterPeriod(address staker) public {
         vm.assume(staker != address(0) && staker != address(staking) && staker != slasher);
 
         uint256 stakeAmount = MIN_STAKE_FOR_SLASHING * 2;

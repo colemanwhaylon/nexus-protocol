@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Governor} from "@openzeppelin/contracts/governance/Governor.sol";
-import {GovernorSettings} from "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
-import {GovernorCountingSimple} from "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
-import {GovernorVotes} from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
-import {GovernorVotesQuorumFraction} from "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
-import {GovernorTimelockControl} from "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
-import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
-import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
+import { Governor } from "@openzeppelin/contracts/governance/Governor.sol";
+import { GovernorSettings } from "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
+import { GovernorCountingSimple } from "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
+import { GovernorVotes } from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
+import {
+    GovernorVotesQuorumFraction
+} from "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
+import { GovernorTimelockControl } from "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
+import { IVotes } from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+import { TimelockController } from "@openzeppelin/contracts/governance/TimelockController.sol";
 
 /**
  * @title NexusGovernor
@@ -49,7 +51,7 @@ contract NexusGovernor is
     uint48 public constant DEFAULT_VOTING_DELAY = 7200;
 
     /// @notice Default voting period in blocks (~5 days at 12s/block)
-    uint32 public constant DEFAULT_VOTING_PERIOD = 36000;
+    uint32 public constant DEFAULT_VOTING_PERIOD = 36_000;
 
     /// @notice Default proposal threshold (100,000 tokens = 0.01% of 1B max supply)
     uint256 public constant DEFAULT_PROPOSAL_THRESHOLD = 100_000 * 10 ** 18;
@@ -71,11 +73,7 @@ contract NexusGovernor is
 
     /// @notice Emitted when a proposal is created with extended details
     event ProposalCreatedWithDetails(
-        uint256 indexed proposalId,
-        address indexed proposer,
-        uint256 votingPower,
-        uint256 startBlock,
-        uint256 endBlock
+        uint256 indexed proposalId, address indexed proposer, uint256 votingPower, uint256 startBlock, uint256 endBlock
     );
 
     /// @notice Emitted when voting settings are updated
@@ -151,7 +149,12 @@ contract NexusGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         string memory description
-    ) public virtual override(Governor) returns (uint256 proposalId) {
+    )
+        public
+        virtual
+        override(Governor)
+        returns (uint256 proposalId)
+    {
         proposalId = super.propose(targets, values, calldatas, description);
 
         emit ProposalCreatedWithDetails(
@@ -252,12 +255,7 @@ contract NexusGovernor is
      * @dev Override required due to multiple inheritance
      * @param blockNumber The block number to check quorum for
      */
-    function quorum(uint256 blockNumber)
-        public
-        view
-        override(Governor, GovernorVotesQuorumFraction)
-        returns (uint256)
-    {
+    function quorum(uint256 blockNumber) public view override(Governor, GovernorVotesQuorumFraction) returns (uint256) {
         return super.quorum(blockNumber);
     }
 
@@ -266,12 +264,7 @@ contract NexusGovernor is
      * @dev Override required due to GovernorTimelockControl
      * @param proposalId The proposal ID to check
      */
-    function state(uint256 proposalId)
-        public
-        view
-        override(Governor, GovernorTimelockControl)
-        returns (ProposalState)
-    {
+    function state(uint256 proposalId) public view override(Governor, GovernorTimelockControl) returns (ProposalState) {
         return super.state(proposalId);
     }
 
@@ -280,9 +273,12 @@ contract NexusGovernor is
      * @dev Override required due to GovernorTimelockControl
      * @param proposalId The proposal ID to check
      */
-    function proposalNeedsQueuing(
-        uint256 proposalId
-    ) public view override(Governor, GovernorTimelockControl) returns (bool) {
+    function proposalNeedsQueuing(uint256 proposalId)
+        public
+        view
+        override(Governor, GovernorTimelockControl)
+        returns (bool)
+    {
         return super.proposalNeedsQueuing(proposalId);
     }
 
@@ -304,7 +300,11 @@ contract NexusGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) internal override(Governor, GovernorTimelockControl) returns (uint48) {
+    )
+        internal
+        override(Governor, GovernorTimelockControl)
+        returns (uint48)
+    {
         return super._queueOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
@@ -318,7 +318,10 @@ contract NexusGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) internal override(Governor, GovernorTimelockControl) {
+    )
+        internal
+        override(Governor, GovernorTimelockControl)
+    {
         super._executeOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
@@ -331,7 +334,11 @@ contract NexusGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    ) internal override(Governor, GovernorTimelockControl) returns (uint256) {
+    )
+        internal
+        override(Governor, GovernorTimelockControl)
+        returns (uint256)
+    {
         return super._cancel(targets, values, calldatas, descriptionHash);
     }
 

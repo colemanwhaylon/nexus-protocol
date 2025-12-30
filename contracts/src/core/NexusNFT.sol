@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ERC721A} from "erc721a/ERC721A.sol";
-import {ERC2981} from "@openzeppelin/contracts/token/common/ERC2981.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import { ERC721A } from "erc721a/ERC721A.sol";
+import { ERC2981 } from "@openzeppelin/contracts/token/common/ERC2981.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @title NexusNFT
@@ -154,11 +154,7 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
     /// @param firstTokenId The first token ID in the batch
     /// @param totalPaid The total amount paid
     event TokensMinted(
-        address indexed minter,
-        address indexed to,
-        uint256 quantity,
-        uint256 firstTokenId,
-        uint256 totalPaid
+        address indexed minter, address indexed to, uint256 quantity, uint256 firstTokenId, uint256 totalPaid
     );
 
     /// @notice Emitted when funds are withdrawn
@@ -237,7 +233,9 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
         address royaltyReceiver_,
         uint96 royaltyBps_,
         address admin_
-    ) ERC721A(name_, symbol_) {
+    )
+        ERC721A(name_, symbol_)
+    {
         if (treasury_ == address(0)) revert ZeroAddress();
         if (royaltyReceiver_ == address(0)) revert ZeroAddress();
         if (admin_ == address(0)) revert ZeroAddress();
@@ -268,7 +266,12 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
     function whitelistMint(
         uint256 quantity,
         bytes32[] calldata merkleProof
-    ) external payable nonReentrant whenNotPaused {
+    )
+        external
+        payable
+        nonReentrant
+        whenNotPaused
+    {
         if (salePhase != SalePhase.Whitelist) revert WhitelistSaleNotActive();
         if (quantity == 0) revert ZeroAmount();
         if (quantity > MAX_PER_TX) revert ExceedsTransactionLimit();
@@ -359,10 +362,7 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
      * @param to Recipient address
      * @param quantity Number of tokens to mint
      */
-    function adminMint(
-        address to,
-        uint256 quantity
-    ) external nonReentrant onlyRole(MINTER_ROLE) {
+    function adminMint(address to, uint256 quantity) external nonReentrant onlyRole(MINTER_ROLE) {
         if (to == address(0)) revert ZeroAddress();
         if (quantity == 0) revert ZeroAmount();
 
@@ -382,10 +382,7 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
      * @param to Recipient address
      * @param quantity Number of tokens to mint
      */
-    function mintSoulbound(
-        address to,
-        uint256 quantity
-    ) external nonReentrant onlyRole(MINTER_ROLE) {
+    function mintSoulbound(address to, uint256 quantity) external nonReentrant onlyRole(MINTER_ROLE) {
         if (to == address(0)) revert ZeroAddress();
         if (quantity == 0) revert ZeroAmount();
 
@@ -535,11 +532,7 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
      * @param receiver The royalty receiver
      * @param royaltyBps The royalty in basis points
      */
-    function setTokenRoyalty(
-        uint256 tokenId,
-        address receiver,
-        uint96 royaltyBps
-    ) external onlyRole(ADMIN_ROLE) {
+    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 royaltyBps) external onlyRole(ADMIN_ROLE) {
         if (!_exists(tokenId)) revert TokenDoesNotExist();
         if (receiver == address(0)) revert ZeroAddress();
         if (royaltyBps > MAX_ROYALTY_BPS) revert RoyaltyTooHigh();
@@ -567,7 +560,7 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
         uint256 balance = address(this).balance;
         if (balance == 0) revert ZeroAmount();
 
-        (bool success, ) = treasury.call{value: balance}("");
+        (bool success,) = treasury.call{ value: balance }("");
         if (!success) revert WithdrawalFailed();
 
         emit FundsWithdrawn(treasury, balance);
@@ -588,9 +581,7 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
         }
 
         string memory baseURI = _baseTokenURI;
-        return bytes(baseURI).length > 0
-            ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json"))
-            : "";
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json")) : "";
     }
 
     /**
@@ -617,10 +608,7 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
      * @param merkleProof The merkle proof
      * @return Whether the address is whitelisted
      */
-    function isWhitelisted(
-        address account,
-        bytes32[] calldata merkleProof
-    ) external view returns (bool) {
+    function isWhitelisted(address account, bytes32[] calldata merkleProof) external view returns (bool) {
         bytes32 leaf = keccak256(abi.encodePacked(account));
         return MerkleProof.verify(merkleProof, merkleRoot, leaf);
     }
@@ -633,20 +621,15 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
      * @return whitelistRemaining Remaining whitelist allocation
      * @return publicRemaining Remaining public allocation
      */
-    function getMintInfo(address account) external view returns (
-        uint256 whitelistMinted,
-        uint256 publicMinted,
-        uint256 whitelistRemaining,
-        uint256 publicRemaining
-    ) {
+    function getMintInfo(address account)
+        external
+        view
+        returns (uint256 whitelistMinted, uint256 publicMinted, uint256 whitelistRemaining, uint256 publicRemaining)
+    {
         whitelistMinted = whitelistMintCount[account];
         publicMinted = publicMintCount[account];
-        whitelistRemaining = maxWhitelistMints > whitelistMinted
-            ? maxWhitelistMints - whitelistMinted
-            : 0;
-        publicRemaining = MAX_PER_WALLET > publicMinted
-            ? MAX_PER_WALLET - publicMinted
-            : 0;
+        whitelistRemaining = maxWhitelistMints > whitelistMinted ? maxWhitelistMints - whitelistMinted : 0;
+        publicRemaining = MAX_PER_WALLET > publicMinted ? MAX_PER_WALLET - publicMinted : 0;
     }
 
     // ============ Internal Functions ============
@@ -662,7 +645,11 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
         address to,
         uint256 tokenId,
         uint256 quantity
-    ) internal virtual override {
+    )
+        internal
+        virtual
+        override
+    {
         super._beforeTokenTransfers(from, to, tokenId, quantity);
 
         // Allow minting (from == address(0)) and burning (to == address(0))
@@ -688,7 +675,7 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
      * @param amount Amount to refund
      */
     function _refund(address to, uint256 amount) internal {
-        (bool success, ) = to.call{value: amount}("");
+        (bool success,) = to.call{ value: amount }("");
         if (!success) revert WithdrawalFailed();
     }
 
@@ -707,12 +694,14 @@ contract NexusNFT is ERC721A, ERC2981, AccessControl, Pausable, ReentrancyGuard 
      * @param interfaceId The interface ID to check
      * @return Whether the interface is supported
      */
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override(ERC721A, ERC2981, AccessControl) returns (bool) {
-        return
-            ERC721A.supportsInterface(interfaceId) ||
-            ERC2981.supportsInterface(interfaceId) ||
-            AccessControl.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC721A, ERC2981, AccessControl)
+        returns (bool)
+    {
+        return ERC721A.supportsInterface(interfaceId) || ERC2981.supportsInterface(interfaceId)
+            || AccessControl.supportsInterface(interfaceId);
     }
 }

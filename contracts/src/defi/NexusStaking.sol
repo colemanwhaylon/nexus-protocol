@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title NexusStaking
  * @author Nexus Protocol Team
  * @notice Production-grade staking contract with comprehensive security features
  * @dev Implements staking, delegation, slashing, and unbonding mechanisms
- * 
+ *
  * Security Features (per SECURITY_REVIEW_BEFORE.md):
  * - SEC-002: Unbonding queue with 7-day default unbonding period
  * - SEC-002: Withdrawal queue limiting daily exits to 10% of total stake
@@ -32,16 +32,16 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Role identifier for administrators
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    
+
     /// @notice Role identifier for authorized slashers
     bytes32 public constant SLASHER_ROLE = keccak256("SLASHER_ROLE");
 
     /// @notice Default unbonding period (7 days) - SEC-002
     uint256 public constant DEFAULT_UNBONDING_PERIOD = 7 days;
-    
+
     /// @notice Minimum stake duration before unstaking (24 hours) - SEC-002
     uint256 public constant MIN_STAKE_DURATION = 24 hours;
-    
+
     /// @notice Default daily withdrawal percentage (10% of total stake) - SEC-002
     uint256 public constant DEFAULT_DAILY_WITHDRAWAL_BPS = 1000; // 10% in basis points
 
@@ -50,30 +50,30 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Maximum daily withdrawal percentage (50% of total stake)
     uint256 public constant MAX_CONFIGURABLE_DAILY_BPS = 5000; // 50% in basis points
-    
+
     /// @notice Minimum stake threshold for slashing eligibility (1000 tokens) - SEC-008
     uint256 public constant MIN_STAKE_FOR_SLASHING = 1000 * 1e18;
-    
+
     /// @notice Slashing cooldown period to prevent rapid re-stake - SEC-008
     uint256 public constant SLASHING_COOLDOWN = 30 days;
-    
+
     /// @notice Maximum slashing percentage in basis points (50%)
     uint256 public constant MAX_SLASH_BPS = 5000;
-    
+
     /// @notice Early exit penalty in basis points (5%) - SEC-002
     uint256 public constant EARLY_EXIT_PENALTY_BPS = 500;
-    
+
     /// @notice Epoch duration for exit processing (1 day) - SEC-002
     uint256 public constant EPOCH_DURATION = 1 days;
-    
+
     /// @notice Rate limit window for unstaking operations - SEC-011
     uint256 public constant RATE_LIMIT_WINDOW = 1 hours;
-    
+
     /// @notice Maximum unstaking operations per rate limit window - SEC-011
     uint256 public constant MAX_UNSTAKE_OPS_PER_WINDOW = 3;
-    
+
     /// @notice Basis points denominator
-    uint256 public constant BPS_DENOMINATOR = 10000;
+    uint256 public constant BPS_DENOMINATOR = 10_000;
 
     // ============ State Variables ============
 
@@ -82,10 +82,10 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Total amount of tokens staked
     uint256 public totalStaked;
-    
+
     /// @notice Total amount in unbonding queue
     uint256 public totalUnbonding;
-    
+
     /// @notice Current unbonding period (can be adjusted by admin)
     uint256 public unbondingPeriod;
 
@@ -94,55 +94,55 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Treasury address for slashed funds and penalties
     address public treasury;
-    
+
     /// @notice Current epoch number
     uint256 public currentEpoch;
-    
+
     /// @notice Timestamp of current epoch start
     uint256 public epochStartTime;
 
     /// @notice Stake information for each staker
     struct StakeInfo {
-        uint256 amount;              // Amount currently staked
-        uint256 stakedAt;            // Timestamp of initial stake
-        uint256 lastStakeTime;       // Timestamp of last stake action
-        address delegatee;           // Address delegated to (address(0) if self)
-        uint256 delegatedToMe;       // Total amount delegated to this address
-        uint256 lastSlashedAt;       // Timestamp of last slash (for cooldown)
-        uint256 totalSlashed;        // Cumulative amount slashed from this staker
+        uint256 amount; // Amount currently staked
+        uint256 stakedAt; // Timestamp of initial stake
+        uint256 lastStakeTime; // Timestamp of last stake action
+        address delegatee; // Address delegated to (address(0) if self)
+        uint256 delegatedToMe; // Total amount delegated to this address
+        uint256 lastSlashedAt; // Timestamp of last slash (for cooldown)
+        uint256 totalSlashed; // Cumulative amount slashed from this staker
     }
 
     /// @notice Unbonding request information - SEC-002
     struct UnbondingRequest {
-        uint256 amount;              // Amount being unbonded
-        uint256 initiatedAt;         // When unbonding was initiated
-        uint256 completionTime;      // When unbonding completes
-        uint256 epoch;               // Epoch when request was made
-        bool processed;              // Whether request has been processed
-        bool penaltyApplied;         // Whether early exit penalty was applied
+        uint256 amount; // Amount being unbonded
+        uint256 initiatedAt; // When unbonding was initiated
+        uint256 completionTime; // When unbonding completes
+        uint256 epoch; // Epoch when request was made
+        bool processed; // Whether request has been processed
+        bool penaltyApplied; // Whether early exit penalty was applied
     }
 
     /// @notice Rate limiting info for unstaking operations - SEC-011
     struct RateLimitInfo {
-        uint256 windowStart;         // Start of current rate limit window
-        uint256 operationsCount;     // Number of operations in current window
+        uint256 windowStart; // Start of current rate limit window
+        uint256 operationsCount; // Number of operations in current window
     }
 
     /// @notice Daily withdrawal tracking - SEC-002
     struct DailyWithdrawal {
-        uint256 date;                // Day identifier (timestamp / 1 day)
-        uint256 amount;              // Amount withdrawn on this day
+        uint256 date; // Day identifier (timestamp / 1 day)
+        uint256 amount; // Amount withdrawn on this day
     }
 
     /// @notice Mapping of staker address to stake info
     mapping(address => StakeInfo) public stakes;
-    
+
     /// @notice Mapping of staker address to their unbonding requests
     mapping(address => UnbondingRequest[]) public unbondingRequests;
-    
+
     /// @notice Mapping of staker address to rate limit info - SEC-011
     mapping(address => RateLimitInfo) public rateLimits;
-    
+
     /// @notice Daily withdrawal amounts per epoch - SEC-002
     mapping(uint256 => uint256) public dailyWithdrawals;
 
@@ -161,11 +161,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     /// @param requestIndex Index of the unbonding request
     /// @param epoch Epoch when request was made
     event UnbondingInitiated(
-        address indexed staker,
-        uint256 amount,
-        uint256 completionTime,
-        uint256 requestIndex,
-        uint256 epoch
+        address indexed staker, uint256 amount, uint256 completionTime, uint256 requestIndex, uint256 epoch
     );
 
     /// @notice Emitted when unbonding completes and tokens are withdrawn - SEC-013
@@ -173,12 +169,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     /// @param amount Amount withdrawn
     /// @param requestIndex Index of the completed request
     /// @param penaltyAmount Any penalty amount deducted
-    event UnbondingCompleted(
-        address indexed staker,
-        uint256 amount,
-        uint256 requestIndex,
-        uint256 penaltyAmount
-    );
+    event UnbondingCompleted(address indexed staker, uint256 amount, uint256 requestIndex, uint256 penaltyAmount);
 
     /// @notice Emitted when delegation is set or changed
     /// @param delegator Address delegating their stake
@@ -186,10 +177,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     /// @param newDelegatee New delegatee address
     /// @param amount Amount being delegated
     event DelegationChanged(
-        address indexed delegator,
-        address indexed oldDelegatee,
-        address indexed newDelegatee,
-        uint256 amount
+        address indexed delegator, address indexed oldDelegatee, address indexed newDelegatee, uint256 amount
     );
 
     /// @notice Emitted when a staker is slashed - SEC-008
@@ -197,12 +185,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     /// @param amount Amount slashed
     /// @param reason Reason for slashing
     /// @param slasher Address of the slasher
-    event Slashed(
-        address indexed staker,
-        uint256 amount,
-        string reason,
-        address indexed slasher
-    );
+    event Slashed(address indexed staker, uint256 amount, string reason, address indexed slasher);
 
     /// @notice Emitted when unbonding period is updated
     /// @param oldPeriod Previous unbonding period
@@ -228,63 +211,55 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     /// @param staker Address of the staker
     /// @param penaltyAmount Amount of penalty
     /// @param requestIndex Index of the request
-    event EarlyExitPenaltyApplied(
-        address indexed staker,
-        uint256 penaltyAmount,
-        uint256 requestIndex
-    );
+    event EarlyExitPenaltyApplied(address indexed staker, uint256 penaltyAmount, uint256 requestIndex);
 
     /// @notice Emitted when rate limit is hit - SEC-011
     /// @param staker Address that hit the rate limit
     /// @param windowStart Start of the rate limit window
     /// @param operationsCount Number of operations in window
-    event RateLimitExceeded(
-        address indexed staker,
-        uint256 windowStart,
-        uint256 operationsCount
-    );
+    event RateLimitExceeded(address indexed staker, uint256 windowStart, uint256 operationsCount);
 
     // ============ Errors ============
 
     /// @notice Thrown when amount is zero
     error ZeroAmount();
-    
+
     /// @notice Thrown when address is zero
     error ZeroAddress();
-    
+
     /// @notice Thrown when stake amount is insufficient
     error InsufficientStake();
-    
+
     /// @notice Thrown when unbonding period has not completed
     error UnbondingNotComplete();
-    
+
     /// @notice Thrown when request index is invalid
     error InvalidRequestIndex();
-    
+
     /// @notice Thrown when request is already processed
     error RequestAlreadyProcessed();
-    
+
     /// @notice Thrown when minimum stake duration not met - SEC-002
     error MinStakeDurationNotMet();
-    
+
     /// @notice Thrown when daily withdrawal limit exceeded - SEC-002
     error DailyWithdrawalLimitExceeded();
-    
+
     /// @notice Thrown when slash amount exceeds maximum
     error SlashAmountExceedsMax();
-    
+
     /// @notice Thrown when stake is below minimum for slashing - SEC-008
     error StakeBelowSlashingThreshold();
-    
+
     /// @notice Thrown when in slashing cooldown period - SEC-008
     error InSlashingCooldown();
-    
+
     /// @notice Thrown when rate limit is exceeded - SEC-011
     error RateLimitExceeded_Error();
-    
+
     /// @notice Thrown when cannot delegate to self explicitly
     error CannotDelegateToSelf();
-    
+
     /// @notice Thrown when unbonding period is invalid
     error InvalidUnbondingPeriod();
 
@@ -299,11 +274,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      * @param _treasury Address to receive slashed funds and penalties
      * @param _admin Address to receive admin role
      */
-    constructor(
-        address _stakingToken,
-        address _treasury,
-        address _admin
-    ) {
+    constructor(address _stakingToken, address _treasury, address _admin) {
         if (_stakingToken == address(0)) revert ZeroAddress();
         if (_treasury == address(0)) revert ZeroAddress();
         if (_admin == address(0)) revert ZeroAddress();
@@ -331,7 +302,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      */
     function stake(uint256 amount) external nonReentrant whenNotPaused {
         if (amount == 0) revert ZeroAmount();
-        
+
         // Check slashing cooldown - SEC-008
         StakeInfo storage stakeInfo = stakes[msg.sender];
         if (stakeInfo.lastSlashedAt != 0) {
@@ -352,7 +323,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         }
         stakeInfo.amount += amount;
         stakeInfo.lastStakeTime = block.timestamp;
-        
+
         // Update total staked
         totalStaked += amount;
 
@@ -371,10 +342,10 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      */
     function initiateUnbonding(uint256 amount) external nonReentrant whenNotPaused {
         if (amount == 0) revert ZeroAmount();
-        
+
         StakeInfo storage stakeInfo = stakes[msg.sender];
         if (stakeInfo.amount < amount) revert InsufficientStake();
-        
+
         // Check minimum stake duration - SEC-002
         if (block.timestamp < stakeInfo.lastStakeTime + MIN_STAKE_DURATION) {
             revert MinStakeDurationNotMet();
@@ -390,7 +361,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         uint256 today = block.timestamp / 1 days;
         uint256 projectedDailyTotal = dailyWithdrawals[today] + amount;
         uint256 maxDailyWithdrawal = (totalStaked * dailyWithdrawalLimitBps) / BPS_DENOMINATOR;
-        
+
         if (projectedDailyTotal > maxDailyWithdrawal) {
             revert DailyWithdrawalLimitExceeded();
         }
@@ -414,23 +385,19 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         // Create unbonding request
         uint256 completionTime = block.timestamp + unbondingPeriod;
         uint256 requestIndex = unbondingRequests[msg.sender].length;
-        
-        unbondingRequests[msg.sender].push(UnbondingRequest({
-            amount: amount,
-            initiatedAt: block.timestamp,
-            completionTime: completionTime,
-            epoch: currentEpoch,
-            processed: false,
-            penaltyApplied: earlyExit
-        }));
 
-        emit UnbondingInitiated(
-            msg.sender,
-            amount,
-            completionTime,
-            requestIndex,
-            currentEpoch
+        unbondingRequests[msg.sender].push(
+            UnbondingRequest({
+                amount: amount,
+                initiatedAt: block.timestamp,
+                completionTime: completionTime,
+                epoch: currentEpoch,
+                processed: false,
+                penaltyApplied: earlyExit
+            })
         );
+
+        emit UnbondingInitiated(msg.sender, amount, completionTime, requestIndex, currentEpoch);
 
         if (earlyExit) {
             uint256 penalty = (amount * EARLY_EXIT_PENALTY_BPS) / BPS_DENOMINATOR;
@@ -448,7 +415,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         }
 
         UnbondingRequest storage request = unbondingRequests[msg.sender][requestIndex];
-        
+
         if (request.processed) revert RequestAlreadyProcessed();
         if (block.timestamp < request.completionTime) revert UnbondingNotComplete();
 
@@ -457,7 +424,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
 
         // Mark as processed
         request.processed = true;
-        
+
         uint256 withdrawAmount = request.amount;
         uint256 penaltyAmount = 0;
 
@@ -465,7 +432,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         if (request.penaltyApplied) {
             penaltyAmount = (withdrawAmount * EARLY_EXIT_PENALTY_BPS) / BPS_DENOMINATOR;
             withdrawAmount -= penaltyAmount;
-            
+
             // Send penalty to treasury
             stakingToken.safeTransfer(treasury, penaltyAmount);
         }
@@ -489,7 +456,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         }
 
         UnbondingRequest storage request = unbondingRequests[msg.sender][requestIndex];
-        
+
         if (request.processed) revert RequestAlreadyProcessed();
 
         // Check slashing cooldown - SEC-008
@@ -502,7 +469,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
 
         // Mark as processed (cancelled)
         request.processed = true;
-        
+
         // Restore stake
         uint256 amount = request.amount;
         stakeInfo.amount += amount;
@@ -523,21 +490,21 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      */
     function delegate(address delegatee) external nonReentrant whenNotPaused {
         StakeInfo storage stakeInfo = stakes[msg.sender];
-        
+
         if (delegatee == msg.sender) revert CannotDelegateToSelf();
 
         address oldDelegatee = stakeInfo.delegatee;
-        
+
         // Remove from old delegatee
         if (oldDelegatee != address(0)) {
             stakes[oldDelegatee].delegatedToMe -= stakeInfo.amount;
         }
-        
+
         // Add to new delegatee
         if (delegatee != address(0)) {
             stakes[delegatee].delegatedToMe += stakeInfo.amount;
         }
-        
+
         stakeInfo.delegatee = delegatee;
 
         emit DelegationChanged(msg.sender, oldDelegatee, delegatee, stakeInfo.amount);
@@ -550,17 +517,13 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      * @param reason Reason for slashing
      * @dev Only callable by SLASHER_ROLE
      */
-    function slash(
-        address staker,
-        uint256 bps,
-        string calldata reason
-    ) external nonReentrant onlyRole(SLASHER_ROLE) {
+    function slash(address staker, uint256 bps, string calldata reason) external nonReentrant onlyRole(SLASHER_ROLE) {
         if (staker == address(0)) revert ZeroAddress();
         if (bps == 0) revert ZeroAmount();
         if (bps > MAX_SLASH_BPS) revert SlashAmountExceedsMax();
 
         StakeInfo storage stakeInfo = stakes[staker];
-        
+
         // Check minimum stake threshold - SEC-008
         if (stakeInfo.amount < MIN_STAKE_FOR_SLASHING) {
             revert StakeBelowSlashingThreshold();
@@ -568,15 +531,15 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
 
         // Calculate proportional slash amount - SEC-008
         uint256 slashAmount = (stakeInfo.amount * bps) / BPS_DENOMINATOR;
-        
+
         // Update stake info
         stakeInfo.amount -= slashAmount;
         stakeInfo.lastSlashedAt = block.timestamp;
         stakeInfo.totalSlashed += slashAmount;
-        
+
         // Update totals
         totalStaked -= slashAmount;
-        
+
         // Update delegation if delegated
         if (stakeInfo.delegatee != address(0)) {
             stakes[stakeInfo.delegatee].delegatedToMe -= slashAmount;
@@ -629,10 +592,10 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      */
     function setTreasury(address newTreasury) external onlyRole(ADMIN_ROLE) {
         if (newTreasury == address(0)) revert ZeroAddress();
-        
+
         address oldTreasury = treasury;
         treasury = newTreasury;
-        
+
         emit TreasuryUpdated(oldTreasury, newTreasury);
     }
 
@@ -672,23 +635,20 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      * @return lastSlashedAt Last slash timestamp
      * @return totalSlashed Total amount ever slashed
      */
-    function getStakeInfo(address staker) external view returns (
-        uint256 amount,
-        uint256 stakedAt,
-        address delegatee,
-        uint256 delegatedToMe,
-        uint256 lastSlashedAt,
-        uint256 totalSlashed
-    ) {
+    function getStakeInfo(address staker)
+        external
+        view
+        returns (
+            uint256 amount,
+            uint256 stakedAt,
+            address delegatee,
+            uint256 delegatedToMe,
+            uint256 lastSlashedAt,
+            uint256 totalSlashed
+        )
+    {
         StakeInfo storage info = stakes[staker];
-        return (
-            info.amount,
-            info.stakedAt,
-            info.delegatee,
-            info.delegatedToMe,
-            info.lastSlashedAt,
-            info.totalSlashed
-        );
+        return (info.amount, info.stakedAt, info.delegatee, info.delegatedToMe, info.lastSlashedAt, info.totalSlashed);
     }
 
     /**
@@ -698,12 +658,12 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      */
     function getVotingPower(address account) external view returns (uint256) {
         StakeInfo storage info = stakes[account];
-        
+
         // If this account has delegated to someone else, they have no voting power
         if (info.delegatee != address(0)) {
             return info.delegatedToMe; // Only delegated-to-me power
         }
-        
+
         // Own stake + delegated to this account
         return info.amount + info.delegatedToMe;
     }
@@ -728,18 +688,25 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      * @return processed Whether request is processed
      * @return penaltyApplied Whether early exit penalty applies
      */
-    function getUnbondingRequest(address staker, uint256 requestIndex) external view returns (
-        uint256 amount,
-        uint256 initiatedAt,
-        uint256 completionTime,
-        uint256 epoch,
-        bool processed,
-        bool penaltyApplied
-    ) {
+    function getUnbondingRequest(
+        address staker,
+        uint256 requestIndex
+    )
+        external
+        view
+        returns (
+            uint256 amount,
+            uint256 initiatedAt,
+            uint256 completionTime,
+            uint256 epoch,
+            bool processed,
+            bool penaltyApplied
+        )
+    {
         if (requestIndex >= unbondingRequests[staker].length) {
             revert InvalidRequestIndex();
         }
-        
+
         UnbondingRequest storage request = unbondingRequests[staker][requestIndex];
         return (
             request.amount,
@@ -759,13 +726,13 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     function getPendingUnbonding(address staker) external view returns (uint256) {
         uint256 pending = 0;
         UnbondingRequest[] storage requests = unbondingRequests[staker];
-        
+
         for (uint256 i = 0; i < requests.length; i++) {
             if (!requests[i].processed) {
                 pending += requests[i].amount;
             }
         }
-        
+
         return pending;
     }
 
@@ -777,13 +744,13 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     function getWithdrawableUnbonding(address staker) external view returns (uint256) {
         uint256 withdrawable = 0;
         UnbondingRequest[] storage requests = unbondingRequests[staker];
-        
+
         for (uint256 i = 0; i < requests.length; i++) {
             if (!requests[i].processed && block.timestamp >= requests[i].completionTime) {
                 withdrawable += requests[i].amount;
             }
         }
-        
+
         return withdrawable;
     }
 
@@ -795,11 +762,11 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         uint256 today = block.timestamp / 1 days;
         uint256 maxDaily = (totalStaked * dailyWithdrawalLimitBps) / BPS_DENOMINATOR;
         uint256 usedToday = dailyWithdrawals[today];
-        
+
         if (usedToday >= maxDaily) {
             return 0;
         }
-        
+
         return maxDaily - usedToday;
     }
 
@@ -809,21 +776,18 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      * @return canUnstake Whether staker can initiate unbonding
      * @return remainingOps Remaining operations in current window
      */
-    function canInitiateUnbonding(address staker) external view returns (
-        bool canUnstake,
-        uint256 remainingOps
-    ) {
+    function canInitiateUnbonding(address staker) external view returns (bool canUnstake, uint256 remainingOps) {
         RateLimitInfo storage rateLimit = rateLimits[staker];
-        
+
         // Check if we\'re in a new window
         if (block.timestamp >= rateLimit.windowStart + RATE_LIMIT_WINDOW) {
             return (true, MAX_UNSTAKE_OPS_PER_WINDOW);
         }
-        
+
         if (rateLimit.operationsCount >= MAX_UNSTAKE_OPS_PER_WINDOW) {
             return (false, 0);
         }
-        
+
         return (true, MAX_UNSTAKE_OPS_PER_WINDOW - rateLimit.operationsCount);
     }
 
@@ -833,22 +797,19 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      * @return inCooldown Whether staker is in cooldown
      * @return cooldownEnds When cooldown ends (0 if not in cooldown)
      */
-    function isInSlashingCooldown(address staker) external view returns (
-        bool inCooldown,
-        uint256 cooldownEnds
-    ) {
+    function isInSlashingCooldown(address staker) external view returns (bool inCooldown, uint256 cooldownEnds) {
         StakeInfo storage info = stakes[staker];
-        
+
         if (info.lastSlashedAt == 0) {
             return (false, 0);
         }
-        
+
         uint256 cooldownEnd = info.lastSlashedAt + SLASHING_COOLDOWN;
-        
+
         if (block.timestamp < cooldownEnd) {
             return (true, cooldownEnd);
         }
-        
+
         return (false, 0);
     }
 
@@ -858,18 +819,14 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      * @return startTime When current epoch started
      * @return timeUntilNextEpoch Seconds until next epoch
      */
-    function getEpochInfo() external view returns (
-        uint256 epochNumber,
-        uint256 startTime,
-        uint256 timeUntilNextEpoch
-    ) {
+    function getEpochInfo() external view returns (uint256 epochNumber, uint256 startTime, uint256 timeUntilNextEpoch) {
         uint256 nextEpochStart = epochStartTime + EPOCH_DURATION;
         uint256 timeRemaining = 0;
-        
+
         if (block.timestamp < nextEpochStart) {
             timeRemaining = nextEpochStart - block.timestamp;
         }
-        
+
         return (currentEpoch, epochStartTime, timeRemaining);
     }
 
@@ -890,7 +847,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     function _advanceEpoch() internal {
         currentEpoch += 1;
         epochStartTime = block.timestamp;
-        
+
         emit NewEpoch(currentEpoch, epochStartTime);
     }
 
@@ -900,7 +857,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      */
     function _checkAndUpdateRateLimit(address staker) internal {
         RateLimitInfo storage rateLimit = rateLimits[staker];
-        
+
         // Check if we\'re in a new window
         if (block.timestamp >= rateLimit.windowStart + RATE_LIMIT_WINDOW) {
             // Reset window

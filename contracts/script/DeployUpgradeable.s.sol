@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Script, console2} from "forge-std/Script.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {NexusTokenUpgradeable} from "../src/upgradeable/NexusTokenUpgradeable.sol";
-import {NexusStakingUpgradeable} from "../src/upgradeable/NexusStakingUpgradeable.sol";
-import {NexusBridgeUpgradeable} from "../src/upgradeable/NexusBridgeUpgradeable.sol";
+import { Script, console2 } from "forge-std/Script.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { NexusTokenUpgradeable } from "../src/upgradeable/NexusTokenUpgradeable.sol";
+import { NexusStakingUpgradeable } from "../src/upgradeable/NexusStakingUpgradeable.sol";
+import { NexusBridgeUpgradeable } from "../src/upgradeable/NexusBridgeUpgradeable.sol";
 
 /**
  * @title DeployUpgradeable
@@ -21,10 +21,7 @@ contract DeployUpgradeable is Script {
 
         // Deploy NexusToken implementation and proxy
         NexusTokenUpgradeable tokenImpl = new NexusTokenUpgradeable();
-        bytes memory tokenInitData = abi.encodeWithSelector(
-            NexusTokenUpgradeable.initialize.selector,
-            admin
-        );
+        bytes memory tokenInitData = abi.encodeWithSelector(NexusTokenUpgradeable.initialize.selector, admin);
         ERC1967Proxy tokenProxy = new ERC1967Proxy(address(tokenImpl), tokenInitData);
         NexusTokenUpgradeable token = NexusTokenUpgradeable(address(tokenProxy));
 
@@ -33,12 +30,8 @@ contract DeployUpgradeable is Script {
 
         // Deploy NexusStaking implementation and proxy
         NexusStakingUpgradeable stakingImpl = new NexusStakingUpgradeable();
-        bytes memory stakingInitData = abi.encodeWithSelector(
-            NexusStakingUpgradeable.initialize.selector,
-            address(token),
-            treasury,
-            admin
-        );
+        bytes memory stakingInitData =
+            abi.encodeWithSelector(NexusStakingUpgradeable.initialize.selector, address(token), treasury, admin);
         ERC1967Proxy stakingProxy = new ERC1967Proxy(address(stakingImpl), stakingInitData);
         NexusStakingUpgradeable staking = NexusStakingUpgradeable(address(stakingProxy));
 

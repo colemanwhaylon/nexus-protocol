@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {NexusTokenUpgradeable} from "../../src/upgradeable/NexusTokenUpgradeable.sol";
-import {NexusStakingUpgradeable} from "../../src/upgradeable/NexusStakingUpgradeable.sol";
-import {NexusBridgeUpgradeable} from "../../src/upgradeable/NexusBridgeUpgradeable.sol";
-import {ERC20Mock} from "../mocks/ERC20Mock.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { NexusTokenUpgradeable } from "../../src/upgradeable/NexusTokenUpgradeable.sol";
+import { NexusStakingUpgradeable } from "../../src/upgradeable/NexusStakingUpgradeable.sol";
+import { NexusBridgeUpgradeable } from "../../src/upgradeable/NexusBridgeUpgradeable.sol";
+import { ERC20Mock } from "../mocks/ERC20Mock.sol";
 
 /**
  * @title NexusUpgradeableTest
@@ -28,21 +28,14 @@ contract NexusUpgradeableTest is Test {
     function setUp() public {
         // Deploy Token
         tokenImpl = new NexusTokenUpgradeable();
-        bytes memory tokenInitData = abi.encodeWithSelector(
-            NexusTokenUpgradeable.initialize.selector,
-            admin
-        );
+        bytes memory tokenInitData = abi.encodeWithSelector(NexusTokenUpgradeable.initialize.selector, admin);
         tokenProxy = new ERC1967Proxy(address(tokenImpl), tokenInitData);
         token = NexusTokenUpgradeable(address(tokenProxy));
 
         // Deploy Staking
         stakingImpl = new NexusStakingUpgradeable();
-        bytes memory stakingInitData = abi.encodeWithSelector(
-            NexusStakingUpgradeable.initialize.selector,
-            address(token),
-            treasury,
-            admin
-        );
+        bytes memory stakingInitData =
+            abi.encodeWithSelector(NexusStakingUpgradeable.initialize.selector, address(token), treasury, admin);
         stakingProxy = new ERC1967Proxy(address(stakingImpl), stakingInitData);
         staking = NexusStakingUpgradeable(address(stakingProxy));
     }
@@ -251,12 +244,7 @@ contract NexusBridgeUpgradeableTest is Test {
 
         bridgeImpl = new NexusBridgeUpgradeable();
         bytes memory bridgeInitData = abi.encodeWithSelector(
-            NexusBridgeUpgradeable.initialize.selector,
-            address(token),
-            SOURCE_CHAIN,
-            true,
-            2,
-            relayers
+            NexusBridgeUpgradeable.initialize.selector, address(token), SOURCE_CHAIN, true, 2, relayers
         );
         vm.prank(admin);
         bridgeProxy = new ERC1967Proxy(address(bridgeImpl), bridgeInitData);

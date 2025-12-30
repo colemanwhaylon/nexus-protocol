@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title NexusMultiSig
@@ -69,22 +69,22 @@ contract NexusMultiSig is ReentrancyGuard {
 
     /// @notice Transaction details
     struct Transaction {
-        address to;           // Target address
-        uint256 value;        // ETH value
-        bytes data;           // Calldata
-        uint256 nonce;        // Transaction nonce
-        uint256 deadline;     // Expiry timestamp
-        bool executed;        // Execution status
+        address to; // Target address
+        uint256 value; // ETH value
+        bytes data; // Calldata
+        uint256 nonce; // Transaction nonce
+        uint256 deadline; // Expiry timestamp
+        bool executed; // Execution status
     }
 
     /// @notice Batch transaction details
     struct BatchTransaction {
-        address[] targets;    // Target addresses
-        uint256[] values;     // ETH values
-        bytes[] data;         // Calldatas
-        uint256 nonce;        // Transaction nonce
-        uint256 deadline;     // Expiry timestamp
-        bool executed;        // Execution status
+        address[] targets; // Target addresses
+        uint256[] values; // ETH values
+        bytes[] data; // Calldatas
+        uint256 nonce; // Transaction nonce
+        uint256 deadline; // Expiry timestamp
+        bool executed; // Execution status
     }
 
     /// @notice Mapping from transaction hash to confirmations
@@ -105,11 +105,7 @@ contract NexusMultiSig is ReentrancyGuard {
     // ============ Events - SEC-013 ============
 
     /// @notice Emitted when the wallet is initialized
-    event WalletInitialized(
-        address[] owners,
-        uint256 threshold,
-        uint256 expiryPeriod
-    );
+    event WalletInitialized(address[] owners, uint256 threshold, uint256 expiryPeriod);
 
     /// @notice Emitted when a transaction is submitted
     event TransactionSubmitted(
@@ -124,41 +120,21 @@ contract NexusMultiSig is ReentrancyGuard {
 
     /// @notice Emitted when a batch transaction is submitted
     event BatchSubmitted(
-        bytes32 indexed batchHash,
-        address indexed submitter,
-        uint256 transactionCount,
-        uint256 nonce,
-        uint256 deadline
+        bytes32 indexed batchHash, address indexed submitter, uint256 transactionCount, uint256 nonce, uint256 deadline
     );
 
     /// @notice Emitted when a transaction is confirmed
-    event TransactionConfirmed(
-        bytes32 indexed txHash,
-        address indexed confirmer,
-        uint256 confirmationCount
-    );
+    event TransactionConfirmed(bytes32 indexed txHash, address indexed confirmer, uint256 confirmationCount);
 
     /// @notice Emitted when a confirmation is revoked
-    event ConfirmationRevoked(
-        bytes32 indexed txHash,
-        address indexed revoker,
-        uint256 confirmationCount
-    );
+    event ConfirmationRevoked(bytes32 indexed txHash, address indexed revoker, uint256 confirmationCount);
 
     /// @notice Emitted when a transaction is executed
-    event TransactionExecuted(
-        bytes32 indexed txHash,
-        address indexed executor,
-        bool success,
-        bytes returnData
-    );
+    event TransactionExecuted(bytes32 indexed txHash, address indexed executor, bool success, bytes returnData);
 
     /// @notice Emitted when a batch transaction is executed
     event BatchExecuted(
-        bytes32 indexed batchHash,
-        address indexed executor,
-        uint256 successCount,
-        uint256 failureCount
+        bytes32 indexed batchHash, address indexed executor, uint256 successCount, uint256 failureCount
     );
 
     /// @notice Emitted when an owner is added
@@ -219,11 +195,7 @@ contract NexusMultiSig is ReentrancyGuard {
      * @param _threshold Required number of confirmations
      * @param _expiryPeriod Transaction expiry period in seconds
      */
-    constructor(
-        address[] memory _owners,
-        uint256 _threshold,
-        uint256 _expiryPeriod
-    ) {
+    constructor(address[] memory _owners, uint256 _threshold, uint256 _expiryPeriod) {
         // Validate owner count
         if (_owners.length < MIN_OWNERS || _owners.length > MAX_OWNERS) {
             revert InvalidOwnerCount(_owners.length, MIN_OWNERS, MAX_OWNERS);
@@ -268,7 +240,11 @@ contract NexusMultiSig is ReentrancyGuard {
         address to,
         uint256 value,
         bytes calldata data
-    ) external onlyOwner returns (bytes32 txHash) {
+    )
+        external
+        onlyOwner
+        returns (bytes32 txHash)
+    {
         if (to == address(0)) revert ZeroAddress();
 
         uint256 currentNonce = nonce++;
@@ -278,14 +254,8 @@ contract NexusMultiSig is ReentrancyGuard {
 
         if (isSubmitted[txHash]) revert TransactionAlreadySubmitted();
 
-        transactions[txHash] = Transaction({
-            to: to,
-            value: value,
-            data: data,
-            nonce: currentNonce,
-            deadline: deadline,
-            executed: false
-        });
+        transactions[txHash] =
+            Transaction({ to: to, value: value, data: data, nonce: currentNonce, deadline: deadline, executed: false });
 
         isSubmitted[txHash] = true;
 
@@ -293,15 +263,7 @@ contract NexusMultiSig is ReentrancyGuard {
         confirmations[txHash][msg.sender] = true;
         confirmationCount[txHash] = 1;
 
-        emit TransactionSubmitted(
-            txHash,
-            msg.sender,
-            to,
-            value,
-            data,
-            currentNonce,
-            deadline
-        );
+        emit TransactionSubmitted(txHash, msg.sender, to, value, data, currentNonce, deadline);
         emit TransactionConfirmed(txHash, msg.sender, 1);
 
         return txHash;
@@ -318,7 +280,11 @@ contract NexusMultiSig is ReentrancyGuard {
         address[] calldata targets,
         uint256[] calldata values,
         bytes[] calldata data
-    ) external onlyOwner returns (bytes32 batchHash) {
+    )
+        external
+        onlyOwner
+        returns (bytes32 batchHash)
+    {
         uint256 len = targets.length;
         if (len == 0) revert EmptyBatch();
         if (len != values.length || len != data.length) revert ArrayLengthMismatch();
@@ -335,12 +301,7 @@ contract NexusMultiSig is ReentrancyGuard {
         if (isSubmitted[batchHash]) revert TransactionAlreadySubmitted();
 
         batchTransactions[batchHash] = BatchTransaction({
-            targets: targets,
-            values: values,
-            data: data,
-            nonce: currentNonce,
-            deadline: deadline,
-            executed: false
+            targets: targets, values: values, data: data, nonce: currentNonce, deadline: deadline, executed: false
         });
 
         isSubmitted[batchHash] = true;
@@ -420,7 +381,7 @@ contract NexusMultiSig is ReentrancyGuard {
 
         txn.executed = true;
 
-        (bool success, bytes memory returnData) = txn.to.call{value: txn.value}(txn.data);
+        (bool success, bytes memory returnData) = txn.to.call{ value: txn.value }(txn.data);
 
         emit TransactionExecuted(txHash, msg.sender, success, returnData);
 
@@ -447,7 +408,7 @@ contract NexusMultiSig is ReentrancyGuard {
         uint256 failureCount = 0;
 
         for (uint256 i = 0; i < batch.targets.length; i++) {
-            (bool success,) = batch.targets[i].call{value: batch.values[i]}(batch.data[i]);
+            (bool success,) = batch.targets[i].call{ value: batch.values[i] }(batch.data[i]);
             if (success) {
                 successCount++;
             } else {
@@ -579,11 +540,7 @@ contract NexusMultiSig is ReentrancyGuard {
      * @param txHash Transaction hash
      * @return info Transaction info struct
      */
-    function getTransaction(bytes32 txHash)
-        external
-        view
-        returns (TransactionInfo memory info)
-    {
+    function getTransaction(bytes32 txHash) external view returns (TransactionInfo memory info) {
         Transaction storage txn = transactions[txHash];
         info = TransactionInfo({
             to: txn.to,
@@ -601,11 +558,7 @@ contract NexusMultiSig is ReentrancyGuard {
      * @param batchHash Batch hash
      * @return info Batch info struct
      */
-    function getBatchTransaction(bytes32 batchHash)
-        external
-        view
-        returns (BatchInfo memory info)
-    {
+    function getBatchTransaction(bytes32 batchHash) external view returns (BatchInfo memory info) {
         BatchTransaction storage batch = batchTransactions[batchHash];
         info = BatchInfo({
             targets: batch.targets,
@@ -624,11 +577,7 @@ contract NexusMultiSig is ReentrancyGuard {
      * @return ready True if ready to execute
      * @return reason Reason if not ready
      */
-    function isReadyToExecute(bytes32 txHash)
-        external
-        view
-        returns (bool ready, string memory reason)
-    {
+    function isReadyToExecute(bytes32 txHash) external view returns (bool ready, string memory reason) {
         if (!isSubmitted[txHash]) return (false, "Not submitted");
 
         Transaction storage txn = transactions[txHash];
@@ -655,11 +604,7 @@ contract NexusMultiSig is ReentrancyGuard {
      * @param txHash Transaction hash
      * @return confirmedBy Array of addresses that confirmed
      */
-    function getConfirmers(bytes32 txHash)
-        external
-        view
-        returns (address[] memory confirmedBy)
-    {
+    function getConfirmers(bytes32 txHash) external view returns (address[] memory confirmedBy) {
         uint256 count = confirmationCount[txHash];
         confirmedBy = new address[](count);
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {NexusToken} from "../../src/core/NexusToken.sol";
-import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { NexusToken } from "../../src/core/NexusToken.sol";
+import { IERC3156FlashBorrower } from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 
 /**
  * @title NexusTokenFuzzTest
@@ -80,10 +80,7 @@ contract NexusTokenFuzzTest is Test {
     /**
      * @notice Fuzz test: Multiple mints respect max supply
      */
-    function testFuzz_MultipleMints_RespectMaxSupply(
-        address[3] memory recipients,
-        uint256[3] memory amounts
-    ) public {
+    function testFuzz_MultipleMints_RespectMaxSupply(address[3] memory recipients, uint256[3] memory amounts) public {
         uint256 totalMinted = 0;
 
         for (uint256 i = 0; i < 3; i++) {
@@ -136,7 +133,9 @@ contract NexusTokenFuzzTest is Test {
         uint256 mintAmount,
         uint256 allowance,
         uint256 burnAmount
-    ) public {
+    )
+        public
+    {
         vm.assume(holder != address(0) && spender != address(0) && holder != spender);
         mintAmount = bound(mintAmount, 1, MAX_SUPPLY);
         allowance = bound(allowance, 0, mintAmount);
@@ -164,11 +163,7 @@ contract NexusTokenFuzzTest is Test {
     /**
      * @notice Fuzz test: Transfer conserves total supply
      */
-    function testFuzz_Transfer_ConservesTotalSupply(
-        address from,
-        address to,
-        uint256 amount
-    ) public {
+    function testFuzz_Transfer_ConservesTotalSupply(address from, address to, uint256 amount) public {
         vm.assume(from != address(0) && to != address(0) && from != to);
         amount = bound(amount, 1, MAX_SUPPLY);
 
@@ -192,7 +187,9 @@ contract NexusTokenFuzzTest is Test {
         address to,
         uint256 mintAmount,
         uint256 transferPercent
-    ) public {
+    )
+        public
+    {
         vm.assume(from != address(0) && to != address(0) && from != to);
         mintAmount = bound(mintAmount, 1, MAX_SUPPLY);
         transferPercent = bound(transferPercent, 1, 100);
@@ -226,7 +223,9 @@ contract NexusTokenFuzzTest is Test {
         address holder,
         uint256 initialAmount,
         uint256 additionalAmount
-    ) public {
+    )
+        public
+    {
         vm.assume(holder != address(0));
         initialAmount = bound(initialAmount, 1e18, MAX_SUPPLY / 4);
         additionalAmount = bound(additionalAmount, 1e18, MAX_SUPPLY / 4);
@@ -262,10 +261,7 @@ contract NexusTokenFuzzTest is Test {
      * @notice Fuzz test: Multiple snapshots track independently
      * @dev Tests that each snapshot captures the correct cumulative balance
      */
-    function testFuzz_MultipleSnapshots_TrackIndependently(
-        address holder,
-        uint256[3] memory amounts
-    ) public {
+    function testFuzz_MultipleSnapshots_TrackIndependently(address holder, uint256[3] memory amounts) public {
         vm.assume(holder != address(0));
 
         uint256 totalMinted = 0;
@@ -339,11 +335,7 @@ contract NexusTokenFuzzTest is Test {
     /**
      * @notice Fuzz test: Delegation updates voting power
      */
-    function testFuzz_Delegate_UpdatesVotingPower(
-        address holder,
-        address delegatee,
-        uint256 amount
-    ) public {
+    function testFuzz_Delegate_UpdatesVotingPower(address holder, address delegatee, uint256 amount) public {
         vm.assume(holder != address(0) && delegatee != address(0));
         amount = bound(amount, 1, MAX_SUPPLY);
 
@@ -381,11 +373,7 @@ contract NexusTokenFuzzTest is Test {
     /**
      * @notice Fuzz test: Transfers fail when paused
      */
-    function testFuzz_Pause_BlocksTransfers(
-        address from,
-        address to,
-        uint256 amount
-    ) public {
+    function testFuzz_Pause_BlocksTransfers(address from, address to, uint256 amount) public {
         vm.assume(from != address(0) && to != address(0) && from != to);
         amount = bound(amount, 1, MAX_SUPPLY);
 
@@ -420,10 +408,7 @@ contract NexusTokenFuzzTest is Test {
     /**
      * @notice Fuzz test: Sum of all balances equals total supply
      */
-    function testFuzz_Invariant_BalancesSumToSupply(
-        address[5] memory holders,
-        uint256[5] memory amounts
-    ) public {
+    function testFuzz_Invariant_BalancesSumToSupply(address[5] memory holders, uint256[5] memory amounts) public {
         uint256 totalMinted = 0;
 
         for (uint256 i = 0; i < 5; i++) {

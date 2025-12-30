@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title NexusBridge
@@ -124,12 +124,7 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
     // ============ Events - SEC-013 ============
 
     /// @notice Emitted when bridge is initialized
-    event BridgeInitialized(
-        address indexed token,
-        uint256 chainId,
-        bool isSourceChain,
-        uint256 relayerThreshold
-    );
+    event BridgeInitialized(address indexed token, uint256 chainId, bool isSourceChain, uint256 relayerThreshold);
 
     /// @notice Emitted when tokens are locked (source chain)
     event TokensLocked(
@@ -143,20 +138,12 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Emitted when tokens are unlocked (source chain)
     event TokensUnlocked(
-        bytes32 indexed transferId,
-        address indexed recipient,
-        uint256 amount,
-        uint256 sourceChain,
-        uint256 nonce
+        bytes32 indexed transferId, address indexed recipient, uint256 amount, uint256 sourceChain, uint256 nonce
     );
 
     /// @notice Emitted when tokens are minted (destination chain)
     event TokensMinted(
-        bytes32 indexed transferId,
-        address indexed recipient,
-        uint256 amount,
-        uint256 sourceChain,
-        uint256 nonce
+        bytes32 indexed transferId, address indexed recipient, uint256 amount, uint256 sourceChain, uint256 nonce
     );
 
     /// @notice Emitted when tokens are burned (destination chain)
@@ -171,18 +158,11 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Emitted when a large transfer is queued
     event LargeTransferQueued(
-        bytes32 indexed transferId,
-        address indexed recipient,
-        uint256 amount,
-        uint256 unlockTime
+        bytes32 indexed transferId, address indexed recipient, uint256 amount, uint256 unlockTime
     );
 
     /// @notice Emitted when a large transfer is executed
-    event LargeTransferExecuted(
-        bytes32 indexed transferId,
-        address indexed recipient,
-        uint256 amount
-    );
+    event LargeTransferExecuted(bytes32 indexed transferId, address indexed recipient, uint256 amount);
 
     /// @notice Emitted when a large transfer is cancelled
     event LargeTransferCancelled(bytes32 indexed transferId);
@@ -270,7 +250,12 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
         address recipient,
         uint256 amount,
         uint256 destChain
-    ) external nonReentrant whenNotPaused returns (bytes32 transferId) {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 transferId)
+    {
         if (!isSourceChain) revert NotSourceChain();
         if (recipient == address(0)) revert InvalidRecipient();
         if (amount == 0) revert InvalidAmount();
@@ -281,27 +266,13 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
 
         // Generate transfer ID
         uint256 currentNonce = outboundNonce++;
-        transferId = keccak256(abi.encode(
-            msg.sender,
-            recipient,
-            amount,
-            chainId,
-            destChain,
-            currentNonce,
-            block.timestamp
-        ));
+        transferId =
+            keccak256(abi.encode(msg.sender, recipient, amount, chainId, destChain, currentNonce, block.timestamp));
 
         // Transfer tokens to bridge
         token.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit TokensLocked(
-            transferId,
-            msg.sender,
-            recipient,
-            amount,
-            destChain,
-            currentNonce
-        );
+        emit TokensLocked(transferId, msg.sender, recipient, amount, destChain, currentNonce);
     }
 
     /**
@@ -318,20 +289,18 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
         uint256 sourceChain,
         uint256 nonce,
         bytes[] calldata signatures
-    ) external nonReentrant whenNotPaused {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
         if (!isSourceChain) revert NotSourceChain();
         if (recipient == address(0)) revert InvalidRecipient();
         if (amount == 0) revert InvalidAmount();
         if (processedTransfers[sourceChain][nonce]) revert TransferAlreadyProcessed();
 
         // Generate transfer ID and verify signatures
-        bytes32 transferId = keccak256(abi.encode(
-            recipient,
-            amount,
-            sourceChain,
-            chainId,
-            nonce
-        ));
+        bytes32 transferId = keccak256(abi.encode(recipient, amount, sourceChain, chainId, nonce));
 
         _verifySignatures(transferId, signatures);
 
@@ -369,20 +338,18 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
         uint256 sourceChain,
         uint256 nonce,
         bytes[] calldata signatures
-    ) external nonReentrant whenNotPaused {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
         if (isSourceChain) revert NotDestinationChain();
         if (recipient == address(0)) revert InvalidRecipient();
         if (amount == 0) revert InvalidAmount();
         if (processedTransfers[sourceChain][nonce]) revert TransferAlreadyProcessed();
 
         // Generate transfer ID and verify signatures
-        bytes32 transferId = keccak256(abi.encode(
-            recipient,
-            amount,
-            sourceChain,
-            chainId,
-            nonce
-        ));
+        bytes32 transferId = keccak256(abi.encode(recipient, amount, sourceChain, chainId, nonce));
 
         _verifySignatures(transferId, signatures);
 
@@ -413,7 +380,12 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
     function burnTokens(
         address recipient,
         uint256 amount
-    ) external nonReentrant whenNotPaused returns (bytes32 transferId) {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+        returns (bytes32 transferId)
+    {
         if (isSourceChain) revert NotDestinationChain();
         if (recipient == address(0)) revert InvalidRecipient();
         if (amount == 0) revert InvalidAmount();
@@ -425,27 +397,13 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
         uint256 currentNonce = outboundNonce++;
         uint256 destChain = 1; // Assuming source chain is mainnet (chain 1)
 
-        transferId = keccak256(abi.encode(
-            msg.sender,
-            recipient,
-            amount,
-            chainId,
-            destChain,
-            currentNonce,
-            block.timestamp
-        ));
+        transferId =
+            keccak256(abi.encode(msg.sender, recipient, amount, chainId, destChain, currentNonce, block.timestamp));
 
         // Transfer tokens to bridge (to be burned or held)
         token.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit TokensBurned(
-            transferId,
-            msg.sender,
-            recipient,
-            amount,
-            destChain,
-            currentNonce
-        );
+        emit TokensBurned(transferId, msg.sender, recipient, amount, destChain, currentNonce);
     }
 
     // ============ Large Transfer Execution ============
@@ -456,11 +414,7 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
      * @param recipient The recipient address
      * @param amount The transfer amount
      */
-    function executeLargeTransfer(
-        bytes32 transferId,
-        address recipient,
-        uint256 amount
-    ) external nonReentrant {
+    function executeLargeTransfer(bytes32 transferId, address recipient, uint256 amount) external nonReentrant {
         uint256 unlockTime = pendingLargeTransfers[transferId];
         if (unlockTime == 0) revert TransferNotPending();
         if (block.timestamp < unlockTime) revert TransferStillLocked();
@@ -555,10 +509,7 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
      * @param to Recipient address
      * @param amount Amount to withdraw
      */
-    function emergencyWithdraw(
-        address to,
-        uint256 amount
-    ) external onlyRole(ADMIN_ROLE) whenPaused {
+    function emergencyWithdraw(address to, uint256 amount) external onlyRole(ADMIN_ROLE) whenPaused {
         token.safeTransfer(to, amount);
     }
 
@@ -584,10 +535,7 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
      * @param nonce Transfer nonce
      * @return True if processed
      */
-    function isTransferProcessed(
-        uint256 sourceChain,
-        uint256 nonce
-    ) external view returns (bool) {
+    function isTransferProcessed(uint256 sourceChain, uint256 nonce) external view returns (bool) {
         return processedTransfers[sourceChain][nonce];
     }
 
@@ -638,10 +586,7 @@ contract NexusBridge is AccessControl, Pausable, ReentrancyGuard {
      * @param messageHash Hash of the transfer data
      * @param signatures Array of relayer signatures
      */
-    function _verifySignatures(
-        bytes32 messageHash,
-        bytes[] calldata signatures
-    ) internal view {
+    function _verifySignatures(bytes32 messageHash, bytes[] calldata signatures) internal view {
         if (signatures.length < relayerThreshold) revert InsufficientSignatures();
 
         bytes32 ethSignedHash = messageHash.toEthSignedMessageHash();

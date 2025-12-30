@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title NexusBridgeUpgradeable
@@ -53,18 +53,9 @@ contract NexusBridgeUpgradeable is
     mapping(uint256 => bool) public supportedChains;
 
     event TokensLocked(
-        address indexed sender,
-        address indexed recipient,
-        uint256 amount,
-        uint256 destinationChainId,
-        uint256 nonce
+        address indexed sender, address indexed recipient, uint256 amount, uint256 destinationChainId, uint256 nonce
     );
-    event TokensUnlocked(
-        address indexed recipient,
-        uint256 amount,
-        uint256 sourceChainId,
-        uint256 nonce
-    );
+    event TokensUnlocked(address indexed recipient, uint256 amount, uint256 sourceChainId, uint256 nonce);
     event LargeTransferQueued(bytes32 indexed transferId, uint256 unlockTime);
     event LargeTransferExecuted(bytes32 indexed transferId);
     event LargeTransferCancelled(bytes32 indexed transferId);
@@ -95,7 +86,10 @@ contract NexusBridgeUpgradeable is
         bool _isSourceChain,
         uint256 _relayerThreshold,
         address[] calldata _relayers
-    ) public initializer {
+    )
+        public
+        initializer
+    {
         __AccessControl_init();
         __Pausable_init();
 
@@ -128,7 +122,11 @@ contract NexusBridgeUpgradeable is
         address recipient,
         uint256 amount,
         uint256 destinationChainId
-    ) external nonReentrant whenNotPaused {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
         if (amount == 0) revert InvalidAmount();
         if (!supportedChains[destinationChainId]) revert UnsupportedChain();
         if (amount > singleTransferLimit) revert SingleTransferLimitExceeded();
@@ -152,7 +150,11 @@ contract NexusBridgeUpgradeable is
         uint256 srcChainId,
         uint256 nonce,
         bytes[] calldata signatures
-    ) external nonReentrant whenNotPaused {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
         bytes32 transferId = keccak256(abi.encode(recipient, amount, srcChainId, sourceChainId, nonce));
 
         if (processedTransfers[transferId]) revert TransferAlreadyProcessed();
@@ -172,11 +174,7 @@ contract NexusBridgeUpgradeable is
     /**
      * @notice Execute a large transfer after delay
      */
-    function executeLargeTransfer(
-        bytes32 transferId,
-        address recipient,
-        uint256 amount
-    ) external nonReentrant {
+    function executeLargeTransfer(bytes32 transferId, address recipient, uint256 amount) external nonReentrant {
         uint256 unlockTime = pendingLargeTransfers[transferId];
         if (unlockTime == 0) revert TransferNotPending();
         if (block.timestamp < unlockTime) revert TransferStillLocked();
@@ -265,27 +263,30 @@ contract NexusBridgeUpgradeable is
 
     // View functions
 
-    function getBridgeConfig() external view returns (
-        uint256 _sourceChainId,
-        bool _isSourceChain,
-        uint256 _relayerThreshold,
-        uint256 _dailyLimit,
-        uint256 _singleTransferLimit
-    ) {
+    function getBridgeConfig()
+        external
+        view
+        returns (
+            uint256 _sourceChainId,
+            bool _isSourceChain,
+            uint256 _relayerThreshold,
+            uint256 _dailyLimit,
+            uint256 _singleTransferLimit
+        )
+    {
         return (sourceChainId, isSourceChain, relayerThreshold, dailyLimit, singleTransferLimit);
     }
 
-    function getDailyTransferInfo() external view returns (
-        uint256 _dailyTransferred,
-        uint256 _dailyLimit,
-        uint256 _remaining,
-        uint256 _resetTime
-    ) {
+    function getDailyTransferInfo()
+        external
+        view
+        returns (uint256 _dailyTransferred, uint256 _dailyLimit, uint256 _remaining, uint256 _resetTime)
+    {
         uint256 remaining = dailyLimit > dailyTransferred ? dailyLimit - dailyTransferred : 0;
         return (dailyTransferred, dailyLimit, remaining, lastResetTime + 24 hours);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
 
     function version() external pure returns (string memory) {
         return "1.0.0";

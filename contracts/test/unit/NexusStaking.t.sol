@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {NexusStaking} from "../../src/defi/NexusStaking.sol";
-import {NexusToken} from "../../src/core/NexusToken.sol";
+import { Test } from "forge-std/Test.sol";
+import { NexusStaking } from "../../src/defi/NexusStaking.sol";
+import { NexusToken } from "../../src/core/NexusToken.sol";
 
 /**
  * @title NexusStakingTest
@@ -103,17 +103,17 @@ contract NexusStakingTest is Test {
     function test_InitiateUnbonding_AfterMinDuration() public {
         // Stake a large amount so daily limit allows for withdrawal
         vm.prank(user1);
-        staking.stake(STAKE_AMOUNT * 10);  // 100,000 tokens
+        staking.stake(STAKE_AMOUNT * 10); // 100,000 tokens
 
         // Fast forward past minimum stake duration
         vm.warp(block.timestamp + MIN_STAKE_DURATION + 1);
 
         // Unbond small amount (within 10% daily limit = 10,000)
         vm.prank(user1);
-        staking.initiateUnbonding(STAKE_AMOUNT);  // 10,000 tokens = exactly 10% limit
+        staking.initiateUnbonding(STAKE_AMOUNT); // 10,000 tokens = exactly 10% limit
 
         (uint256 amount,,,,,,) = staking.stakes(user1);
-        assertEq(amount, STAKE_AMOUNT * 9);  // 90,000 remaining
+        assertEq(amount, STAKE_AMOUNT * 9); // 90,000 remaining
     }
 
     function test_InitiateUnbonding_RevertBeforeMinDuration() public {
@@ -142,7 +142,7 @@ contract NexusStakingTest is Test {
     function test_CompleteUnbonding_AfterPeriod() public {
         // Stake large amount so daily limit allows for withdrawal
         vm.prank(user1);
-        staking.stake(STAKE_AMOUNT * 10);  // 100,000 tokens
+        staking.stake(STAKE_AMOUNT * 10); // 100,000 tokens
 
         vm.warp(block.timestamp + MIN_STAKE_DURATION + 1);
 
@@ -216,7 +216,7 @@ contract NexusStakingTest is Test {
         staking.slash(user1, slashBps, "Protocol violation");
 
         (uint256 amount,,,,,,) = staking.stakes(user1);
-        uint256 expectedAmount = STAKE_AMOUNT - (STAKE_AMOUNT * slashBps / 10000);
+        uint256 expectedAmount = STAKE_AMOUNT - (STAKE_AMOUNT * slashBps / 10_000);
         assertEq(amount, expectedAmount);
     }
 
@@ -265,13 +265,13 @@ contract NexusStakingTest is Test {
     function test_RateLimit_MaxUnbondingOperations() public {
         // Stake very large amount so daily limit is high
         vm.prank(user1);
-        staking.stake(STAKE_AMOUNT * 10);  // 100,000 tokens - daily limit is 10,000
+        staking.stake(STAKE_AMOUNT * 10); // 100,000 tokens - daily limit is 10,000
 
         vm.warp(block.timestamp + MIN_STAKE_DURATION + 1);
 
         // Should be able to unbond up to MAX_UNSTAKE_OPS_PER_WINDOW times (3)
         // Each unbond must be within daily limit, so use smaller amounts
-        uint256 unbondAmount = STAKE_AMOUNT / 4;  // 2,500 tokens per unbond
+        uint256 unbondAmount = STAKE_AMOUNT / 4; // 2,500 tokens per unbond
         for (uint256 i = 0; i < 3; i++) {
             vm.prank(user1);
             staking.initiateUnbonding(unbondAmount);
@@ -286,12 +286,12 @@ contract NexusStakingTest is Test {
     function test_RateLimit_WindowReset() public {
         // Stake very large amount
         vm.prank(user1);
-        staking.stake(STAKE_AMOUNT * 10);  // 100,000 tokens
+        staking.stake(STAKE_AMOUNT * 10); // 100,000 tokens
 
         vm.warp(block.timestamp + MIN_STAKE_DURATION + 1);
 
         // Use up rate limit (3 operations)
-        uint256 unbondAmount = STAKE_AMOUNT / 4;  // 2,500 tokens
+        uint256 unbondAmount = STAKE_AMOUNT / 4; // 2,500 tokens
         for (uint256 i = 0; i < 3; i++) {
             vm.prank(user1);
             staking.initiateUnbonding(unbondAmount);

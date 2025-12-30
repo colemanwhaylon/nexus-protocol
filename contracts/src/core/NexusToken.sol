@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {ERC20Votes} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {ERC20FlashMint} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20FlashMint.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
-import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
-import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import { ERC20Votes } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import { ERC20FlashMint } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20FlashMint.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { Nonces } from "@openzeppelin/contracts/utils/Nonces.sol";
+import { Checkpoints } from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { IERC3156FlashBorrower } from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 
 /**
  * @title NexusToken
@@ -102,12 +102,7 @@ contract NexusToken is ERC20, ERC20Permit, ERC20Votes, ERC20FlashMint, AccessCon
     /// @param token The token address (always this contract)
     /// @param amount The loan amount
     /// @param fee The fee charged for the loan
-    event FlashLoanExecuted(
-        address indexed receiver,
-        address indexed token,
-        uint256 amount,
-        uint256 fee
-    );
+    event FlashLoanExecuted(address indexed receiver, address indexed token, uint256 amount, uint256 fee);
 
     // ============ Errors ============
 
@@ -137,9 +132,7 @@ contract NexusToken is ERC20, ERC20Permit, ERC20Votes, ERC20FlashMint, AccessCon
      *      - PAUSER_ROLE: Can pause/unpause the contract
      * @param initialAdmin The address that will receive all initial roles
      */
-    constructor(
-        address initialAdmin
-    ) ERC20("Nexus Token", "NEXUS") ERC20Permit("Nexus Token") {
+    constructor(address initialAdmin) ERC20("Nexus Token", "NEXUS") ERC20Permit("Nexus Token") {
         // Grant roles to initial admin
         _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
         _grantRole(ADMIN_ROLE, initialAdmin);
@@ -417,7 +410,12 @@ contract NexusToken is ERC20, ERC20Permit, ERC20Votes, ERC20FlashMint, AccessCon
         address token,
         uint256 amount,
         bytes calldata data
-    ) public override whenNotPaused returns (bool) {
+    )
+        public
+        override
+        whenNotPaused
+        returns (bool)
+    {
         if (amount == 0) {
             revert ZeroFlashLoanAmount();
         }
@@ -449,7 +447,12 @@ contract NexusToken is ERC20, ERC20Permit, ERC20Votes, ERC20FlashMint, AccessCon
         address from,
         address to,
         uint256 value
-    ) internal virtual override(ERC20, ERC20Votes) whenNotPaused {
+    )
+        internal
+        virtual
+        override(ERC20, ERC20Votes)
+        whenNotPaused
+    {
         // Call parent implementation (handles voting checkpoints and supply cap)
         super._update(from, to, value);
 
@@ -500,9 +503,7 @@ contract NexusToken is ERC20, ERC20Permit, ERC20Votes, ERC20FlashMint, AccessCon
      * @param owner The address to query
      * @return The current nonce
      */
-    function nonces(
-        address owner
-    ) public view virtual override(ERC20Permit, Nonces) returns (uint256) {
+    function nonces(address owner) public view virtual override(ERC20Permit, Nonces) returns (uint256) {
         return super.nonces(owner);
     }
 
@@ -514,9 +515,7 @@ contract NexusToken is ERC20, ERC20Permit, ERC20Votes, ERC20FlashMint, AccessCon
      * @param interfaceId The interface identifier to check
      * @return true if the interface is supported
      */
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view virtual override(AccessControl) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 }

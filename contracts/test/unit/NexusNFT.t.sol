@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {NexusNFT} from "../../src/core/NexusNFT.sol";
+import { Test } from "forge-std/Test.sol";
+import { NexusNFT } from "../../src/core/NexusNFT.sol";
 
 /**
  * @title NexusNFTTest
@@ -54,11 +54,7 @@ contract NexusNFTTest is Test {
     event TokenSoulboundStatusChanged(uint256 indexed tokenId, bool isSoulbound);
     event TreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
     event TokensMinted(
-        address indexed minter,
-        address indexed to,
-        uint256 quantity,
-        uint256 firstTokenId,
-        uint256 totalPaid
+        address indexed minter, address indexed to, uint256 quantity, uint256 firstTokenId, uint256 totalPaid
     );
     event FundsWithdrawn(address indexed recipient, uint256 amount);
 
@@ -94,14 +90,7 @@ contract NexusNFTTest is Test {
         user3Proof[1] = node12;
 
         vm.startPrank(admin);
-        nft = new NexusNFT(
-            "Nexus NFT",
-            "NNFT",
-            treasury,
-            royaltyReceiver,
-            ROYALTY_BPS,
-            admin
-        );
+        nft = new NexusNFT("Nexus NFT", "NNFT", treasury, royaltyReceiver, ROYALTY_BPS, admin);
 
         // Set prices
         nft.setMintPrice(MINT_PRICE);
@@ -121,9 +110,7 @@ contract NexusNFTTest is Test {
 
     // Helper to hash pairs in merkle tree (sorted)
     function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
-        return a < b
-            ? keccak256(abi.encodePacked(a, b))
-            : keccak256(abi.encodePacked(b, a));
+        return a < b ? keccak256(abi.encodePacked(a, b)) : keccak256(abi.encodePacked(b, a));
     }
 
     // ============ Deployment Tests ============
@@ -194,7 +181,7 @@ contract NexusNFTTest is Test {
         vm.prank(user1);
         vm.expectEmit(true, true, false, true);
         emit TokensMinted(user1, user1, quantity, 1, totalCost);
-        nft.whitelistMint{value: totalCost}(quantity, user1Proof);
+        nft.whitelistMint{ value: totalCost }(quantity, user1Proof);
 
         assertEq(nft.balanceOf(user1), quantity);
         assertEq(nft.totalSupply(), quantity);
@@ -205,7 +192,7 @@ contract NexusNFTTest is Test {
         // Sale is closed by default
         vm.prank(user1);
         vm.expectRevert(NexusNFT.WhitelistSaleNotActive.selector);
-        nft.whitelistMint{value: WHITELIST_PRICE}(1, user1Proof);
+        nft.whitelistMint{ value: WHITELIST_PRICE }(1, user1Proof);
     }
 
     function test_WhitelistMint_RevertInvalidProof() public {
@@ -215,7 +202,7 @@ contract NexusNFTTest is Test {
         // User1 tries with user2's proof
         vm.prank(user1);
         vm.expectRevert(NexusNFT.InvalidMerkleProof.selector);
-        nft.whitelistMint{value: WHITELIST_PRICE}(1, user2Proof);
+        nft.whitelistMint{ value: WHITELIST_PRICE }(1, user2Proof);
     }
 
     function test_WhitelistMint_RevertZeroAmount() public {
@@ -224,7 +211,7 @@ contract NexusNFTTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(NexusNFT.ZeroAmount.selector);
-        nft.whitelistMint{value: 0}(0, user1Proof);
+        nft.whitelistMint{ value: 0 }(0, user1Proof);
     }
 
     function test_WhitelistMint_RevertExceedsTransactionLimit() public {
@@ -233,7 +220,7 @@ contract NexusNFTTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(NexusNFT.ExceedsTransactionLimit.selector);
-        nft.whitelistMint{value: WHITELIST_PRICE * 4}(4, user1Proof);
+        nft.whitelistMint{ value: WHITELIST_PRICE * 4 }(4, user1Proof);
     }
 
     function test_WhitelistMint_RevertExceedsWalletLimit() public {
@@ -242,11 +229,11 @@ contract NexusNFTTest is Test {
 
         // Max whitelist mints is 2 by default
         vm.startPrank(user1);
-        nft.whitelistMint{value: WHITELIST_PRICE * 2}(2, user1Proof);
+        nft.whitelistMint{ value: WHITELIST_PRICE * 2 }(2, user1Proof);
 
         // Try to mint more
         vm.expectRevert(abi.encodeWithSelector(NexusNFT.ExceedsWalletLimit.selector, 1, 0));
-        nft.whitelistMint{value: WHITELIST_PRICE}(1, user1Proof);
+        nft.whitelistMint{ value: WHITELIST_PRICE }(1, user1Proof);
         vm.stopPrank();
     }
 
@@ -255,8 +242,10 @@ contract NexusNFTTest is Test {
         nft.setSalePhase(NexusNFT.SalePhase.Whitelist);
 
         vm.prank(user1);
-        vm.expectRevert(abi.encodeWithSelector(NexusNFT.InsufficientPayment.selector, WHITELIST_PRICE - 1, WHITELIST_PRICE));
-        nft.whitelistMint{value: WHITELIST_PRICE - 1}(1, user1Proof);
+        vm.expectRevert(
+            abi.encodeWithSelector(NexusNFT.InsufficientPayment.selector, WHITELIST_PRICE - 1, WHITELIST_PRICE)
+        );
+        nft.whitelistMint{ value: WHITELIST_PRICE - 1 }(1, user1Proof);
     }
 
     function test_WhitelistMint_RefundsExcess() public {
@@ -267,7 +256,7 @@ contract NexusNFTTest is Test {
         uint256 overpayment = 0.1 ether;
 
         vm.prank(user1);
-        nft.whitelistMint{value: WHITELIST_PRICE + overpayment}(1, user1Proof);
+        nft.whitelistMint{ value: WHITELIST_PRICE + overpayment }(1, user1Proof);
 
         assertEq(user1.balance, balanceBefore - WHITELIST_PRICE);
     }
@@ -291,7 +280,7 @@ contract NexusNFTTest is Test {
         vm.prank(user1);
         vm.expectEmit(true, true, false, true);
         emit TokensMinted(user1, user1, quantity, 1, totalCost);
-        nft.publicMint{value: totalCost}(quantity);
+        nft.publicMint{ value: totalCost }(quantity);
 
         assertEq(nft.balanceOf(user1), quantity);
         assertEq(nft.publicMintCount(user1), quantity);
@@ -301,7 +290,7 @@ contract NexusNFTTest is Test {
         // Sale is closed by default
         vm.prank(user1);
         vm.expectRevert(NexusNFT.PublicSaleNotActive.selector);
-        nft.publicMint{value: MINT_PRICE}(1);
+        nft.publicMint{ value: MINT_PRICE }(1);
     }
 
     function test_PublicMint_RevertZeroAmount() public {
@@ -310,7 +299,7 @@ contract NexusNFTTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(NexusNFT.ZeroAmount.selector);
-        nft.publicMint{value: 0}(0);
+        nft.publicMint{ value: 0 }(0);
     }
 
     function test_PublicMint_RevertExceedsTransactionLimit() public {
@@ -319,7 +308,7 @@ contract NexusNFTTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(NexusNFT.ExceedsTransactionLimit.selector);
-        nft.publicMint{value: MINT_PRICE * 4}(4);
+        nft.publicMint{ value: MINT_PRICE * 4 }(4);
     }
 
     function test_PublicMint_RevertExceedsWalletLimit() public {
@@ -328,12 +317,12 @@ contract NexusNFTTest is Test {
 
         vm.startPrank(user1);
         // Mint max per wallet (5) in two transactions (3 + 2)
-        nft.publicMint{value: MINT_PRICE * 3}(3);
-        nft.publicMint{value: MINT_PRICE * 2}(2);
+        nft.publicMint{ value: MINT_PRICE * 3 }(3);
+        nft.publicMint{ value: MINT_PRICE * 2 }(2);
 
         // Try to mint one more
         vm.expectRevert(abi.encodeWithSelector(NexusNFT.ExceedsWalletLimit.selector, 1, 0));
-        nft.publicMint{value: MINT_PRICE}(1);
+        nft.publicMint{ value: MINT_PRICE }(1);
         vm.stopPrank();
     }
 
@@ -343,7 +332,7 @@ contract NexusNFTTest is Test {
 
         vm.prank(user1);
         vm.expectRevert(abi.encodeWithSelector(NexusNFT.InsufficientPayment.selector, MINT_PRICE - 1, MINT_PRICE));
-        nft.publicMint{value: MINT_PRICE - 1}(1);
+        nft.publicMint{ value: MINT_PRICE - 1 }(1);
     }
 
     function test_PublicMint_RefundsExcess() public {
@@ -354,7 +343,7 @@ contract NexusNFTTest is Test {
         uint256 overpayment = 0.1 ether;
 
         vm.prank(user1);
-        nft.publicMint{value: MINT_PRICE + overpayment}(1);
+        nft.publicMint{ value: MINT_PRICE + overpayment }(1);
 
         assertEq(user1.balance, balanceBefore - MINT_PRICE);
     }
@@ -553,7 +542,7 @@ contract NexusNFTTest is Test {
         (address receiver, uint256 royaltyAmount) = nft.royaltyInfo(1, salePrice);
 
         assertEq(receiver, royaltyReceiver);
-        assertEq(royaltyAmount, salePrice * ROYALTY_BPS / 10000);
+        assertEq(royaltyAmount, salePrice * ROYALTY_BPS / 10_000);
     }
 
     function test_SetDefaultRoyalty() public {
@@ -565,7 +554,7 @@ contract NexusNFTTest is Test {
 
         (address receiver, uint256 royaltyAmount) = nft.royaltyInfo(1, 1 ether);
         assertEq(receiver, newReceiver);
-        assertEq(royaltyAmount, 1 ether * newBps / 10000);
+        assertEq(royaltyAmount, 1 ether * newBps / 10_000);
     }
 
     function test_SetDefaultRoyalty_RevertZeroAddress() public {
@@ -591,7 +580,7 @@ contract NexusNFTTest is Test {
 
         (address receiver, uint256 royaltyAmount) = nft.royaltyInfo(1, 1 ether);
         assertEq(receiver, tokenReceiver);
-        assertEq(royaltyAmount, 1 ether * tokenBps / 10000);
+        assertEq(royaltyAmount, 1 ether * tokenBps / 10_000);
     }
 
     function test_SetTokenRoyalty_RevertTokenDoesNotExist() public {
@@ -675,7 +664,7 @@ contract NexusNFTTest is Test {
 
         vm.prank(user1);
         vm.expectRevert();
-        nft.whitelistMint{value: WHITELIST_PRICE}(1, user1Proof);
+        nft.whitelistMint{ value: WHITELIST_PRICE }(1, user1Proof);
     }
 
     function test_PublicMint_RevertWhenPaused() public {
@@ -686,7 +675,7 @@ contract NexusNFTTest is Test {
 
         vm.prank(user1);
         vm.expectRevert();
-        nft.publicMint{value: MINT_PRICE}(1);
+        nft.publicMint{ value: MINT_PRICE }(1);
     }
 
     // ============ Treasury & Withdrawal Tests ============
@@ -714,7 +703,7 @@ contract NexusNFTTest is Test {
         nft.setSalePhase(NexusNFT.SalePhase.Public);
 
         vm.prank(user1);
-        nft.publicMint{value: MINT_PRICE * 3}(3);
+        nft.publicMint{ value: MINT_PRICE * 3 }(3);
 
         uint256 contractBalance = address(nft).balance;
         uint256 treasuryBalanceBefore = treasury.balance;
@@ -766,14 +755,10 @@ contract NexusNFTTest is Test {
         vm.stopPrank();
 
         vm.prank(user1);
-        nft.whitelistMint{value: WHITELIST_PRICE}(1, user1Proof);
+        nft.whitelistMint{ value: WHITELIST_PRICE }(1, user1Proof);
 
-        (
-            uint256 whitelistMinted,
-            uint256 publicMinted,
-            uint256 whitelistRemaining,
-            uint256 publicRemaining
-        ) = nft.getMintInfo(user1);
+        (uint256 whitelistMinted, uint256 publicMinted, uint256 whitelistRemaining, uint256 publicRemaining) =
+            nft.getMintInfo(user1);
 
         assertEq(whitelistMinted, 1);
         assertEq(publicMinted, 0);
@@ -920,7 +905,7 @@ contract NexusNFTTest is Test {
         uint256 totalCost = MINT_PRICE * quantity;
 
         vm.prank(user1);
-        nft.publicMint{value: totalCost}(quantity);
+        nft.publicMint{ value: totalCost }(quantity);
 
         assertEq(nft.balanceOf(user1), quantity);
     }
@@ -944,7 +929,7 @@ contract NexusNFTTest is Test {
         (address receiver, uint256 royaltyAmount) = nft.royaltyInfo(1, salePrice);
 
         assertEq(receiver, royaltyReceiver);
-        assertEq(royaltyAmount, salePrice * royaltyBps / 10000);
+        assertEq(royaltyAmount, salePrice * royaltyBps / 10_000);
     }
 
     // ============ Edge Cases ============
@@ -979,7 +964,7 @@ contract NexusNFTTest is Test {
         vm.stopPrank();
 
         vm.prank(user1);
-        nft.whitelistMint{value: 0}(1, user1Proof);
+        nft.whitelistMint{ value: 0 }(1, user1Proof);
 
         assertEq(nft.balanceOf(user1), 1);
     }
@@ -991,7 +976,7 @@ contract NexusNFTTest is Test {
         vm.stopPrank();
 
         vm.prank(user1);
-        nft.publicMint{value: 0}(1);
+        nft.publicMint{ value: 0 }(1);
 
         assertEq(nft.balanceOf(user1), 1);
     }
@@ -1025,14 +1010,7 @@ contract NexusNFTRefundTest is Test {
         rejectContract = new ReceiveRejectContract();
 
         vm.prank(admin);
-        nft = new NexusNFT(
-            "Nexus NFT",
-            "NNFT",
-            treasury,
-            royaltyReceiver,
-            500,
-            admin
-        );
+        nft = new NexusNFT("Nexus NFT", "NNFT", treasury, royaltyReceiver, 500, admin);
 
         vm.startPrank(admin);
         nft.setMintPrice(MINT_PRICE);
@@ -1047,6 +1025,6 @@ contract NexusNFTRefundTest is Test {
         // The rejectContract will reject the refund
         vm.prank(address(rejectContract));
         vm.expectRevert(NexusNFT.WithdrawalFailed.selector);
-        nft.publicMint{value: MINT_PRICE + 0.1 ether}(1);
+        nft.publicMint{ value: MINT_PRICE + 0.1 ether }(1);
     }
 }

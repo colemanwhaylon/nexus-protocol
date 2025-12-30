@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {NexusBridge} from "../../src/bridge/NexusBridge.sol";
-import {NexusToken} from "../../src/core/NexusToken.sol";
+import { Test } from "forge-std/Test.sol";
+import { NexusBridge } from "../../src/bridge/NexusBridge.sol";
+import { NexusToken } from "../../src/core/NexusToken.sol";
 
 /**
  * @title NexusBridgeTest
@@ -51,7 +51,7 @@ contract NexusBridgeTest is Test {
             address(token),
             SOURCE_CHAIN_ID,
             true, // isSourceChain
-            2,    // relayerThreshold (MIN_RELAYER_THRESHOLD)
+            2, // relayerThreshold (MIN_RELAYER_THRESHOLD)
             initialRelayers
         );
 
@@ -215,7 +215,7 @@ contract NexusBridgeTest is Test {
     // ============ Chain Management Tests ============
 
     function test_AddSupportedChain() public {
-        uint256 newChainId = 42161; // Arbitrum
+        uint256 newChainId = 42_161; // Arbitrum
 
         vm.prank(admin);
         bridge.addSupportedChain(newChainId);
@@ -233,7 +233,7 @@ contract NexusBridgeTest is Test {
     function test_AddSupportedChain_OnlyAdmin() public {
         vm.prank(user1);
         vm.expectRevert();
-        bridge.addSupportedChain(42161);
+        bridge.addSupportedChain(42_161);
     }
 
     // ============ Relayer Threshold Tests ============

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {NexusKYCRegistry} from "../../src/security/NexusKYCRegistry.sol";
+import { Test } from "forge-std/Test.sol";
+import { NexusKYCRegistry } from "../../src/security/NexusKYCRegistry.sol";
 
 /**
  * @title NexusKYCRegistryTest
@@ -34,24 +34,16 @@ contract NexusKYCRegistryTest is Test {
 
     // Events
     event KYCUpdated(
-        address indexed account,
-        NexusKYCRegistry.KYCLevel indexed level,
-        uint256 expiresAt,
-        address indexed updatedBy
+        address indexed account, NexusKYCRegistry.KYCLevel indexed level, uint256 expiresAt, address indexed updatedBy
     );
     event Whitelisted(address indexed account, address indexed addedBy);
     event WhitelistRemoved(address indexed account, address indexed removedBy);
     event Blacklisted(address indexed account, string reason, address indexed addedBy);
     event BlacklistRemoved(address indexed account, address indexed removedBy);
     event CountryRestrictionUpdated(
-        bytes32 indexed countryHash,
-        bool isRestricted,
-        NexusKYCRegistry.KYCLevel requiredLevel
+        bytes32 indexed countryHash, bool isRestricted, NexusKYCRegistry.KYCLevel requiredLevel
     );
-    event DefaultRequiredLevelUpdated(
-        NexusKYCRegistry.KYCLevel previousLevel,
-        NexusKYCRegistry.KYCLevel newLevel
-    );
+    event DefaultRequiredLevelUpdated(NexusKYCRegistry.KYCLevel previousLevel, NexusKYCRegistry.KYCLevel newLevel);
     event KYCRequirementUpdated(bool required);
     event BlacklistCheckingUpdated(bool enabled);
     event KYCRevoked(address indexed account, address indexed revokedBy, string reason);
@@ -137,28 +129,14 @@ contract NexusKYCRegistryTest is Test {
 
     function test_SetKYC_None_DoesNotWhitelist() public {
         vm.prank(admin);
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.None,
-            COUNTRY_USA,
-            0,
-            "",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.None, COUNTRY_USA, 0, "", bytes32(0));
 
         assertFalse(registry.isWhitelisted(user1));
     }
 
     function test_SetKYC_AutoWhitelists() public {
         vm.prank(admin);
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            0,
-            "Provider",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, 0, "Provider", bytes32(0));
 
         assertTrue(registry.isWhitelisted(user1));
     }
@@ -166,40 +144,19 @@ contract NexusKYCRegistryTest is Test {
     function test_SetKYC_RevertZeroAddress() public {
         vm.prank(admin);
         vm.expectRevert(NexusKYCRegistry.ZeroAddress.selector);
-        registry.setKYC(
-            address(0),
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            0,
-            "",
-            bytes32(0)
-        );
+        registry.setKYC(address(0), NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, 0, "", bytes32(0));
     }
 
     function test_SetKYC_RevertInvalidExpiry() public {
         vm.prank(admin);
         vm.expectRevert(NexusKYCRegistry.InvalidExpiryDuration.selector);
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            MAX_EXPIRY_DURATION + 1,
-            "",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, MAX_EXPIRY_DURATION + 1, "", bytes32(0));
     }
 
     function test_SetKYC_RevertNotComplianceRole() public {
         vm.prank(user1);
         vm.expectRevert();
-        registry.setKYC(
-            user2,
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            0,
-            "",
-            bytes32(0)
-        );
+        registry.setKYC(user2, NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, 0, "", bytes32(0));
     }
 
     function test_SetKYC_ByComplianceOfficer() public {
@@ -208,14 +165,7 @@ contract NexusKYCRegistryTest is Test {
         vm.stopPrank();
 
         vm.prank(complianceOfficer);
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            0,
-            "Provider",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, 0, "Provider", bytes32(0));
 
         assertEq(uint256(registry.getKYCLevel(user1)), uint256(NexusKYCRegistry.KYCLevel.Basic));
     }
@@ -278,14 +228,7 @@ contract NexusKYCRegistryTest is Test {
     function test_RevokeKYC() public {
         // First set KYC
         vm.prank(admin);
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            0,
-            "Provider",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, 0, "Provider", bytes32(0));
 
         assertTrue(registry.isWhitelisted(user1));
 
@@ -469,28 +412,14 @@ contract NexusKYCRegistryTest is Test {
 
     function test_IsKYCExpired_NotExpired() public {
         vm.prank(admin);
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            30 days,
-            "Provider",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, 30 days, "Provider", bytes32(0));
 
         assertFalse(registry.isKYCExpired(user1));
     }
 
     function test_IsKYCExpired_Expired() public {
         vm.prank(admin);
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            30 days,
-            "Provider",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, 30 days, "Provider", bytes32(0));
 
         vm.warp(block.timestamp + 31 days);
 
@@ -500,14 +429,7 @@ contract NexusKYCRegistryTest is Test {
     function test_IsCompliant_FailsIfExpired() public {
         vm.startPrank(admin);
         registry.setKYCRequired(true);
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            30 days,
-            "Provider",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, 30 days, "Provider", bytes32(0));
         vm.stopPrank();
 
         assertTrue(registry.isCompliant(user1));
@@ -525,12 +447,7 @@ contract NexusKYCRegistryTest is Test {
         vm.prank(admin);
         vm.expectEmit(true, false, false, true);
         emit CountryRestrictionUpdated(countryHash, true, NexusKYCRegistry.KYCLevel.Enhanced);
-        registry.setCountryRestriction(
-            COUNTRY_RESTRICTED,
-            true,
-            NexusKYCRegistry.KYCLevel.Enhanced,
-            1000 ether
-        );
+        registry.setCountryRestriction(COUNTRY_RESTRICTED, true, NexusKYCRegistry.KYCLevel.Enhanced, 1000 ether);
 
         (bool isRestricted, NexusKYCRegistry.KYCLevel requiredLevel, uint256 maxAmount) =
             registry.countryRestrictions(countryHash);
@@ -548,14 +465,7 @@ contract NexusKYCRegistryTest is Test {
         registry.setCountryRestriction(COUNTRY_RESTRICTED, true, NexusKYCRegistry.KYCLevel.Enhanced, 0);
 
         // Set user KYC with restricted country
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.Enhanced,
-            COUNTRY_RESTRICTED,
-            365 days,
-            "Provider",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.Enhanced, COUNTRY_RESTRICTED, 365 days, "Provider", bytes32(0));
         vm.stopPrank();
 
         assertFalse(registry.isCompliant(user1));
@@ -793,14 +703,7 @@ contract NexusKYCRegistryTest is Test {
         duration = bound(duration, 1, MAX_EXPIRY_DURATION);
 
         vm.prank(admin);
-        registry.setKYC(
-            user1,
-            NexusKYCRegistry.KYCLevel.Basic,
-            COUNTRY_USA,
-            duration,
-            "",
-            bytes32(0)
-        );
+        registry.setKYC(user1, NexusKYCRegistry.KYCLevel.Basic, COUNTRY_USA, duration, "", bytes32(0));
 
         (,, uint256 expiresAt,,,) = registry.getKYCInfo(user1);
         assertEq(expiresAt, block.timestamp + duration);

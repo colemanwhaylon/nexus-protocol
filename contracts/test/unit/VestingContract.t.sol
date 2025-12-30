@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {VestingContract} from "../../src/defi/VestingContract.sol";
-import {NexusToken} from "../../src/core/NexusToken.sol";
+import { Test } from "forge-std/Test.sol";
+import { VestingContract } from "../../src/defi/VestingContract.sol";
+import { NexusToken } from "../../src/core/NexusToken.sol";
 
 /**
  * @title VestingContractTest
@@ -51,12 +51,7 @@ contract VestingContractTest is Test {
         bool revocable
     );
 
-    event TokensClaimed(
-        uint256 indexed grantId,
-        address indexed beneficiary,
-        uint256 amount,
-        uint256 totalClaimed
-    );
+    event TokensClaimed(uint256 indexed grantId, address indexed beneficiary, uint256 amount, uint256 totalClaimed);
 
     event GrantRevoked(
         uint256 indexed grantId,
@@ -66,30 +61,15 @@ contract VestingContractTest is Test {
         address revokedBy
     );
 
-    event GrantCompleted(
-        uint256 indexed grantId,
-        address indexed beneficiary,
-        uint256 totalAmount
-    );
+    event GrantCompleted(uint256 indexed grantId, address indexed beneficiary, uint256 totalAmount);
 
     event ScheduleCreated(
-        uint256 indexed scheduleId,
-        string name,
-        uint256 cliffDuration,
-        uint256 vestingDuration,
-        bool revocable
+        uint256 indexed scheduleId, string name, uint256 cliffDuration, uint256 vestingDuration, bool revocable
     );
 
-    event TreasuryUpdated(
-        address indexed oldTreasury,
-        address indexed newTreasury
-    );
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
-    event BeneficiaryChanged(
-        uint256 indexed grantId,
-        address indexed oldBeneficiary,
-        address indexed newBeneficiary
-    );
+    event BeneficiaryChanged(uint256 indexed grantId, address indexed oldBeneficiary, address indexed newBeneficiary);
 
     function setUp() public {
         vm.startPrank(admin);
@@ -176,17 +156,11 @@ contract VestingContractTest is Test {
         uint256 vestingDuration = 365 days;
 
         vm.prank(admin);
-        uint256 scheduleId = vesting.createSchedule(
-            cliffDuration,
-            vestingDuration,
-            true,
-            "Custom Schedule"
-        );
+        uint256 scheduleId = vesting.createSchedule(cliffDuration, vestingDuration, true, "Custom Schedule");
 
         assertEq(scheduleId, 5);
 
-        (uint256 cliff, uint256 duration, bool revocable, string memory name) =
-            vesting.getSchedule(scheduleId);
+        (uint256 cliff, uint256 duration, bool revocable, string memory name) = vesting.getSchedule(scheduleId);
 
         assertEq(cliff, cliffDuration);
         assertEq(duration, vestingDuration);
@@ -240,13 +214,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            cliffDuration,
-            vestingDuration,
-            true
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, cliffDuration, vestingDuration, true
         );
 
         assertEq(grantId, 1);
@@ -277,25 +245,8 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         vm.expectEmit(true, true, true, true);
-        emit GrantCreated(
-            1,
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            180 days,
-            730 days,
-            true
-        );
-        vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            180 days,
-            730 days,
-            true
-        );
+        emit GrantCreated(1, beneficiary1, address(token), GRANT_AMOUNT, startTime, 180 days, 730 days, true);
+        vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 180 days, 730 days, true);
     }
 
     function test_CreateGrant_TransfersTokens() public {
@@ -304,15 +255,7 @@ contract VestingContractTest is Test {
         uint256 vestingBalanceBefore = token.balanceOf(address(vesting));
 
         vm.prank(grantManager);
-        vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            180 days,
-            730 days,
-            true
-        );
+        vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 180 days, 730 days, true);
 
         uint256 vestingBalanceAfter = token.balanceOf(address(vesting));
 
@@ -323,69 +266,33 @@ contract VestingContractTest is Test {
         vm.prank(grantManager);
         vm.expectRevert(VestingContract.ZeroAddress.selector);
         vesting.createGrant(
-            address(0),
-            address(token),
-            GRANT_AMOUNT,
-            block.timestamp + 1 hours,
-            180 days,
-            730 days,
-            true
+            address(0), address(token), GRANT_AMOUNT, block.timestamp + 1 hours, 180 days, 730 days, true
         );
     }
 
     function test_CreateGrant_RevertZeroToken() public {
         vm.prank(grantManager);
         vm.expectRevert(VestingContract.ZeroAddress.selector);
-        vesting.createGrant(
-            beneficiary1,
-            address(0),
-            GRANT_AMOUNT,
-            block.timestamp + 1 hours,
-            180 days,
-            730 days,
-            true
-        );
+        vesting.createGrant(beneficiary1, address(0), GRANT_AMOUNT, block.timestamp + 1 hours, 180 days, 730 days, true);
     }
 
     function test_CreateGrant_RevertZeroAmount() public {
         vm.prank(grantManager);
         vm.expectRevert(VestingContract.ZeroAmount.selector);
-        vesting.createGrant(
-            beneficiary1,
-            address(token),
-            0,
-            block.timestamp + 1 hours,
-            180 days,
-            730 days,
-            true
-        );
+        vesting.createGrant(beneficiary1, address(token), 0, block.timestamp + 1 hours, 180 days, 730 days, true);
     }
 
     function test_CreateGrant_RevertPastStartTime() public {
         vm.prank(grantManager);
         vm.expectRevert(VestingContract.InvalidStartTime.selector);
-        vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            block.timestamp - 1,
-            180 days,
-            730 days,
-            true
-        );
+        vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, block.timestamp - 1, 180 days, 730 days, true);
     }
 
     function test_CreateGrant_RevertUnauthorized() public {
         vm.prank(beneficiary1);
         vm.expectRevert();
         vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            block.timestamp + 1 hours,
-            180 days,
-            730 days,
-            true
+            beneficiary1, address(token), GRANT_AMOUNT, block.timestamp + 1 hours, 180 days, 730 days, true
         );
     }
 
@@ -396,18 +303,13 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_2_YEAR_6M_CLIFF
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_2_YEAR_6M_CLIFF
         );
 
         (
             address beneficiary,
             address tokenAddr,
-            uint256 totalAmount,
-            ,
+            uint256 totalAmount,,
             uint256 storedStartTime,
             uint256 cliffEnd,
             uint256 vestingEnd,
@@ -449,13 +351,8 @@ contract VestingContractTest is Test {
         amounts[2] = 300_000 * 1e18;
 
         vm.prank(grantManager);
-        uint256[] memory grantIds = vesting.createGrantsBatch(
-            beneficiaries,
-            address(token),
-            amounts,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
-        );
+        uint256[] memory grantIds =
+            vesting.createGrantsBatch(beneficiaries, address(token), amounts, startTime, SCHEDULE_1_YEAR_LINEAR);
 
         assertEq(grantIds.length, 3);
         assertEq(grantIds[0], 1);
@@ -464,7 +361,7 @@ contract VestingContractTest is Test {
 
         // Verify each grant
         for (uint256 i = 0; i < 3; i++) {
-            (address beneficiary,, uint256 totalAmount,,,,, ) = vesting.getGrant(grantIds[i]);
+            (address beneficiary,, uint256 totalAmount,,,,,) = vesting.getGrant(grantIds[i]);
             assertEq(beneficiary, beneficiaries[i]);
             assertEq(totalAmount, amounts[i]);
         }
@@ -483,11 +380,7 @@ contract VestingContractTest is Test {
         vm.prank(grantManager);
         vm.expectRevert(VestingContract.ZeroAmount.selector);
         vesting.createGrantsBatch(
-            beneficiaries,
-            address(token),
-            amounts,
-            block.timestamp + 1 hours,
-            SCHEDULE_1_YEAR_LINEAR
+            beneficiaries, address(token), amounts, block.timestamp + 1 hours, SCHEDULE_1_YEAR_LINEAR
         );
     }
 
@@ -525,11 +418,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_1_YEAR_LINEAR
         );
 
         // Warp past end of vesting
@@ -541,7 +430,7 @@ contract VestingContractTest is Test {
         assertEq(claimed, GRANT_AMOUNT);
 
         // Verify grant is completed
-        (,,,,,,,VestingContract.GrantStatus status) = vesting.getGrant(grantId);
+        (,,,,,,, VestingContract.GrantStatus status) = vesting.getGrant(grantId);
         assertEq(uint8(status), uint8(VestingContract.GrantStatus.Completed));
     }
 
@@ -550,11 +439,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_1_YEAR_LINEAR
         );
 
         uint256 totalClaimed = 0;
@@ -582,11 +467,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_1_YEAR_LINEAR
         );
 
         vm.warp(startTime + 365 days);
@@ -629,11 +510,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_2_YEAR_6M_CLIFF
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_2_YEAR_6M_CLIFF
         );
 
         // Warp to before cliff
@@ -649,11 +526,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_2_YEAR_6M_CLIFF
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_2_YEAR_6M_CLIFF
         );
 
         vm.warp(startTime + 90 days);
@@ -669,22 +542,10 @@ contract VestingContractTest is Test {
 
         // Create multiple grants for beneficiary1
         vm.prank(grantManager);
-        vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            100_000 * 1e18,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
-        );
+        vesting.createGrantFromSchedule(beneficiary1, address(token), 100_000 * 1e18, startTime, SCHEDULE_1_YEAR_LINEAR);
 
         vm.prank(grantManager);
-        vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            200_000 * 1e18,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
-        );
+        vesting.createGrantFromSchedule(beneficiary1, address(token), 200_000 * 1e18, startTime, SCHEDULE_1_YEAR_LINEAR);
 
         // Warp to end of vesting
         vm.warp(startTime + 365 days);
@@ -700,15 +561,7 @@ contract VestingContractTest is Test {
 
         // Create grant
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            365 days,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, 365 days, true);
 
         // Revoke it
         vm.warp(startTime + 180 days);
@@ -718,15 +571,7 @@ contract VestingContractTest is Test {
         // Create another grant (must use future start time)
         uint256 newStartTime = block.timestamp + 1 hours;
         vm.prank(grantManager);
-        vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            newStartTime,
-            0,
-            365 days,
-            true
-        );
+        vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, newStartTime, 0, 365 days, true);
 
         vm.warp(newStartTime + 365 days);
 
@@ -741,13 +586,7 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_2_YEAR_6M_CLIFF
-        );
+        vesting.createGrantFromSchedule(beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_2_YEAR_6M_CLIFF);
 
         // Before cliff
         vm.warp(startTime + 90 days);
@@ -770,11 +609,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_1_YEAR_LINEAR
         );
 
         vm.warp(startTime + 365 days);
@@ -789,11 +624,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_1_YEAR_LINEAR
         );
 
         // Claim everything
@@ -812,11 +643,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_1_YEAR_LINEAR
         );
 
         vm.warp(startTime + 365 days);
@@ -858,21 +685,13 @@ contract VestingContractTest is Test {
         uint256 treasuryBalanceAfter = token.balanceOf(treasury);
 
         // Beneficiary should receive vested amount (~50%)
-        assertApproxEqRel(
-            beneficiaryBalanceAfter - beneficiaryBalanceBefore,
-            GRANT_AMOUNT / 2,
-            0.01e18
-        );
+        assertApproxEqRel(beneficiaryBalanceAfter - beneficiaryBalanceBefore, GRANT_AMOUNT / 2, 0.01e18);
 
         // Treasury should receive unvested amount (~50%)
-        assertApproxEqRel(
-            treasuryBalanceAfter - treasuryBalanceBefore,
-            GRANT_AMOUNT / 2,
-            0.01e18
-        );
+        assertApproxEqRel(treasuryBalanceAfter - treasuryBalanceBefore, GRANT_AMOUNT / 2, 0.01e18);
 
         // Grant should be revoked
-        (,,,,,,,VestingContract.GrantStatus status) = vesting.getGrant(grantId);
+        (,,,,,,, VestingContract.GrantStatus status) = vesting.getGrant(grantId);
         assertEq(uint8(status), uint8(VestingContract.GrantStatus.Revoked));
     }
 
@@ -880,15 +699,7 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            365 days,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, 365 days, true);
 
         vm.warp(startTime + 182.5 days);
 
@@ -905,15 +716,7 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 days;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            365 days,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, 365 days, true);
 
         // Revoke before start - all should go to treasury
         vm.prank(admin);
@@ -927,15 +730,7 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            365 days,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, 365 days, true);
 
         // Claim at 25%
         vm.warp(startTime + 91.25 days);
@@ -977,15 +772,7 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            365 days,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, 365 days, true);
 
         vm.warp(startTime + 180 days);
 
@@ -1003,15 +790,7 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            365 days,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, 365 days, true);
 
         vm.prank(beneficiary1); // Not admin
         vm.expectRevert();
@@ -1024,15 +803,7 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            365 days,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, 365 days, true);
 
         vm.prank(beneficiary1);
         vm.expectEmit(true, true, true, false);
@@ -1053,15 +824,7 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            365 days,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, 365 days, true);
 
         vm.prank(beneficiary2); // Not the beneficiary
         vm.expectRevert(VestingContract.NotBeneficiary.selector);
@@ -1072,15 +835,7 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            365 days,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, 365 days, true);
 
         vm.prank(beneficiary1);
         vm.expectRevert(VestingContract.ZeroAddress.selector);
@@ -1136,11 +891,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_1_YEAR_LINEAR
         );
 
         // Before start
@@ -1164,11 +915,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, SCHEDULE_1_YEAR_LINEAR
         );
 
         // Before start
@@ -1187,21 +934,11 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            100_000 * 1e18,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
-        );
+        vesting.createGrantFromSchedule(beneficiary1, address(token), 100_000 * 1e18, startTime, SCHEDULE_1_YEAR_LINEAR);
 
         vm.prank(grantManager);
         vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            200_000 * 1e18,
-            startTime,
-            SCHEDULE_2_YEAR_6M_CLIFF
+            beneficiary1, address(token), 200_000 * 1e18, startTime, SCHEDULE_2_YEAR_6M_CLIFF
         );
 
         uint256[] memory grantIds = vesting.getBeneficiaryGrants(beneficiary1);
@@ -1215,22 +952,10 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            100_000 * 1e18,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
-        );
+        vesting.createGrantFromSchedule(beneficiary1, address(token), 100_000 * 1e18, startTime, SCHEDULE_1_YEAR_LINEAR);
 
         vm.prank(grantManager);
-        vesting.createGrantFromSchedule(
-            beneficiary1,
-            address(token),
-            200_000 * 1e18,
-            startTime,
-            SCHEDULE_1_YEAR_LINEAR
-        );
+        vesting.createGrantFromSchedule(beneficiary1, address(token), 200_000 * 1e18, startTime, SCHEDULE_1_YEAR_LINEAR);
 
         vm.warp(startTime + 365 days);
 
@@ -1244,11 +969,7 @@ contract VestingContractTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             vm.prank(grantManager);
             vesting.createGrantFromSchedule(
-                beneficiary1,
-                address(token),
-                10_000 * 1e18,
-                startTime,
-                SCHEDULE_1_YEAR_LINEAR
+                beneficiary1, address(token), 10_000 * 1e18, startTime, SCHEDULE_1_YEAR_LINEAR
             );
         }
 
@@ -1264,17 +985,9 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            amount,
-            startTime,
-            0,
-            vestingDuration,
-            true
-        );
+        uint256 grantId = vesting.createGrant(beneficiary1, address(token), amount, startTime, 0, vestingDuration, true);
 
-        (,, uint256 totalAmount,,,,, ) = vesting.getGrant(grantId);
+        (,, uint256 totalAmount,,,,,) = vesting.getGrant(grantId);
         assertEq(totalAmount, amount);
     }
 
@@ -1285,15 +998,8 @@ contract VestingContractTest is Test {
         uint256 startTime = block.timestamp + 1 hours;
 
         vm.prank(grantManager);
-        uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            0,
-            vestingDuration,
-            true
-        );
+        uint256 grantId =
+            vesting.createGrant(beneficiary1, address(token), GRANT_AMOUNT, startTime, 0, vestingDuration, true);
 
         vm.warp(startTime + timeElapsed);
 
@@ -1320,13 +1026,7 @@ contract VestingContractTest is Test {
 
         vm.prank(grantManager);
         uint256 grantId = vesting.createGrant(
-            beneficiary1,
-            address(token),
-            GRANT_AMOUNT,
-            startTime,
-            cliffDuration,
-            vestingDuration,
-            true
+            beneficiary1, address(token), GRANT_AMOUNT, startTime, cliffDuration, vestingDuration, true
         );
 
         vm.warp(startTime + timeElapsed);

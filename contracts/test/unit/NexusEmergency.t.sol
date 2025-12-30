@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {NexusEmergency} from "../../src/security/NexusEmergency.sol";
-import {NexusAccessControl} from "../../src/security/NexusAccessControl.sol";
-import {ERC20Mock} from "../mocks/ERC20Mock.sol";
+import { Test } from "forge-std/Test.sol";
+import { NexusEmergency } from "../../src/security/NexusEmergency.sol";
+import { NexusAccessControl } from "../../src/security/NexusAccessControl.sol";
+import { ERC20Mock } from "../mocks/ERC20Mock.sol";
 
 /**
  * @title NexusEmergencyTest
@@ -51,10 +51,7 @@ contract NexusEmergencyTest is Test {
     event MultisigApproved(address indexed multisig, address indexed approver);
     event MultisigRevoked(address indexed multisig, address indexed revoker);
     event UserRescueExecuted(
-        address indexed user,
-        address indexed token,
-        address indexed sourceContract,
-        uint256 amount
+        address indexed user, address indexed token, address indexed sourceContract, uint256 amount
     );
     event RecoveryModeActivated(address indexed activator);
     event RecoveryModeDeactivated(address indexed deactivator);
@@ -320,12 +317,7 @@ contract NexusEmergencyTest is Test {
         uint256 amount = 100 ether;
 
         vm.prank(admin);
-        bytes32 requestId = emergency.initiateDrain(
-            address(token),
-            address(emergency),
-            multisig,
-            amount
-        );
+        bytes32 requestId = emergency.initiateDrain(address(token), address(emergency), multisig, amount);
 
         NexusEmergency.DrainRequest memory request = emergency.getDrainRequest(requestId);
         assertEq(request.token, address(token));
@@ -389,12 +381,7 @@ contract NexusEmergencyTest is Test {
         uint256 amount = 100 ether;
 
         vm.prank(admin);
-        bytes32 requestId = emergency.initiateDrain(
-            address(token),
-            address(emergency),
-            multisig,
-            amount
-        );
+        bytes32 requestId = emergency.initiateDrain(address(token), address(emergency), multisig, amount);
 
         // Fast forward past drain delay
         vm.warp(block.timestamp + EMERGENCY_DRAIN_DELAY + 1);
@@ -421,12 +408,7 @@ contract NexusEmergencyTest is Test {
         emergency.initiateGlobalPause();
 
         vm.prank(admin);
-        bytes32 requestId = emergency.initiateDrain(
-            address(token),
-            address(emergency),
-            multisig,
-            100 ether
-        );
+        bytes32 requestId = emergency.initiateDrain(address(token), address(emergency), multisig, 100 ether);
 
         // Only half the delay
         vm.warp(block.timestamp + EMERGENCY_DRAIN_DELAY / 2);
@@ -444,12 +426,7 @@ contract NexusEmergencyTest is Test {
         emergency.initiateGlobalPause();
 
         vm.prank(admin);
-        bytes32 requestId = emergency.initiateDrain(
-            address(token),
-            address(emergency),
-            multisig,
-            100 ether
-        );
+        bytes32 requestId = emergency.initiateDrain(address(token), address(emergency), multisig, 100 ether);
 
         vm.warp(block.timestamp + EMERGENCY_DRAIN_DELAY + 1);
 
@@ -469,12 +446,7 @@ contract NexusEmergencyTest is Test {
         emergency.initiateGlobalPause();
 
         vm.prank(admin);
-        bytes32 requestId = emergency.initiateDrain(
-            address(token),
-            address(emergency),
-            multisig,
-            100 ether
-        );
+        bytes32 requestId = emergency.initiateDrain(address(token), address(emergency), multisig, 100 ether);
 
         vm.prank(admin);
         emergency.cancelDrain(requestId);
@@ -494,12 +466,7 @@ contract NexusEmergencyTest is Test {
         emergency.initiateGlobalPause();
 
         vm.prank(admin);
-        bytes32 requestId = emergency.initiateDrain(
-            address(token),
-            address(emergency),
-            multisig,
-            100 ether
-        );
+        bytes32 requestId = emergency.initiateDrain(address(token), address(emergency), multisig, 100 ether);
 
         vm.prank(admin);
         vm.expectEmit(true, true, false, false);
@@ -526,12 +493,7 @@ contract NexusEmergencyTest is Test {
         emergency.initiateGlobalPause();
 
         vm.prank(admin);
-        bytes32 requestId = emergency.initiateDrain(
-            address(token),
-            address(emergency),
-            multisig,
-            100 ether
-        );
+        bytes32 requestId = emergency.initiateDrain(address(token), address(emergency), multisig, 100 ether);
 
         vm.warp(block.timestamp + EMERGENCY_DRAIN_DELAY + 1);
 
@@ -551,12 +513,7 @@ contract NexusEmergencyTest is Test {
         emergency.initiateGlobalPause();
 
         vm.prank(admin);
-        bytes32 requestId = emergency.initiateDrain(
-            address(token),
-            address(emergency),
-            multisig,
-            100 ether
-        );
+        bytes32 requestId = emergency.initiateDrain(address(token), address(emergency), multisig, 100 ether);
 
         assertEq(emergency.getDrainTimeRemaining(requestId), EMERGENCY_DRAIN_DELAY);
 
@@ -817,7 +774,7 @@ contract NexusEmergencyTest is Test {
         vm.deal(user1, 1 ether);
 
         vm.prank(user1);
-        (bool success,) = address(emergency).call{value: 1 ether}("");
+        (bool success,) = address(emergency).call{ value: 1 ether }("");
         assertTrue(success);
 
         assertEq(address(emergency).balance, 1 ether);
@@ -857,12 +814,7 @@ contract NexusEmergencyTest is Test {
         emergency.initiateGlobalPause();
 
         vm.prank(admin);
-        bytes32 requestId = emergency.initiateDrain(
-            address(token),
-            address(emergency),
-            multisig,
-            amount
-        );
+        bytes32 requestId = emergency.initiateDrain(address(token), address(emergency), multisig, amount);
 
         vm.warp(block.timestamp + EMERGENCY_DRAIN_DELAY + 1);
 
@@ -876,5 +828,5 @@ contract NexusEmergencyTest is Test {
 // ============ Mock Contracts ============
 
 contract MockMultisig {
-    receive() external payable {}
+    receive() external payable { }
 }

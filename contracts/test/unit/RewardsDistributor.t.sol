@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {RewardsDistributor} from "../../src/defi/RewardsDistributor.sol";
-import {NexusToken} from "../../src/core/NexusToken.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { Test } from "forge-std/Test.sol";
+import { RewardsDistributor } from "../../src/defi/RewardsDistributor.sol";
+import { NexusToken } from "../../src/core/NexusToken.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 /**
  * @title RewardsDistributorTest
@@ -39,8 +39,8 @@ contract RewardsDistributorTest is Test {
     bytes32 public merkleRoot;
     bytes32[] public user1Proof;
     bytes32[] public user2Proof;
-    uint256 public user1Amount = 10000 * 1e18;
-    uint256 public user2Amount = 20000 * 1e18;
+    uint256 public user1Amount = 10_000 * 1e18;
+    uint256 public user2Amount = 20_000 * 1e18;
 
     // Events
     event StreamingCampaignCreated(
@@ -64,18 +64,10 @@ contract RewardsDistributorTest is Test {
     );
 
     event StreamingRewardsClaimed(
-        uint256 indexed campaignId,
-        address indexed user,
-        uint256 amount,
-        uint256 totalClaimed
+        uint256 indexed campaignId, address indexed user, uint256 amount, uint256 totalClaimed
     );
 
-    event MerkleRewardsClaimed(
-        uint256 indexed campaignId,
-        address indexed user,
-        uint256 amount,
-        uint256 leafIndex
-    );
+    event MerkleRewardsClaimed(uint256 indexed campaignId, address indexed user, uint256 amount, uint256 leafIndex);
 
     event CampaignStatusChanged(
         uint256 indexed campaignId,
@@ -83,16 +75,9 @@ contract RewardsDistributorTest is Test {
         RewardsDistributor.CampaignStatus newStatus
     );
 
-    event AllocationSet(
-        uint256 indexed campaignId,
-        address indexed user,
-        uint256 allocation
-    );
+    event AllocationSet(uint256 indexed campaignId, address indexed user, uint256 allocation);
 
-    event TreasuryUpdated(
-        address indexed oldTreasury,
-        address indexed newTreasury
-    );
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     function setUp() public {
         vm.startPrank(admin);
@@ -176,12 +161,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test Campaign",
-            "Test Description"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test Campaign", "Test Description"
         );
 
         assertEq(campaignId, 1);
@@ -218,12 +198,7 @@ contract RewardsDistributorTest is Test {
             "Test Campaign"
         );
         distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test Campaign",
-            "Test Description"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test Campaign", "Test Description"
         );
     }
 
@@ -231,12 +206,7 @@ contract RewardsDistributorTest is Test {
         vm.prank(campaignManager);
         vm.expectRevert(RewardsDistributor.ZeroAddress.selector);
         distributor.createStreamingCampaign(
-            address(0),
-            CAMPAIGN_REWARDS,
-            block.timestamp + 1 hours,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(0), CAMPAIGN_REWARDS, block.timestamp + 1 hours, STREAMING_DURATION, "Test", "Test"
         );
     }
 
@@ -244,12 +214,7 @@ contract RewardsDistributorTest is Test {
         vm.prank(campaignManager);
         vm.expectRevert(RewardsDistributor.ZeroAmount.selector);
         distributor.createStreamingCampaign(
-            address(rewardToken),
-            0,
-            block.timestamp + 1 hours,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), 0, block.timestamp + 1 hours, STREAMING_DURATION, "Test", "Test"
         );
     }
 
@@ -257,12 +222,7 @@ contract RewardsDistributorTest is Test {
         vm.prank(campaignManager);
         vm.expectRevert(RewardsDistributor.InvalidStartTime.selector);
         distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            block.timestamp - 1,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, block.timestamp - 1, STREAMING_DURATION, "Test", "Test"
         );
     }
 
@@ -296,12 +256,7 @@ contract RewardsDistributorTest is Test {
         vm.prank(user1);
         vm.expectRevert();
         distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            block.timestamp + 1 hours,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, block.timestamp + 1 hours, STREAMING_DURATION, "Test", "Test"
         );
     }
 
@@ -312,12 +267,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         vm.prank(campaignManager);
@@ -338,12 +288,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         address[] memory users = new address[](3);
@@ -359,9 +304,9 @@ contract RewardsDistributorTest is Test {
         vm.prank(campaignManager);
         distributor.setAllocationsBatch(campaignId, users, allocations);
 
-        (, , uint256 alloc1) = distributor.getUserStreamingPosition(campaignId, user1);
-        (, , uint256 alloc2) = distributor.getUserStreamingPosition(campaignId, user2);
-        (, , uint256 alloc3) = distributor.getUserStreamingPosition(campaignId, user3);
+        (,, uint256 alloc1) = distributor.getUserStreamingPosition(campaignId, user1);
+        (,, uint256 alloc2) = distributor.getUserStreamingPosition(campaignId, user2);
+        (,, uint256 alloc3) = distributor.getUserStreamingPosition(campaignId, user3);
 
         assertEq(alloc1, 100_000 * 1e18);
         assertEq(alloc2, 200_000 * 1e18);
@@ -381,12 +326,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         uint256 userAllocation = 100_000 * 1e18;
@@ -413,12 +353,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         uint256 userAllocation = 100_000 * 1e18;
@@ -440,12 +375,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         uint256 userAllocation = 100_000 * 1e18;
@@ -477,12 +407,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         vm.prank(campaignManager);
@@ -499,12 +424,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         vm.warp(startTime + 1 days);
@@ -519,12 +439,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         vm.prank(campaignManager);
@@ -584,13 +499,7 @@ contract RewardsDistributorTest is Test {
         vm.prank(campaignManager);
         vm.expectRevert(RewardsDistributor.InvalidMerkleRoot.selector);
         distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            bytes32(0),
-            startTime,
-            startTime + MERKLE_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, bytes32(0), startTime, startTime + MERKLE_DURATION, "Test", "Test"
         );
     }
 
@@ -618,13 +527,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Merkle Airdrop",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Merkle Airdrop", "Test"
         );
 
         // Warp to after start
@@ -648,13 +551,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Merkle Airdrop",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Merkle Airdrop", "Test"
         );
 
         vm.warp(startTime + 1);
@@ -680,13 +577,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Test", "Test"
         );
 
         vm.warp(startTime + 1);
@@ -706,13 +597,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Test", "Test"
         );
 
         vm.warp(startTime + 1);
@@ -729,13 +614,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Test", "Test"
         );
 
         vm.warp(startTime + 1);
@@ -752,13 +631,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Test", "Test"
         );
 
         // Warp past expiration
@@ -775,13 +648,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Test", "Test"
         );
 
         // Don't warp - still before start
@@ -796,13 +663,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Test", "Test"
         );
 
         assertTrue(distributor.verifyMerkleProof(campaignId, user1, user1Amount, 0, user1Proof));
@@ -824,13 +685,7 @@ contract RewardsDistributorTest is Test {
 
             vm.prank(campaignManager);
             distributor.createMerkleCampaign(
-                address(rewardToken),
-                CAMPAIGN_REWARDS / 20,
-                uniqueRoot,
-                startTime,
-                expirationTime,
-                "Test",
-                "Test"
+                address(rewardToken), CAMPAIGN_REWARDS / 20, uniqueRoot, startTime, expirationTime, "Test", "Test"
             );
         }
 
@@ -839,12 +694,7 @@ contract RewardsDistributorTest is Test {
         // Create streaming campaign for rate limit testing
         vm.prank(campaignManager);
         uint256 streamingId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            block.timestamp,
-            STREAMING_DURATION,
-            "Stream",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, block.timestamp, STREAMING_DURATION, "Stream", "Test"
         );
 
         vm.prank(campaignManager);
@@ -868,12 +718,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         vm.prank(campaignManager);
@@ -909,18 +754,13 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         vm.prank(campaignManager);
         distributor.pauseCampaign(campaignId, false);
 
-        (,,,,,RewardsDistributor.CampaignStatus status) = distributor.getStreamingCampaign(campaignId);
+        (,,,,, RewardsDistributor.CampaignStatus status) = distributor.getStreamingCampaign(campaignId);
         assertEq(uint8(status), uint8(RewardsDistributor.CampaignStatus.Paused));
     }
 
@@ -929,12 +769,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         vm.prank(campaignManager);
@@ -943,7 +778,7 @@ contract RewardsDistributorTest is Test {
         vm.prank(campaignManager);
         distributor.resumeCampaign(campaignId, false);
 
-        (,,,,,RewardsDistributor.CampaignStatus status) = distributor.getStreamingCampaign(campaignId);
+        (,,,,, RewardsDistributor.CampaignStatus status) = distributor.getStreamingCampaign(campaignId);
         assertEq(uint8(status), uint8(RewardsDistributor.CampaignStatus.Active));
     }
 
@@ -952,12 +787,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         uint256 treasuryBalanceBefore = rewardToken.balanceOf(treasury);
@@ -967,7 +797,7 @@ contract RewardsDistributorTest is Test {
 
         uint256 treasuryBalanceAfter = rewardToken.balanceOf(treasury);
 
-        (,,,,,RewardsDistributor.CampaignStatus status) = distributor.getStreamingCampaign(campaignId);
+        (,,,,, RewardsDistributor.CampaignStatus status) = distributor.getStreamingCampaign(campaignId);
         assertEq(uint8(status), uint8(RewardsDistributor.CampaignStatus.Cancelled));
         assertEq(treasuryBalanceAfter - treasuryBalanceBefore, CAMPAIGN_REWARDS);
     }
@@ -978,13 +808,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Test", "Test"
         );
 
         // Warp past expiration
@@ -1006,13 +830,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Test", "Test"
         );
 
         bytes32 newRoot = keccak256("new root");
@@ -1030,13 +848,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createMerkleCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            merkleRoot,
-            startTime,
-            expirationTime,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, merkleRoot, startTime, expirationTime, "Test", "Test"
         );
 
         vm.warp(startTime + 1);
@@ -1100,12 +912,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         uint256 userAllocation = 100_000 * 1e18;
@@ -1133,12 +940,7 @@ contract RewardsDistributorTest is Test {
         for (uint256 i = 0; i < 3; i++) {
             vm.prank(campaignManager);
             distributor.createStreamingCampaign(
-                address(rewardToken),
-                CAMPAIGN_REWARDS / 10,
-                startTime,
-                STREAMING_DURATION,
-                "Test",
-                "Test"
+                address(rewardToken), CAMPAIGN_REWARDS / 10, startTime, STREAMING_DURATION, "Test", "Test"
             );
         }
 
@@ -1174,21 +976,11 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            rewards,
-            startTime,
-            duration,
-            "Fuzz Test",
-            "Test"
+            address(rewardToken), rewards, startTime, duration, "Fuzz Test", "Test"
         );
 
-        (
-            address tokenAddr,
-            uint256 totalRewards,
-            ,
-            uint256 storedStartTime,
-            uint256 endTime,
-        ) = distributor.getStreamingCampaign(campaignId);
+        (address tokenAddr, uint256 totalRewards,, uint256 storedStartTime, uint256 endTime,) =
+            distributor.getStreamingCampaign(campaignId);
 
         assertEq(tokenAddr, address(rewardToken));
         assertEq(totalRewards, rewards);
@@ -1204,12 +996,7 @@ contract RewardsDistributorTest is Test {
 
         vm.prank(campaignManager);
         uint256 campaignId = distributor.createStreamingCampaign(
-            address(rewardToken),
-            CAMPAIGN_REWARDS,
-            startTime,
-            STREAMING_DURATION,
-            "Test",
-            "Test"
+            address(rewardToken), CAMPAIGN_REWARDS, startTime, STREAMING_DURATION, "Test", "Test"
         );
 
         vm.prank(campaignManager);

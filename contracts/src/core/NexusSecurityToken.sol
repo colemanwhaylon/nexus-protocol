@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title NexusSecurityToken
@@ -31,14 +31,19 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  */
 /// @notice Interface for KYC registry
 interface IKYCRegistry {
-    function canTransfer(address from, address to, uint256 amount)
-        external view returns (bool allowed, string memory reason);
+    function canTransfer(
+        address from,
+        address to,
+        uint256 amount
+    )
+        external
+        view
+        returns (bool allowed, string memory reason);
     function isCompliant(address account) external view returns (bool);
     function isBlacklisted(address account) external view returns (bool);
 }
 
 contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, ReentrancyGuard {
-
     // ============ Constants ============
 
     /// @notice Role for administrative operations
@@ -60,17 +65,17 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
 
     /// @notice Document information
     struct Document {
-        bytes32 docHash;        // Hash of the document
-        string uri;             // URI to the document
-        uint256 timestamp;      // When document was added
+        bytes32 docHash; // Hash of the document
+        string uri; // URI to the document
+        uint256 timestamp; // When document was added
     }
 
     /// @notice Partition information
     struct Partition {
-        bytes32 name;           // Partition identifier
-        uint256 totalSupply;    // Total supply in this partition
-        bool transferable;      // Whether tokens in this partition can be transferred
-        bool active;            // Whether partition accepts new tokens
+        bytes32 name; // Partition identifier
+        uint256 totalSupply; // Total supply in this partition
+        bool transferable; // Whether tokens in this partition can be transferred
+        bool active; // Whether partition accepts new tokens
     }
 
     // ============ State Variables ============
@@ -122,13 +127,7 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
     /// @param amount The amount issued
     /// @param partition The partition issued to
     /// @param data Additional data
-    event Issued(
-        address indexed operator,
-        address indexed to,
-        uint256 amount,
-        bytes32 indexed partition,
-        bytes data
-    );
+    event Issued(address indexed operator, address indexed to, uint256 amount, bytes32 indexed partition, bytes data);
 
     /// @notice Emitted when tokens are redeemed
     /// @param operator The operator who redeemed
@@ -137,11 +136,7 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
     /// @param partition The partition redeemed from
     /// @param data Additional data
     event Redeemed(
-        address indexed operator,
-        address indexed from,
-        uint256 amount,
-        bytes32 indexed partition,
-        bytes data
+        address indexed operator, address indexed from, uint256 amount, bytes32 indexed partition, bytes data
     );
 
     /// @notice Emitted when tokens are transferred by partition
@@ -185,22 +180,14 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
     /// @param data Additional data
     /// @param operatorData Controller-provided data
     event ControllerRedemption(
-        address indexed controller,
-        address indexed from,
-        uint256 amount,
-        bytes data,
-        bytes operatorData
+        address indexed controller, address indexed from, uint256 amount, bytes data, bytes operatorData
     );
 
     /// @notice Emitted when a document is set
     /// @param name The document name
     /// @param uri The document URI
     /// @param docHash The document hash
-    event DocumentUpdated(
-        bytes32 indexed name,
-        string uri,
-        bytes32 docHash
-    );
+    event DocumentUpdated(bytes32 indexed name, string uri, bytes32 docHash);
 
     /// @notice Emitted when a document is removed
     /// @param name The document name
@@ -296,7 +283,10 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
         string memory symbol_,
         address admin_,
         uint256 cap_
-    ) ERC20(name_, symbol_) ERC20Permit(name_) {
+    )
+        ERC20(name_, symbol_)
+        ERC20Permit(name_)
+    {
         if (admin_ == address(0)) revert ZeroAddress();
 
         cap = cap_;
@@ -330,7 +320,12 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
         uint256 amount,
         bytes32 partition,
         bytes calldata data
-    ) external nonReentrant onlyRole(ISSUER_ROLE) whenNotPaused {
+    )
+        external
+        nonReentrant
+        onlyRole(ISSUER_ROLE)
+        whenNotPaused
+    {
         if (to == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
 
@@ -365,11 +360,7 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
      * @param partition Partition to redeem from
      * @param data Additional data
      */
-    function redeem(
-        uint256 amount,
-        bytes32 partition,
-        bytes calldata data
-    ) external nonReentrant whenNotPaused {
+    function redeem(uint256 amount, bytes32 partition, bytes calldata data) external nonReentrant whenNotPaused {
         if (amount == 0) revert ZeroAmount();
 
         if (partitionBalances[msg.sender][partition] < amount) {
@@ -399,7 +390,12 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
         uint256 amount,
         bytes32 partition,
         bytes calldata data
-    ) external nonReentrant whenNotPaused returns (bytes32) {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+        returns (bytes32)
+    {
         _transferByPartition(msg.sender, msg.sender, to, amount, partition, partition, data);
         return partition;
     }
@@ -418,7 +414,12 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
         uint256 amount,
         bytes32 partition,
         bytes calldata data
-    ) external nonReentrant whenNotPaused returns (bytes32) {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+        returns (bytes32)
+    {
         if (!_isOperator(msg.sender, from)) revert NotOperator();
 
         _transferByPartition(msg.sender, from, to, amount, partition, partition, data);
@@ -441,7 +442,11 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
         uint256 amount,
         bytes calldata data,
         bytes calldata operatorData
-    ) external nonReentrant onlyRole(CONTROLLER_ROLE) {
+    )
+        external
+        nonReentrant
+        onlyRole(CONTROLLER_ROLE)
+    {
         if (!controllable) revert ControllerDisabled();
         if (from == address(0) || to == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
@@ -464,7 +469,11 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
         uint256 amount,
         bytes calldata data,
         bytes calldata operatorData
-    ) external nonReentrant onlyRole(CONTROLLER_ROLE) {
+    )
+        external
+        nonReentrant
+        onlyRole(CONTROLLER_ROLE)
+    {
         if (!controllable) revert ControllerDisabled();
         if (from == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
@@ -507,20 +516,12 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
      * @param uri Document URI
      * @param docHash Document hash
      */
-    function setDocument(
-        bytes32 name,
-        string calldata uri,
-        bytes32 docHash
-    ) external onlyRole(ADMIN_ROLE) {
+    function setDocument(bytes32 name, string calldata uri, bytes32 docHash) external onlyRole(ADMIN_ROLE) {
         if (documents[name].timestamp == 0) {
             _documentList.push(name);
         }
 
-        documents[name] = Document({
-            docHash: docHash,
-            uri: uri,
-            timestamp: block.timestamp
-        });
+        documents[name] = Document({ docHash: docHash, uri: uri, timestamp: block.timestamp });
 
         emit DocumentUpdated(name, uri, docHash);
     }
@@ -541,7 +542,9 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
                 _documentList.pop();
                 break;
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         emit DocumentRemoved(name);
@@ -554,10 +557,7 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
      * @param partition Partition name
      * @param transferable Whether tokens can be transferred
      */
-    function createPartition(
-        bytes32 partition,
-        bool transferable
-    ) external onlyRole(ADMIN_ROLE) {
+    function createPartition(bytes32 partition, bool transferable) external onlyRole(ADMIN_ROLE) {
         if (partitions[partition].name != bytes32(0)) revert PartitionExists();
         _createPartition(partition, transferable);
     }
@@ -568,11 +568,7 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
      * @param active Whether partition is active
      * @param transferable Whether tokens are transferable
      */
-    function updatePartition(
-        bytes32 partition,
-        bool active,
-        bool transferable
-    ) external onlyRole(ADMIN_ROLE) {
+    function updatePartition(bytes32 partition, bool active, bool transferable) external onlyRole(ADMIN_ROLE) {
         if (partitions[partition].name == bytes32(0)) revert PartitionNotFound();
 
         partitions[partition].active = active;
@@ -616,10 +612,7 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
      * @param operator The operator address
      * @param authorized Whether operator is authorized globally
      */
-    function setGlobalOperator(
-        address operator,
-        bool authorized
-    ) external onlyRole(ADMIN_ROLE) {
+    function setGlobalOperator(address operator, bool authorized) external onlyRole(ADMIN_ROLE) {
         globalOperators[operator] = authorized;
     }
 
@@ -646,11 +639,7 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
      * @return docHash The document hash
      * @return timestamp When document was added
      */
-    function getDocument(bytes32 name) external view returns (
-        string memory uri,
-        bytes32 docHash,
-        uint256 timestamp
-    ) {
+    function getDocument(bytes32 name) external view returns (string memory uri, bytes32 docHash, uint256 timestamp) {
         Document storage doc = documents[name];
         return (doc.uri, doc.docHash, doc.timestamp);
     }
@@ -686,10 +675,7 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
      * @param partition The partition name
      * @return The balance
      */
-    function balanceOfByPartition(
-        address holder,
-        bytes32 partition
-    ) external view returns (uint256) {
+    function balanceOfByPartition(address holder, bytes32 partition) external view returns (uint256) {
         return partitionBalances[holder][partition];
     }
 
@@ -705,7 +691,11 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
         address from,
         address to,
         uint256 amount
-    ) external view returns (bool allowed, string memory reason) {
+    )
+        external
+        view
+        returns (bool allowed, string memory reason)
+    {
         if (paused()) {
             return (false, "Contract is paused");
         }
@@ -751,12 +741,7 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
      * @param transferable Whether tokens are transferable
      */
     function _createPartition(bytes32 partition, bool transferable) internal {
-        partitions[partition] = Partition({
-            name: partition,
-            totalSupply: 0,
-            transferable: transferable,
-            active: true
-        });
+        partitions[partition] = Partition({ name: partition, totalSupply: 0, transferable: transferable, active: true });
 
         _partitionList.push(partition);
 
@@ -805,7 +790,9 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
                     holderParts.pop();
                     break;
                 }
-                unchecked { ++i; }
+                unchecked {
+                    ++i;
+                }
             }
         }
     }
@@ -821,7 +808,9 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
         bytes32 fromPartition,
         bytes32 toPartition,
         bytes calldata data
-    ) internal {
+    )
+        internal
+    {
         if (to == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
 
@@ -851,19 +840,13 @@ contract NexusSecurityToken is ERC20, ERC20Permit, AccessControl, Pausable, Reen
      * @notice Check if address is an operator
      */
     function _isOperator(address operator, address holder) internal view returns (bool) {
-        return operator == holder ||
-               globalOperators[operator] ||
-               operators[holder][operator];
+        return operator == holder || globalOperators[operator] || operators[holder][operator];
     }
 
     /**
      * @notice Override transfer to enforce restrictions
      */
-    function _update(
-        address from,
-        address to,
-        uint256 value
-    ) internal virtual override whenNotPaused {
+    function _update(address from, address to, uint256 value) internal virtual override whenNotPaused {
         // Skip restriction check for minting/burning (handled by issue/redeem)
         if (from != address(0) && to != address(0)) {
             if (transfersRestricted && address(kycRegistry) != address(0)) {

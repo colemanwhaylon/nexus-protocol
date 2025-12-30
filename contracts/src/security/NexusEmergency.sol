@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 /**
  * @title NexusEmergency
@@ -115,10 +115,7 @@ contract NexusEmergency is ReentrancyGuard {
     event MultisigApproved(address indexed multisig, address indexed approver);
     event MultisigRevoked(address indexed multisig, address indexed revoker);
     event UserRescueExecuted(
-        address indexed user,
-        address indexed token,
-        address indexed sourceContract,
-        uint256 amount
+        address indexed user, address indexed token, address indexed sourceContract, uint256 amount
     );
     event RecoveryModeActivated(address indexed activator);
     event RecoveryModeDeactivated(address indexed deactivator);
@@ -254,14 +251,16 @@ contract NexusEmergency is ReentrancyGuard {
         address targetContract,
         address destination,
         uint256 amount
-    ) external onlyAdmin returns (bytes32 requestId) {
+    )
+        external
+        onlyAdmin
+        returns (bytes32 requestId)
+    {
         if (!globalPause) revert NotPaused();
         if (!approvedMultisigs[destination]) revert InvalidMultisig();
         if (amount == 0) revert InvalidAmount();
 
-        requestId = keccak256(
-            abi.encodePacked(token, targetContract, destination, amount, block.timestamp)
-        );
+        requestId = keccak256(abi.encodePacked(token, targetContract, destination, amount, block.timestamp));
 
         drainRequests[requestId] = DrainRequest({
             token: token,
@@ -276,12 +275,7 @@ contract NexusEmergency is ReentrancyGuard {
         pendingDrains.push(requestId);
 
         emit DrainRequested(
-            requestId,
-            token,
-            targetContract,
-            destination,
-            amount,
-            block.timestamp + EMERGENCY_DRAIN_DELAY
+            requestId, token, targetContract, destination, amount, block.timestamp + EMERGENCY_DRAIN_DELAY
         );
     }
 
@@ -300,7 +294,7 @@ contract NexusEmergency is ReentrancyGuard {
 
         if (request.token == address(0)) {
             // Drain ETH
-            (bool success, ) = request.destination.call{value: request.amount}("");
+            (bool success,) = request.destination.call{ value: request.amount }("");
             require(success, "ETH transfer failed");
         } else {
             // Drain ERC20 - assumes this contract has approval or is the owner
@@ -343,11 +337,7 @@ contract NexusEmergency is ReentrancyGuard {
      * @param amount Amount to rescue
      * @dev Only available after 30 days of global pause
      */
-    function userRescue(
-        address token,
-        address sourceContract,
-        uint256 amount
-    ) external nonReentrant {
+    function userRescue(address token, address sourceContract, uint256 amount) external nonReentrant {
         if (!globalPause) revert NotPaused();
         if (!rescueEnabledContracts[sourceContract]) revert ContractNotRegistered();
         if (block.timestamp < pauseInitiatedAt + USER_RESCUE_DELAY) revert RescueTooEarly();
@@ -459,13 +449,12 @@ contract NexusEmergency is ReentrancyGuard {
      */
     function _hasRole(bytes32 role, address account) internal view returns (bool) {
         // Call accessControl.hasRole(role, account)
-        (bool success, bytes memory data) = accessControl.staticcall(
-            abi.encodeWithSignature("hasRole(bytes32,address)", role, account)
-        );
+        (bool success, bytes memory data) =
+            accessControl.staticcall(abi.encodeWithSignature("hasRole(bytes32,address)", role, account));
         return success && abi.decode(data, (bool));
     }
 
     // ============ Receive ETH ============
 
-    receive() external payable {}
+    receive() external payable { }
 }

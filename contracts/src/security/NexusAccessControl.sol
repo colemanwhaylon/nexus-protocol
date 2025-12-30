@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {AccessControlEnumerable} from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import { AccessControlEnumerable } from "@openzeppelin/contracts/access/extensions/AccessControlEnumerable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title NexusAccessControl
@@ -327,9 +327,7 @@ contract NexusAccessControl is AccessControlEnumerable, Pausable {
      * @return bool True if address has any admin/operator role
      */
     function hasPrivilegedRole(address account) external view returns (bool) {
-        return hasRole(DEFAULT_ADMIN_ROLE, account) ||
-               hasRole(ADMIN_ROLE, account) ||
-               hasRole(OPERATOR_ROLE, account);
+        return hasRole(DEFAULT_ADMIN_ROLE, account) || hasRole(ADMIN_ROLE, account) || hasRole(OPERATOR_ROLE, account);
     }
 
     /**

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test} from "forge-std/Test.sol";
-import {NexusAccessControl} from "../../src/security/NexusAccessControl.sol";
-import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { Test } from "forge-std/Test.sol";
+import { NexusAccessControl } from "../../src/security/NexusAccessControl.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 /**
  * @title NexusAccessControlTest

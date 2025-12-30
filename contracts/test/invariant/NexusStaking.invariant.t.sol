@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {StdInvariant} from "forge-std/StdInvariant.sol";
-import {NexusStaking} from "../../src/defi/NexusStaking.sol";
-import {ERC20Mock} from "../mocks/ERC20Mock.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { StdInvariant } from "forge-std/StdInvariant.sol";
+import { NexusStaking } from "../../src/defi/NexusStaking.sol";
+import { ERC20Mock } from "../mocks/ERC20Mock.sol";
 
 /**
  * @title NexusStakingInvariantTest
@@ -50,11 +50,7 @@ contract NexusStakingInvariantTest is StdInvariant, Test {
         uint256 totalStaked = staking.totalStaked();
         uint256 totalUnbonding = staking.totalUnbonding();
 
-        assertEq(
-            totalStaked + totalUnbonding,
-            contractBalance,
-            "Invariant violated: Balance mismatch"
-        );
+        assertEq(totalStaked + totalUnbonding, contractBalance, "Invariant violated: Balance mismatch");
     }
 
     /**
@@ -175,7 +171,7 @@ contract StakingHandler is Test {
         vm.prank(staker);
         try staking.initiateUnbonding(amount) {
             unbondCount++;
-        } catch {}
+        } catch { }
     }
 
     /**
@@ -199,7 +195,7 @@ contract StakingHandler is Test {
         vm.warp(completionTime + 1);
 
         vm.prank(staker);
-        try staking.completeUnbonding(requestIndex) {} catch {}
+        try staking.completeUnbonding(requestIndex) { } catch { }
     }
 
     /**
@@ -216,12 +212,12 @@ contract StakingHandler is Test {
 
         bps = bound(bps, 1, 5000);
 
-        uint256 slashAmount = (stakedAmount * bps) / 10000;
+        uint256 slashAmount = (stakedAmount * bps) / 10_000;
 
         try staking.slash(staker, bps, "invariant test") {
             slashCount++;
             totalSlashedAmount += slashAmount;
-        } catch {}
+        } catch { }
     }
 
     /**

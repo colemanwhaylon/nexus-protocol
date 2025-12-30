@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {NexusMultiSig} from "../../src/governance/NexusMultiSig.sol";
-import {NexusToken} from "../../src/core/NexusToken.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { NexusMultiSig } from "../../src/governance/NexusMultiSig.sol";
+import { NexusToken } from "../../src/core/NexusToken.sol";
 
 /**
  * @title NexusMultiSigTest
@@ -35,11 +35,7 @@ contract NexusMultiSigTest is Test {
     uint256 public constant TOKEN_AMOUNT = 1_000_000 * 1e18;
 
     // Events
-    event WalletInitialized(
-        address[] owners,
-        uint256 threshold,
-        uint256 expiryPeriod
-    );
+    event WalletInitialized(address[] owners, uint256 threshold, uint256 expiryPeriod);
     event TransactionSubmitted(
         bytes32 indexed txHash,
         address indexed submitter,
@@ -50,33 +46,13 @@ contract NexusMultiSigTest is Test {
         uint256 deadline
     );
     event BatchSubmitted(
-        bytes32 indexed batchHash,
-        address indexed submitter,
-        uint256 transactionCount,
-        uint256 nonce,
-        uint256 deadline
+        bytes32 indexed batchHash, address indexed submitter, uint256 transactionCount, uint256 nonce, uint256 deadline
     );
-    event TransactionConfirmed(
-        bytes32 indexed txHash,
-        address indexed confirmer,
-        uint256 confirmationCount
-    );
-    event ConfirmationRevoked(
-        bytes32 indexed txHash,
-        address indexed revoker,
-        uint256 confirmationCount
-    );
-    event TransactionExecuted(
-        bytes32 indexed txHash,
-        address indexed executor,
-        bool success,
-        bytes returnData
-    );
+    event TransactionConfirmed(bytes32 indexed txHash, address indexed confirmer, uint256 confirmationCount);
+    event ConfirmationRevoked(bytes32 indexed txHash, address indexed revoker, uint256 confirmationCount);
+    event TransactionExecuted(bytes32 indexed txHash, address indexed executor, bool success, bytes returnData);
     event BatchExecuted(
-        bytes32 indexed batchHash,
-        address indexed executor,
-        uint256 successCount,
-        uint256 failureCount
+        bytes32 indexed batchHash, address indexed executor, uint256 successCount, uint256 failureCount
     );
     event OwnerAdded(address indexed owner, address indexed addedBy);
     event OwnerRemoved(address indexed owner, address indexed removedBy);
@@ -134,12 +110,7 @@ contract NexusMultiSigTest is Test {
         address[] memory owners = new address[](1);
         owners[0] = owner1;
 
-        vm.expectRevert(abi.encodeWithSelector(
-            NexusMultiSig.InvalidOwnerCount.selector,
-            1,
-            2,
-            20
-        ));
+        vm.expectRevert(abi.encodeWithSelector(NexusMultiSig.InvalidOwnerCount.selector, 1, 2, 20));
         new NexusMultiSig(owners, 1, EXPIRY_PERIOD);
     }
 
@@ -149,11 +120,7 @@ contract NexusMultiSigTest is Test {
         owners[1] = owner2;
         owners[2] = owner3;
 
-        vm.expectRevert(abi.encodeWithSelector(
-            NexusMultiSig.InvalidThreshold.selector,
-            0,
-            3
-        ));
+        vm.expectRevert(abi.encodeWithSelector(NexusMultiSig.InvalidThreshold.selector, 0, 3));
         new NexusMultiSig(owners, 0, EXPIRY_PERIOD);
     }
 
@@ -163,11 +130,7 @@ contract NexusMultiSigTest is Test {
         owners[1] = owner2;
         owners[2] = owner3;
 
-        vm.expectRevert(abi.encodeWithSelector(
-            NexusMultiSig.InvalidThreshold.selector,
-            5,
-            3
-        ));
+        vm.expectRevert(abi.encodeWithSelector(NexusMultiSig.InvalidThreshold.selector, 5, 3));
         new NexusMultiSig(owners, 5, EXPIRY_PERIOD);
     }
 
@@ -177,12 +140,9 @@ contract NexusMultiSigTest is Test {
         owners[1] = owner2;
         owners[2] = owner3;
 
-        vm.expectRevert(abi.encodeWithSelector(
-            NexusMultiSig.InvalidExpiryPeriod.selector,
-            30 minutes,
-            1 hours,
-            30 days
-        ));
+        vm.expectRevert(
+            abi.encodeWithSelector(NexusMultiSig.InvalidExpiryPeriod.selector, 30 minutes, 1 hours, 30 days)
+        );
         new NexusMultiSig(owners, 2, 30 minutes);
     }
 
@@ -192,12 +152,7 @@ contract NexusMultiSigTest is Test {
         owners[1] = owner2;
         owners[2] = owner3;
 
-        vm.expectRevert(abi.encodeWithSelector(
-            NexusMultiSig.InvalidExpiryPeriod.selector,
-            60 days,
-            1 hours,
-            30 days
-        ));
+        vm.expectRevert(abi.encodeWithSelector(NexusMultiSig.InvalidExpiryPeriod.selector, 60 days, 1 hours, 30 days));
         new NexusMultiSig(owners, 2, 60 days);
     }
 
@@ -500,11 +455,7 @@ contract NexusMultiSigTest is Test {
 
         // Only 1 confirmation (submitter)
         vm.prank(owner1);
-        vm.expectRevert(abi.encodeWithSelector(
-            NexusMultiSig.InsufficientConfirmations.selector,
-            1,
-            3
-        ));
+        vm.expectRevert(abi.encodeWithSelector(NexusMultiSig.InsufficientConfirmations.selector, 1, 3));
         multiSig.executeTransaction(txHash);
     }
 
@@ -881,7 +832,7 @@ contract NexusMultiSigTest is Test {
         vm.expectEmit(true, false, false, true);
         emit EtherReceived(address(this), 5 ether);
 
-        (bool success,) = address(multiSig).call{value: 5 ether}("");
+        (bool success,) = address(multiSig).call{ value: 5 ether }("");
         assertTrue(success);
 
         assertEq(address(multiSig).balance, balanceBefore + 5 ether);

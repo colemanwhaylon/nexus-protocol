@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title VestingContract
@@ -55,9 +55,9 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Grant status enum
     enum GrantStatus {
-        Active,     // Grant is active and vesting
-        Revoked,    // Grant was revoked
-        Completed   // Grant fully vested and claimed
+        Active, // Grant is active and vesting
+        Revoked, // Grant was revoked
+        Completed // Grant fully vested and claimed
     }
 
     // ============ Structs ============
@@ -141,12 +141,7 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
     );
 
     /// @notice Emitted when tokens are claimed
-    event TokensClaimed(
-        uint256 indexed grantId,
-        address indexed beneficiary,
-        uint256 amount,
-        uint256 totalClaimed
-    );
+    event TokensClaimed(uint256 indexed grantId, address indexed beneficiary, uint256 amount, uint256 totalClaimed);
 
     /// @notice Emitted when a grant is revoked
     event GrantRevoked(
@@ -158,33 +153,18 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
     );
 
     /// @notice Emitted when a grant is completed
-    event GrantCompleted(
-        uint256 indexed grantId,
-        address indexed beneficiary,
-        uint256 totalAmount
-    );
+    event GrantCompleted(uint256 indexed grantId, address indexed beneficiary, uint256 totalAmount);
 
     /// @notice Emitted when a vesting schedule is created
     event ScheduleCreated(
-        uint256 indexed scheduleId,
-        string name,
-        uint256 cliffDuration,
-        uint256 vestingDuration,
-        bool revocable
+        uint256 indexed scheduleId, string name, uint256 cliffDuration, uint256 vestingDuration, bool revocable
     );
 
     /// @notice Emitted when treasury is updated
-    event TreasuryUpdated(
-        address indexed oldTreasury,
-        address indexed newTreasury
-    );
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
     /// @notice Emitted when beneficiary is changed
-    event BeneficiaryChanged(
-        uint256 indexed grantId,
-        address indexed oldBeneficiary,
-        address indexed newBeneficiary
-    );
+    event BeneficiaryChanged(uint256 indexed grantId, address indexed oldBeneficiary, address indexed newBeneficiary);
 
     // ============ Errors ============
 
@@ -272,7 +252,12 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
         uint256 cliffDuration,
         uint256 vestingDuration,
         bool revocable
-    ) external nonReentrant onlyRole(GRANT_MANAGER_ROLE) returns (uint256 grantId) {
+    )
+        external
+        nonReentrant
+        onlyRole(GRANT_MANAGER_ROLE)
+        returns (uint256 grantId)
+    {
         // Validate inputs
         if (beneficiary == address(0)) revert ZeroAddress();
         if (token == address(0)) revert ZeroAddress();
@@ -306,14 +291,7 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
         IERC20(token).safeTransferFrom(msg.sender, address(this), totalAmount);
 
         emit GrantCreated(
-            grantId,
-            beneficiary,
-            token,
-            totalAmount,
-            startTime,
-            cliffDuration,
-            vestingDuration,
-            revocable
+            grantId, beneficiary, token, totalAmount, startTime, cliffDuration, vestingDuration, revocable
         );
     }
 
@@ -332,7 +310,12 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
         uint256 totalAmount,
         uint256 startTime,
         uint256 scheduleId
-    ) external nonReentrant onlyRole(GRANT_MANAGER_ROLE) returns (uint256 grantId) {
+    )
+        external
+        nonReentrant
+        onlyRole(GRANT_MANAGER_ROLE)
+        returns (uint256 grantId)
+    {
         VestingSchedule storage schedule = schedules[scheduleId];
         if (schedule.vestingDuration == 0) revert ScheduleNotFound();
 
@@ -390,7 +373,12 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
         uint256[] calldata amounts,
         uint256 startTime,
         uint256 scheduleId
-    ) external nonReentrant onlyRole(GRANT_MANAGER_ROLE) returns (uint256[] memory grantIds) {
+    )
+        external
+        nonReentrant
+        onlyRole(GRANT_MANAGER_ROLE)
+        returns (uint256[] memory grantIds)
+    {
         if (beneficiaries.length != amounts.length) revert ZeroAmount();
 
         VestingSchedule storage schedule = schedules[scheduleId];
@@ -556,10 +544,7 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
      * @param grantId Grant ID
      * @param newBeneficiary New beneficiary address
      */
-    function changeBeneficiary(
-        uint256 grantId,
-        address newBeneficiary
-    ) external nonReentrant {
+    function changeBeneficiary(uint256 grantId, address newBeneficiary) external nonReentrant {
         VestingGrant storage grant = grants[grantId];
         if (grant.totalAmount == 0) revert GrantNotFound();
         if (grant.status != GrantStatus.Active) revert GrantNotActive();
@@ -590,7 +575,11 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
         uint256 vestingDuration,
         bool revocable,
         string calldata name
-    ) external onlyRole(ADMIN_ROLE) returns (uint256 scheduleId) {
+    )
+        external
+        onlyRole(ADMIN_ROLE)
+        returns (uint256 scheduleId)
+    {
         return _createSchedule(cliffDuration, vestingDuration, revocable, name);
     }
 
@@ -602,7 +591,10 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
         uint256 vestingDuration,
         bool revocable,
         string memory name
-    ) internal returns (uint256 scheduleId) {
+    )
+        internal
+        returns (uint256 scheduleId)
+    {
         if (vestingDuration < MIN_VESTING_DURATION || vestingDuration > MAX_VESTING_DURATION) {
             revert InvalidDuration();
         }
@@ -612,10 +604,7 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
         scheduleId = nextScheduleId++;
 
         schedules[scheduleId] = VestingSchedule({
-            cliffDuration: cliffDuration,
-            vestingDuration: vestingDuration,
-            revocable: revocable,
-            name: name
+            cliffDuration: cliffDuration, vestingDuration: vestingDuration, revocable: revocable, name: name
         });
 
         emit ScheduleCreated(scheduleId, name, cliffDuration, vestingDuration, revocable);
@@ -700,18 +689,20 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
      * @return vestingEnd Vesting end timestamp
      * @return status Grant status
      */
-    function getGrant(
-        uint256 grantId
-    ) external view returns (
-        address beneficiary,
-        address token,
-        uint256 totalAmount,
-        uint256 claimedAmount,
-        uint256 startTime,
-        uint256 cliffEnd,
-        uint256 vestingEnd,
-        GrantStatus status
-    ) {
+    function getGrant(uint256 grantId)
+        external
+        view
+        returns (
+            address beneficiary,
+            address token,
+            uint256 totalAmount,
+            uint256 claimedAmount,
+            uint256 startTime,
+            uint256 cliffEnd,
+            uint256 vestingEnd,
+            GrantStatus status
+        )
+    {
         VestingGrant storage g = grants[grantId];
         return (
             g.beneficiary,
@@ -730,9 +721,7 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
      * @param beneficiary Beneficiary address
      * @return grantIds Array of grant IDs
      */
-    function getBeneficiaryGrants(
-        address beneficiary
-    ) external view returns (uint256[] memory grantIds) {
+    function getBeneficiaryGrants(address beneficiary) external view returns (uint256[] memory grantIds) {
         return beneficiaryGrants[beneficiary];
     }
 
@@ -741,9 +730,7 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
      * @param beneficiary Beneficiary address
      * @return totalClaimable Total claimable amount
      */
-    function getTotalClaimable(
-        address beneficiary
-    ) external view returns (uint256 totalClaimable) {
+    function getTotalClaimable(address beneficiary) external view returns (uint256 totalClaimable) {
         uint256[] storage grantIds = beneficiaryGrants[beneficiary];
 
         for (uint256 i = 0; i < grantIds.length; i++) {
@@ -767,14 +754,11 @@ contract VestingContract is AccessControl, Pausable, ReentrancyGuard {
      * @return revocable Whether revocable
      * @return name Schedule name
      */
-    function getSchedule(
-        uint256 scheduleId
-    ) external view returns (
-        uint256 cliffDuration,
-        uint256 vestingDuration,
-        bool revocable,
-        string memory name
-    ) {
+    function getSchedule(uint256 scheduleId)
+        external
+        view
+        returns (uint256 cliffDuration, uint256 vestingDuration, bool revocable, string memory name)
+    {
         VestingSchedule storage s = schedules[scheduleId];
         return (s.cliffDuration, s.vestingDuration, s.revocable, s.name);
     }

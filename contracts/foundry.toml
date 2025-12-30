@@ -11,6 +11,10 @@ ast = true
 build_info = true
 extra_output = ["abi", "evm.bytecode"]
 
+# Test and script directories
+test = "test"
+script = "script"
+
 # Remappings for dependencies
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
@@ -48,7 +52,7 @@ number_underscore = "thousands"
 single_line_statement_blocks = "preserve"
 override_spacing = false
 wrap_comments = true
-ignore = []
+ignore = ["lib/"]
 
 # RPC endpoints (use environment variables in production)
 [rpc_endpoints]

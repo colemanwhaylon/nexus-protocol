@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title NexusKYCRegistry
@@ -25,7 +25,6 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
  *      - SEC-013: Events emitted for all state changes
  */
 contract NexusKYCRegistry is AccessControl, Pausable {
-
     // ============ Constants ============
 
     /// @notice Role for administrative operations
@@ -44,30 +43,30 @@ contract NexusKYCRegistry is AccessControl, Pausable {
 
     /// @notice KYC verification levels
     enum KYCLevel {
-        None,       // 0: No KYC completed
-        Basic,      // 1: Basic identity verification
-        Enhanced,   // 2: Enhanced due diligence
-        Accredited  // 3: Accredited investor verification
+        None, // 0: No KYC completed
+        Basic, // 1: Basic identity verification
+        Enhanced, // 2: Enhanced due diligence
+        Accredited // 3: Accredited investor verification
     }
 
     // ============ Structs ============
 
     /// @notice KYC information for an address
     struct KYCInfo {
-        KYCLevel level;              // Current KYC level
-        uint256 verifiedAt;          // Timestamp of verification
-        uint256 expiresAt;           // Timestamp when KYC expires
-        bytes32 countryCode;         // ISO 3166-1 alpha-3 country code (hashed)
-        bool isWhitelisted;          // Whether address is whitelisted
-        bool isBlacklisted;          // Whether address is blacklisted
-        string kycProvider;          // KYC provider identifier
-        bytes32 kycHash;             // Hash of KYC documents/data
+        KYCLevel level; // Current KYC level
+        uint256 verifiedAt; // Timestamp of verification
+        uint256 expiresAt; // Timestamp when KYC expires
+        bytes32 countryCode; // ISO 3166-1 alpha-3 country code (hashed)
+        bool isWhitelisted; // Whether address is whitelisted
+        bool isBlacklisted; // Whether address is blacklisted
+        string kycProvider; // KYC provider identifier
+        bytes32 kycHash; // Hash of KYC documents/data
     }
 
     /// @notice Country restriction settings
     struct CountryRestriction {
-        bool isRestricted;           // Whether country is restricted
-        KYCLevel requiredLevel;      // Minimum KYC level required
+        bool isRestricted; // Whether country is restricted
+        KYCLevel requiredLevel; // Minimum KYC level required
         uint256 maxTransactionAmount; // Maximum transaction amount (0 = unlimited)
     }
 
@@ -107,12 +106,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     /// @param level The new KYC level
     /// @param expiresAt When the KYC expires
     /// @param updatedBy The compliance officer who made the update
-    event KYCUpdated(
-        address indexed account,
-        KYCLevel indexed level,
-        uint256 expiresAt,
-        address indexed updatedBy
-    );
+    event KYCUpdated(address indexed account, KYCLevel indexed level, uint256 expiresAt, address indexed updatedBy);
 
     /// @notice Emitted when an address is whitelisted
     /// @param account The whitelisted address
@@ -128,11 +122,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     /// @param account The blacklisted address
     /// @param reason The reason for blacklisting
     /// @param addedBy The compliance officer who added it
-    event Blacklisted(
-        address indexed account,
-        string reason,
-        address indexed addedBy
-    );
+    event Blacklisted(address indexed account, string reason, address indexed addedBy);
 
     /// @notice Emitted when an address is removed from blacklist
     /// @param account The removed address
@@ -143,11 +133,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     /// @param countryHash The hashed country code
     /// @param isRestricted Whether the country is restricted
     /// @param requiredLevel The required KYC level
-    event CountryRestrictionUpdated(
-        bytes32 indexed countryHash,
-        bool isRestricted,
-        KYCLevel requiredLevel
-    );
+    event CountryRestrictionUpdated(bytes32 indexed countryHash, bool isRestricted, KYCLevel requiredLevel);
 
     /// @notice Emitted when default required level changes
     /// @param previousLevel The previous required level
@@ -166,11 +152,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     /// @param account The account whose KYC was revoked
     /// @param revokedBy The compliance officer who revoked it
     /// @param reason The reason for revocation
-    event KYCRevoked(
-        address indexed account,
-        address indexed revokedBy,
-        string reason
-    );
+    event KYCRevoked(address indexed account, address indexed revokedBy, string reason);
 
     // ============ Errors ============
 
@@ -263,7 +245,11 @@ contract NexusKYCRegistry is AccessControl, Pausable {
         uint256 expiryDuration,
         string calldata kycProvider,
         bytes32 kycHash
-    ) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
+    )
+        external
+        onlyRole(COMPLIANCE_ROLE)
+        whenNotPaused
+    {
         if (account == address(0)) revert ZeroAddress();
         if (expiryDuration > MAX_EXPIRY_DURATION) revert InvalidExpiryDuration();
 
@@ -299,7 +285,11 @@ contract NexusKYCRegistry is AccessControl, Pausable {
         KYCLevel[] calldata levels,
         string[] calldata countryCodes,
         uint256 expiryDuration
-    ) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
+    )
+        external
+        onlyRole(COMPLIANCE_ROLE)
+        whenNotPaused
+    {
         if (accounts.length == 0) revert EmptyArray();
         if (accounts.length != levels.length || accounts.length != countryCodes.length) {
             revert ArrayLengthMismatch();
@@ -328,7 +318,9 @@ contract NexusKYCRegistry is AccessControl, Pausable {
 
             emit KYCUpdated(account, levels[i], expiresAt, msg.sender);
 
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -337,10 +329,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
      * @param account The address to revoke
      * @param reason The reason for revocation
      */
-    function revokeKYC(
-        address account,
-        string calldata reason
-    ) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
+    function revokeKYC(address account, string calldata reason) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
         if (account == address(0)) revert ZeroAddress();
 
         KYCInfo storage info = _kycInfo[account];
@@ -373,9 +362,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
      * @notice Batch add addresses to whitelist
      * @param accounts The addresses to whitelist
      */
-    function batchAddToWhitelist(
-        address[] calldata accounts
-    ) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
+    function batchAddToWhitelist(address[] calldata accounts) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
         if (accounts.length == 0) revert EmptyArray();
 
         for (uint256 i = 0; i < accounts.length;) {
@@ -387,7 +374,9 @@ contract NexusKYCRegistry is AccessControl, Pausable {
                 emit Whitelisted(account, msg.sender);
             }
 
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -410,10 +399,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
      * @param account The address to blacklist
      * @param reason The reason for blacklisting
      */
-    function addToBlacklist(
-        address account,
-        string calldata reason
-    ) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
+    function addToBlacklist(address account, string calldata reason) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
         if (account == address(0)) revert ZeroAddress();
         if (_kycInfo[account].isBlacklisted) revert AlreadyBlacklisted();
 
@@ -453,13 +439,14 @@ contract NexusKYCRegistry is AccessControl, Pausable {
         bool isRestricted,
         KYCLevel requiredLevel,
         uint256 maxAmount
-    ) external onlyRole(ADMIN_ROLE) {
+    )
+        external
+        onlyRole(ADMIN_ROLE)
+    {
         bytes32 countryHash = keccak256(abi.encodePacked(countryCode));
 
         countryRestrictions[countryHash] = CountryRestriction({
-            isRestricted: isRestricted,
-            requiredLevel: requiredLevel,
-            maxTransactionAmount: maxAmount
+            isRestricted: isRestricted, requiredLevel: requiredLevel, maxTransactionAmount: maxAmount
         });
 
         emit CountryRestrictionUpdated(countryHash, isRestricted, requiredLevel);
@@ -523,7 +510,11 @@ contract NexusKYCRegistry is AccessControl, Pausable {
         address from,
         address to,
         uint256 amount
-    ) external view returns (bool allowed, string memory reason) {
+    )
+        external
+        view
+        returns (bool allowed, string memory reason)
+    {
         // Check blacklist
         if (blacklistEnabled) {
             if (_kycInfo[from].isBlacklisted) {
@@ -620,23 +611,20 @@ contract NexusKYCRegistry is AccessControl, Pausable {
      * @return isWhitelisted Whether address is whitelisted
      * @return isBlacklisted Whether address is blacklisted
      */
-    function getKYCInfo(address account) external view returns (
-        KYCLevel level,
-        uint256 verifiedAt,
-        uint256 expiresAt,
-        bytes32 countryCode,
-        bool isWhitelisted,
-        bool isBlacklisted
-    ) {
+    function getKYCInfo(address account)
+        external
+        view
+        returns (
+            KYCLevel level,
+            uint256 verifiedAt,
+            uint256 expiresAt,
+            bytes32 countryCode,
+            bool isWhitelisted,
+            bool isBlacklisted
+        )
+    {
         KYCInfo storage info = _kycInfo[account];
-        return (
-            info.level,
-            info.verifiedAt,
-            info.expiresAt,
-            info.countryCode,
-            info.isWhitelisted,
-            info.isBlacklisted
-        );
+        return (info.level, info.verifiedAt, info.expiresAt, info.countryCode, info.isWhitelisted, info.isBlacklisted);
     }
 
     /**
@@ -698,10 +686,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
      * @param limit Maximum number to return
      * @return addresses The whitelisted addresses
      */
-    function getWhitelistedAddresses(
-        uint256 offset,
-        uint256 limit
-    ) external view returns (address[] memory addresses) {
+    function getWhitelistedAddresses(uint256 offset, uint256 limit) external view returns (address[] memory addresses) {
         uint256 total = _whitelistedAddresses.length;
         if (offset >= total) {
             return new address[](0);
@@ -713,7 +698,9 @@ contract NexusKYCRegistry is AccessControl, Pausable {
         addresses = new address[](count);
         for (uint256 i = 0; i < count;) {
             addresses[i] = _whitelistedAddresses[offset + i];
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -723,10 +710,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
      * @param limit Maximum number to return
      * @return addresses The blacklisted addresses
      */
-    function getBlacklistedAddresses(
-        uint256 offset,
-        uint256 limit
-    ) external view returns (address[] memory addresses) {
+    function getBlacklistedAddresses(uint256 offset, uint256 limit) external view returns (address[] memory addresses) {
         uint256 total = _blacklistedAddresses.length;
         if (offset >= total) {
             return new address[](0);
@@ -738,7 +722,9 @@ contract NexusKYCRegistry is AccessControl, Pausable {
         addresses = new address[](count);
         for (uint256 i = 0; i < count;) {
             addresses[i] = _blacklistedAddresses[offset + i];
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 

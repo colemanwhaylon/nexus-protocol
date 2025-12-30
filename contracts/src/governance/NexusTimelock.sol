@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
+import { TimelockController } from "@openzeppelin/contracts/governance/TimelockController.sol";
 
 /**
  * @title NexusTimelock
@@ -48,12 +48,7 @@ contract NexusTimelock is TimelockController {
     /// @param proposers Initial proposer addresses
     /// @param executors Initial executor addresses
     /// @param admin Admin address (if any)
-    event TimelockInitialized(
-        uint256 minDelay,
-        address[] proposers,
-        address[] executors,
-        address admin
-    );
+    event TimelockInitialized(uint256 minDelay, address[] proposers, address[] executors, address admin);
 
     /// @notice Emitted when minimum delay is updated
     /// @param oldDelay Previous minimum delay
@@ -130,7 +125,9 @@ contract NexusTimelock is TimelockController {
         address[] memory proposers_,
         address[] memory executors_,
         address admin_
-    ) TimelockController(minDelay_, proposers_, executors_, admin_) {
+    )
+        TimelockController(minDelay_, proposers_, executors_, admin_)
+    {
         // Validate delay bounds
         if (minDelay_ < ABSOLUTE_MIN_DELAY) {
             revert DelayBelowMinimum(minDelay_, ABSOLUTE_MIN_DELAY);
@@ -177,20 +174,16 @@ contract NexusTimelock is TimelockController {
         bytes32 predecessor,
         bytes32 salt,
         uint256 delay
-    ) public virtual override onlyRole(PROPOSER_ROLE) {
+    )
+        public
+        virtual
+        override
+        onlyRole(PROPOSER_ROLE)
+    {
         super.schedule(target, value, data, predecessor, salt, delay);
 
         bytes32 id = hashOperation(target, value, data, predecessor, salt);
-        emit OperationScheduledDetailed(
-            id,
-            0,
-            target,
-            value,
-            data,
-            predecessor,
-            delay,
-            _msgSender()
-        );
+        emit OperationScheduledDetailed(id, 0, target, value, data, predecessor, delay, _msgSender());
     }
 
     /**
@@ -210,21 +203,17 @@ contract NexusTimelock is TimelockController {
         bytes32 predecessor,
         bytes32 salt,
         uint256 delay
-    ) public virtual override onlyRole(PROPOSER_ROLE) {
+    )
+        public
+        virtual
+        override
+        onlyRole(PROPOSER_ROLE)
+    {
         super.scheduleBatch(targets, values, payloads, predecessor, salt, delay);
 
         bytes32 id = hashOperationBatch(targets, values, payloads, predecessor, salt);
         for (uint256 i = 0; i < targets.length; i++) {
-            emit OperationScheduledDetailed(
-                id,
-                i,
-                targets[i],
-                values[i],
-                payloads[i],
-                predecessor,
-                delay,
-                _msgSender()
-            );
+            emit OperationScheduledDetailed(id, i, targets[i], values[i], payloads[i], predecessor, delay, _msgSender());
         }
     }
 
@@ -254,7 +243,13 @@ contract NexusTimelock is TimelockController {
         bytes calldata payload,
         bytes32 predecessor,
         bytes32 salt
-    ) public payable virtual override onlyRoleOrOpenRole(EXECUTOR_ROLE) {
+    )
+        public
+        payable
+        virtual
+        override
+        onlyRoleOrOpenRole(EXECUTOR_ROLE)
+    {
         bytes32 id = hashOperation(target, value, payload, predecessor, salt);
         super.execute(target, value, payload, predecessor, salt);
         emit OperationExecutedBy(id, _msgSender());
@@ -275,7 +270,13 @@ contract NexusTimelock is TimelockController {
         bytes[] calldata payloads,
         bytes32 predecessor,
         bytes32 salt
-    ) public payable virtual override onlyRoleOrOpenRole(EXECUTOR_ROLE) {
+    )
+        public
+        payable
+        virtual
+        override
+        onlyRoleOrOpenRole(EXECUTOR_ROLE)
+    {
         bytes32 id = hashOperationBatch(targets, values, payloads, predecessor, salt);
         super.executeBatch(targets, values, payloads, predecessor, salt);
         emit OperationExecutedBy(id, _msgSender());
@@ -292,11 +293,7 @@ contract NexusTimelock is TimelockController {
     function getTimelockConfig()
         external
         view
-        returns (
-            uint256 _minDelay,
-            uint256 _absoluteMinDelay,
-            uint256 _maxDelay
-        )
+        returns (uint256 _minDelay, uint256 _absoluteMinDelay, uint256 _maxDelay)
     {
         return (getMinDelay(), ABSOLUTE_MIN_DELAY, MAX_DELAY);
     }
@@ -313,13 +310,7 @@ contract NexusTimelock is TimelockController {
     function getOperationDetails(bytes32 id)
         external
         view
-        returns (
-            bool isOperation,
-            bool isPending,
-            bool isReady,
-            bool isDone,
-            uint256 timestamp
-        )
+        returns (bool isOperation, bool isPending, bool isReady, bool isDone, uint256 timestamp)
     {
         timestamp = getTimestamp(id);
         isOperation = timestamp > 0;
@@ -404,5 +395,5 @@ contract NexusTimelock is TimelockController {
      * @notice Allows the timelock to receive ETH
      * @dev Required for operations that transfer ETH
      */
-    receive() external payable override {}
+    receive() external payable override { }
 }

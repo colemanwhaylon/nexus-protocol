@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title NexusStakingUpgradeable
@@ -89,11 +89,7 @@ contract NexusStakingUpgradeable is
     /**
      * @notice Initialize the contract
      */
-    function initialize(
-        address _stakingToken,
-        address _treasury,
-        address _admin
-    ) public initializer {
+    function initialize(address _stakingToken, address _treasury, address _admin) public initializer {
         __AccessControl_init();
         __Pausable_init();
 
@@ -164,7 +160,7 @@ contract NexusStakingUpgradeable is
             lastWithdrawalDay[msg.sender] = currentDay;
         }
 
-        uint256 dailyLimit = (totalStaked * dailyWithdrawalLimitBps) / 10000;
+        uint256 dailyLimit = (totalStaked * dailyWithdrawalLimitBps) / 10_000;
         if (dailyWithdrawn[msg.sender] + amount > dailyLimit) {
             revert DailyWithdrawalLimitExceeded();
         }
@@ -182,14 +178,16 @@ contract NexusStakingUpgradeable is
         }
 
         uint256 completionTime = block.timestamp + unbondingPeriod;
-        unbondingRequests[msg.sender].push(UnbondingRequest({
-            amount: amount,
-            requestTime: block.timestamp,
-            completionTime: completionTime,
-            epoch: currentEpoch,
-            processed: false,
-            slashed: false
-        }));
+        unbondingRequests[msg.sender].push(
+            UnbondingRequest({
+                amount: amount,
+                requestTime: block.timestamp,
+                completionTime: completionTime,
+                epoch: currentEpoch,
+                processed: false,
+                slashed: false
+            })
+        );
 
         emit UnbondingInitiated(msg.sender, amount, completionTime);
     }
@@ -223,7 +221,7 @@ contract NexusStakingUpgradeable is
         require(bps <= 5000, "Max 50% slash");
 
         StakeInfo storage stakeInfo = stakes[staker];
-        uint256 slashAmount = (stakeInfo.amount * bps) / 10000;
+        uint256 slashAmount = (stakeInfo.amount * bps) / 10_000;
 
         if (slashAmount > 0) {
             stakeInfo.amount -= slashAmount;
@@ -272,14 +270,18 @@ contract NexusStakingUpgradeable is
 
     // View functions
 
-    function getStakeInfo(address staker) external view returns (
-        uint256 amount,
-        uint256 startTime,
-        uint256 lastRewardTime,
-        address delegatedTo,
-        uint256 slashedAmount,
-        bool isActive
-    ) {
+    function getStakeInfo(address staker)
+        external
+        view
+        returns (
+            uint256 amount,
+            uint256 startTime,
+            uint256 lastRewardTime,
+            address delegatedTo,
+            uint256 slashedAmount,
+            bool isActive
+        )
+    {
         StakeInfo storage info = stakes[staker];
         return (info.amount, info.startTime, info.lastRewardTime, info.delegatedTo, info.slashedAmount, info.isActive);
     }
@@ -288,14 +290,21 @@ contract NexusStakingUpgradeable is
         return unbondingRequests[staker].length;
     }
 
-    function getUnbondingRequest(address staker, uint256 index) external view returns (
-        uint256 amount,
-        uint256 requestTime,
-        uint256 completionTime,
-        uint256 epoch,
-        bool processed,
-        bool slashed
-    ) {
+    function getUnbondingRequest(
+        address staker,
+        uint256 index
+    )
+        external
+        view
+        returns (
+            uint256 amount,
+            uint256 requestTime,
+            uint256 completionTime,
+            uint256 epoch,
+            bool processed,
+            bool slashed
+        )
+    {
         UnbondingRequest storage req = unbondingRequests[staker][index];
         return (req.amount, req.requestTime, req.completionTime, req.epoch, req.processed, req.slashed);
     }
@@ -315,7 +324,7 @@ contract NexusStakingUpgradeable is
     // Admin functions
 
     function setDailyWithdrawalLimit(uint256 _bps) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_bps <= 10000, "Invalid bps");
+        require(_bps <= 10_000, "Invalid bps");
         dailyWithdrawalLimitBps = _bps;
     }
 
@@ -331,7 +340,7 @@ contract NexusStakingUpgradeable is
         _unpause();
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) { }
 
     function version() external pure returns (string memory) {
         return "1.0.0";

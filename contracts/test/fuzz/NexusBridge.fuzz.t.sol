@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {Test, console2} from "forge-std/Test.sol";
-import {NexusBridge} from "../../src/bridge/NexusBridge.sol";
-import {ERC20Mock} from "../mocks/ERC20Mock.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import { Test, console2 } from "forge-std/Test.sol";
+import { NexusBridge } from "../../src/bridge/NexusBridge.sol";
+import { ERC20Mock } from "../mocks/ERC20Mock.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
 /**
  * @title NexusBridgeFuzzTest
@@ -53,7 +53,7 @@ contract NexusBridgeFuzzTest is Test {
             address(token),
             SOURCE_CHAIN_ID,
             true, // isSourceChain
-            2,    // relayerThreshold
+            2, // relayerThreshold
             relayers
         );
 
@@ -94,11 +94,7 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Lock tokens transfers exact amount to bridge
      */
-    function testFuzz_LockTokens_TransfersExactAmount(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) public {
+    function testFuzz_LockTokens_TransfersExactAmount(address sender, address recipient, uint256 amount) public {
         vm.assume(sender != address(0) && sender != address(bridge));
         vm.assume(recipient != address(0));
         amount = bound(amount, 1, DEFAULT_SINGLE_LIMIT);
@@ -124,11 +120,7 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Cannot lock more than single transfer limit
      */
-    function testFuzz_LockTokens_RespectsTransferLimit(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) public {
+    function testFuzz_LockTokens_RespectsTransferLimit(address sender, address recipient, uint256 amount) public {
         vm.assume(sender != address(0) && sender != address(bridge));
         vm.assume(recipient != address(0));
         amount = bound(amount, DEFAULT_SINGLE_LIMIT + 1, DEFAULT_SINGLE_LIMIT * 2);
@@ -146,10 +138,7 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Daily limit is enforced across multiple locks
      */
-    function testFuzz_LockTokens_EnforcesDailyLimit(
-        address sender,
-        uint256[5] memory amounts
-    ) public {
+    function testFuzz_LockTokens_EnforcesDailyLimit(address sender, uint256[5] memory amounts) public {
         vm.assume(sender != address(0) && sender != address(bridge));
 
         uint256 totalLocked = 0;
@@ -182,11 +171,7 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Daily limit resets after window
      */
-    function testFuzz_LockTokens_DailyLimitResetsAfterWindow(
-        address sender,
-        uint256 amount1,
-        uint256 amount2
-    ) public {
+    function testFuzz_LockTokens_DailyLimitResetsAfterWindow(address sender, uint256 amount1, uint256 amount2) public {
         vm.assume(sender != address(0) && sender != address(bridge));
         // amount1 must be <= DEFAULT_SINGLE_LIMIT and reasonable for daily limit
         amount1 = bound(amount1, 1e18, DEFAULT_SINGLE_LIMIT);
@@ -215,22 +200,20 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Unlock with valid signatures succeeds
      */
-    function testFuzz_UnlockTokens_ValidSignaturesSucceed(
-        address recipient,
-        uint256 amount,
-        uint256 nonce
-    ) public {
+    function testFuzz_UnlockTokens_ValidSignaturesSucceed(address recipient, uint256 amount, uint256 nonce) public {
         vm.assume(recipient != address(0) && recipient != address(bridge));
         amount = bound(amount, 1, LARGE_TRANSFER_THRESHOLD - 1); // Below large transfer threshold
         nonce = bound(nonce, 0, type(uint128).max);
 
-        bytes32 transferId = keccak256(abi.encode(
-            recipient,
-            amount,
-            DEST_CHAIN_ID, // sourceChain for unlock
-            SOURCE_CHAIN_ID, // destChain (this chain)
-            nonce
-        ));
+        bytes32 transferId = keccak256(
+            abi.encode(
+                recipient,
+                amount,
+                DEST_CHAIN_ID, // sourceChain for unlock
+                SOURCE_CHAIN_ID, // destChain (this chain)
+                nonce
+            )
+        );
 
         bytes[] memory signatures = _createSignatures(transferId, 2);
 
@@ -245,22 +228,12 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Cannot replay processed transfers
      */
-    function testFuzz_UnlockTokens_CannotReplay(
-        address recipient,
-        uint256 amount,
-        uint256 nonce
-    ) public {
+    function testFuzz_UnlockTokens_CannotReplay(address recipient, uint256 amount, uint256 nonce) public {
         vm.assume(recipient != address(0) && recipient != address(bridge));
         amount = bound(amount, 1, LARGE_TRANSFER_THRESHOLD - 1);
         nonce = bound(nonce, 0, type(uint128).max);
 
-        bytes32 transferId = keccak256(abi.encode(
-            recipient,
-            amount,
-            DEST_CHAIN_ID,
-            SOURCE_CHAIN_ID,
-            nonce
-        ));
+        bytes32 transferId = keccak256(abi.encode(recipient, amount, DEST_CHAIN_ID, SOURCE_CHAIN_ID, nonce));
 
         bytes[] memory signatures = _createSignatures(transferId, 2);
 
@@ -275,22 +248,12 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Insufficient signatures fail
      */
-    function testFuzz_UnlockTokens_InsufficientSignaturesFail(
-        address recipient,
-        uint256 amount,
-        uint256 nonce
-    ) public {
+    function testFuzz_UnlockTokens_InsufficientSignaturesFail(address recipient, uint256 amount, uint256 nonce) public {
         vm.assume(recipient != address(0) && recipient != address(bridge));
         amount = bound(amount, 1, LARGE_TRANSFER_THRESHOLD - 1);
         nonce = bound(nonce, 0, type(uint128).max);
 
-        bytes32 transferId = keccak256(abi.encode(
-            recipient,
-            amount,
-            DEST_CHAIN_ID,
-            SOURCE_CHAIN_ID,
-            nonce
-        ));
+        bytes32 transferId = keccak256(abi.encode(recipient, amount, DEST_CHAIN_ID, SOURCE_CHAIN_ID, nonce));
 
         // Only 1 signature (threshold is 2)
         bytes[] memory signatures = _createSignatures(transferId, 1);
@@ -304,22 +267,12 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Large transfers are queued
      */
-    function testFuzz_LargeTransfer_IsQueued(
-        address recipient,
-        uint256 amount,
-        uint256 nonce
-    ) public {
+    function testFuzz_LargeTransfer_IsQueued(address recipient, uint256 amount, uint256 nonce) public {
         vm.assume(recipient != address(0) && recipient != address(bridge));
         amount = bound(amount, LARGE_TRANSFER_THRESHOLD, DEFAULT_SINGLE_LIMIT);
         nonce = bound(nonce, 0, type(uint128).max);
 
-        bytes32 transferId = keccak256(abi.encode(
-            recipient,
-            amount,
-            DEST_CHAIN_ID,
-            SOURCE_CHAIN_ID,
-            nonce
-        ));
+        bytes32 transferId = keccak256(abi.encode(recipient, amount, DEST_CHAIN_ID, SOURCE_CHAIN_ID, nonce));
 
         bytes[] memory signatures = _createSignatures(transferId, 2);
 
@@ -339,22 +292,12 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Large transfer can be executed after delay
      */
-    function testFuzz_LargeTransfer_ExecutableAfterDelay(
-        address recipient,
-        uint256 amount,
-        uint256 nonce
-    ) public {
+    function testFuzz_LargeTransfer_ExecutableAfterDelay(address recipient, uint256 amount, uint256 nonce) public {
         vm.assume(recipient != address(0) && recipient != address(bridge));
         amount = bound(amount, LARGE_TRANSFER_THRESHOLD, DEFAULT_SINGLE_LIMIT);
         nonce = bound(nonce, 0, type(uint128).max);
 
-        bytes32 transferId = keccak256(abi.encode(
-            recipient,
-            amount,
-            DEST_CHAIN_ID,
-            SOURCE_CHAIN_ID,
-            nonce
-        ));
+        bytes32 transferId = keccak256(abi.encode(recipient, amount, DEST_CHAIN_ID, SOURCE_CHAIN_ID, nonce));
 
         bytes[] memory signatures = _createSignatures(transferId, 2);
 
@@ -379,19 +322,15 @@ contract NexusBridgeFuzzTest is Test {
         uint256 amount,
         uint256 nonce,
         uint256 waitTime
-    ) public {
+    )
+        public
+    {
         vm.assume(recipient != address(0) && recipient != address(bridge));
         amount = bound(amount, LARGE_TRANSFER_THRESHOLD, DEFAULT_SINGLE_LIMIT);
         nonce = bound(nonce, 0, type(uint128).max);
         waitTime = bound(waitTime, 0, 1 hours - 1);
 
-        bytes32 transferId = keccak256(abi.encode(
-            recipient,
-            amount,
-            DEST_CHAIN_ID,
-            SOURCE_CHAIN_ID,
-            nonce
-        ));
+        bytes32 transferId = keccak256(abi.encode(recipient, amount, DEST_CHAIN_ID, SOURCE_CHAIN_ID, nonce));
 
         bytes[] memory signatures = _createSignatures(transferId, 2);
 
@@ -408,11 +347,7 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Cannot lock to unsupported chain
      */
-    function testFuzz_LockTokens_UnsupportedChainFails(
-        address sender,
-        uint256 amount,
-        uint256 chainId
-    ) public {
+    function testFuzz_LockTokens_UnsupportedChainFails(address sender, uint256 amount, uint256 chainId) public {
         vm.assume(sender != address(0) && sender != address(bridge));
         vm.assume(chainId != DEST_CHAIN_ID && chainId != 0);
         amount = bound(amount, 1, DEFAULT_SINGLE_LIMIT);
@@ -437,7 +372,7 @@ contract NexusBridgeFuzzTest is Test {
         vm.prank(admin);
         bridge.updateDailyLimit(newLimit);
 
-        (,,,uint256 dailyLimit,) = bridge.getBridgeConfig();
+        (,,, uint256 dailyLimit,) = bridge.getBridgeConfig();
         assertEq(dailyLimit, newLimit, "Daily limit should be updated");
     }
 
@@ -450,7 +385,7 @@ contract NexusBridgeFuzzTest is Test {
         vm.prank(admin);
         bridge.updateSingleTransferLimit(newLimit);
 
-        (,,,,uint256 singleLimit) = bridge.getBridgeConfig();
+        (,,,, uint256 singleLimit) = bridge.getBridgeConfig();
         assertEq(singleLimit, newLimit, "Single limit should be updated");
     }
 
@@ -459,10 +394,7 @@ contract NexusBridgeFuzzTest is Test {
     /**
      * @notice Fuzz test: Nonce always increments
      */
-    function testFuzz_Nonce_AlwaysIncrements(
-        address sender,
-        uint256 numLocks
-    ) public {
+    function testFuzz_Nonce_AlwaysIncrements(address sender, uint256 numLocks) public {
         vm.assume(sender != address(0) && sender != address(bridge));
         numLocks = bound(numLocks, 1, 10);
 

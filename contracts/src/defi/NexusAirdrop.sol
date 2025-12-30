@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title NexusAirdrop
@@ -46,24 +46,24 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Campaign configuration
     struct Campaign {
-        IERC20 token;              // Token being distributed
-        bytes32 merkleRoot;        // Merkle root for claim verification
-        uint256 totalAmount;       // Total tokens allocated to campaign
-        uint256 claimedAmount;     // Total tokens claimed so far
-        uint256 startTime;         // When claims can begin
-        uint256 endTime;           // When claims end
-        uint256 vestingDuration;   // Vesting period (0 for immediate)
-        uint256 cliffDuration;     // Cliff period before vesting starts
-        bool active;               // Whether campaign is active
-        string name;               // Campaign name/description
+        IERC20 token; // Token being distributed
+        bytes32 merkleRoot; // Merkle root for claim verification
+        uint256 totalAmount; // Total tokens allocated to campaign
+        uint256 claimedAmount; // Total tokens claimed so far
+        uint256 startTime; // When claims can begin
+        uint256 endTime; // When claims end
+        uint256 vestingDuration; // Vesting period (0 for immediate)
+        uint256 cliffDuration; // Cliff period before vesting starts
+        bool active; // Whether campaign is active
+        string name; // Campaign name/description
     }
 
     /// @notice User claim information per campaign
     struct ClaimInfo {
-        uint256 totalAllocation;   // Total tokens allocated to user
-        uint256 claimedAmount;     // Amount already claimed
-        uint256 vestingStart;      // When vesting started (first claim)
-        bool initialized;          // Whether user has made first claim
+        uint256 totalAllocation; // Total tokens allocated to user
+        uint256 claimedAmount; // Amount already claimed
+        uint256 vestingStart; // When vesting started (first claim)
+        bool initialized; // Whether user has made first claim
     }
 
     // ============ State Variables ============
@@ -94,29 +94,16 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
     );
 
     /// @notice Emitted when a campaign is updated
-    event CampaignUpdated(
-        uint256 indexed campaignId,
-        bytes32 newMerkleRoot,
-        uint256 newEndTime
-    );
+    event CampaignUpdated(uint256 indexed campaignId, bytes32 newMerkleRoot, uint256 newEndTime);
 
     /// @notice Emitted when a campaign is deactivated
     event CampaignDeactivated(uint256 indexed campaignId);
 
     /// @notice Emitted when tokens are claimed
-    event TokensClaimed(
-        uint256 indexed campaignId,
-        address indexed user,
-        uint256 amount,
-        uint256 totalClaimed
-    );
+    event TokensClaimed(uint256 indexed campaignId, address indexed user, uint256 amount, uint256 totalClaimed);
 
     /// @notice Emitted when unclaimed tokens are recovered
-    event TokensRecovered(
-        uint256 indexed campaignId,
-        address indexed to,
-        uint256 amount
-    );
+    event TokensRecovered(uint256 indexed campaignId, address indexed to, uint256 amount);
 
     /// @notice Emitted when treasury is updated
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
@@ -206,7 +193,11 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
         uint256 vestingDuration,
         uint256 cliffDuration,
         string calldata name
-    ) external onlyRole(CAMPAIGN_MANAGER_ROLE) returns (uint256 campaignId) {
+    )
+        external
+        onlyRole(CAMPAIGN_MANAGER_ROLE)
+        returns (uint256 campaignId)
+    {
         if (token == address(0)) revert ZeroAddress();
         if (totalAmount == 0) revert ZeroAmount();
         if (startTime < block.timestamp) revert StartTimeInPast();
@@ -242,15 +233,7 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
         // Transfer tokens to contract
         IERC20(token).safeTransferFrom(msg.sender, address(this), totalAmount);
 
-        emit CampaignCreated(
-            campaignId,
-            token,
-            merkleRoot,
-            totalAmount,
-            startTime,
-            endTime,
-            name
-        );
+        emit CampaignCreated(campaignId, token, merkleRoot, totalAmount, startTime, endTime, name);
     }
 
     /**
@@ -263,7 +246,11 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
         uint256 campaignId,
         uint256 totalAllocation,
         bytes32[] calldata merkleProof
-    ) external nonReentrant whenNotPaused {
+    )
+        external
+        nonReentrant
+        whenNotPaused
+    {
         Campaign storage campaign = campaigns[campaignId];
 
         if (!campaign.active) revert CampaignNotActive();
@@ -308,7 +295,10 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
     function updateCampaignMerkleRoot(
         uint256 campaignId,
         bytes32 newMerkleRoot
-    ) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
+    )
+        external
+        onlyRole(CAMPAIGN_MANAGER_ROLE)
+    {
         Campaign storage campaign = campaigns[campaignId];
         if (!campaign.active) revert CampaignNotActive();
 
@@ -322,10 +312,7 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
      * @param campaignId ID of the campaign
      * @param newEndTime New end time
      */
-    function extendCampaign(
-        uint256 campaignId,
-        uint256 newEndTime
-    ) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
+    function extendCampaign(uint256 campaignId, uint256 newEndTime) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
         Campaign storage campaign = campaigns[campaignId];
         if (!campaign.active) revert CampaignNotActive();
 
@@ -343,9 +330,7 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
      * @notice Deactivate a campaign
      * @param campaignId ID of the campaign
      */
-    function deactivateCampaign(
-        uint256 campaignId
-    ) external onlyRole(ADMIN_ROLE) {
+    function deactivateCampaign(uint256 campaignId) external onlyRole(ADMIN_ROLE) {
         Campaign storage campaign = campaigns[campaignId];
         if (!campaign.active) revert CampaignNotActive();
 
@@ -358,9 +343,7 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
      * @notice Recover unclaimed tokens after campaign ends
      * @param campaignId ID of the campaign
      */
-    function recoverTokens(
-        uint256 campaignId
-    ) external onlyRole(ADMIN_ROLE) {
+    function recoverTokens(uint256 campaignId) external onlyRole(ADMIN_ROLE) {
         Campaign storage campaign = campaigns[campaignId];
 
         // Can only recover after campaign ends or is deactivated
@@ -423,16 +406,20 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
      * @return active Whether active
      * @return name Campaign name
      */
-    function getCampaign(uint256 campaignId) external view returns (
-        address token,
-        bytes32 merkleRoot,
-        uint256 totalAmount,
-        uint256 claimedAmount,
-        uint256 startTime,
-        uint256 endTime,
-        bool active,
-        string memory name
-    ) {
+    function getCampaign(uint256 campaignId)
+        external
+        view
+        returns (
+            address token,
+            bytes32 merkleRoot,
+            uint256 totalAmount,
+            uint256 claimedAmount,
+            uint256 startTime,
+            uint256 endTime,
+            bool active,
+            string memory name
+        )
+    {
         Campaign storage campaign = campaigns[campaignId];
         return (
             address(campaign.token),
@@ -456,13 +443,20 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
      * @return vestingStart When vesting started
      * @return initialized Whether initialized
      */
-    function getUserClaim(uint256 campaignId, address user) external view returns (
-        uint256 totalAllocation,
-        uint256 claimedAmount,
-        uint256 claimable,
-        uint256 vestingStart,
-        bool initialized
-    ) {
+    function getUserClaim(
+        uint256 campaignId,
+        address user
+    )
+        external
+        view
+        returns (
+            uint256 totalAllocation,
+            uint256 claimedAmount,
+            uint256 claimable,
+            uint256 vestingStart,
+            bool initialized
+        )
+    {
         Campaign storage campaign = campaigns[campaignId];
         ClaimInfo storage claimInfo = claims[campaignId][user];
 
@@ -494,7 +488,11 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
         address user,
         uint256 totalAllocation,
         bytes32[] calldata merkleProof
-    ) external view returns (bool canClaim, uint256 claimableAmount) {
+    )
+        external
+        view
+        returns (bool canClaim, uint256 claimableAmount)
+    {
         Campaign storage campaign = campaigns[campaignId];
 
         // Check basic conditions
@@ -549,7 +547,11 @@ contract NexusAirdrop is AccessControl, Pausable, ReentrancyGuard {
     function _calculateClaimable(
         Campaign storage campaign,
         ClaimInfo storage claimInfo
-    ) internal view returns (uint256) {
+    )
+        internal
+        view
+        returns (uint256)
+    {
         // If no vesting, all allocation is immediately available
         if (campaign.vestingDuration == 0) {
             return claimInfo.totalAllocation - claimInfo.claimedAmount;
