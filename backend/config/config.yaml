@@ -1,0 +1,38 @@
+# Nexus Protocol API Server Configuration
+# This file is optional - defaults are set in code and can be overridden via environment variables
+
+server:
+  port: 8080
+  host: "0.0.0.0"
+  read_timeout: 30s
+  write_timeout: 30s
+  shutdown_timeout: 15s
+  mode: "debug"  # debug, release, test
+
+database:
+  driver: "sqlite"  # sqlite, postgres
+  host: "localhost"
+  port: 5432
+  user: "nexus"
+  password: ""
+  name: "nexus.db"
+  ssl_mode: "disable"
+
+cache:
+  type: "memory"  # memory, redis
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+  default_ttl: 5m
+
+ratelimit:
+  enabled: true
+  requests_per_min: 100
+  burst_size: 10
+  cleanup_interval: 1m
+
+logging:
+  level: "debug"  # debug, info, warn, error
+  format: "console"  # json, console
+  output_path: "stdout"
