@@ -42,8 +42,14 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     /// @notice Minimum stake duration before unstaking (24 hours) - SEC-002
     uint256 public constant MIN_STAKE_DURATION = 24 hours;
     
-    /// @notice Maximum daily withdrawal percentage (10% of total stake) - SEC-002
-    uint256 public constant MAX_DAILY_WITHDRAWAL_BPS = 1000; // 10% in basis points
+    /// @notice Default daily withdrawal percentage (10% of total stake) - SEC-002
+    uint256 public constant DEFAULT_DAILY_WITHDRAWAL_BPS = 1000; // 10% in basis points
+
+    /// @notice Minimum daily withdrawal percentage (1% of total stake)
+    uint256 public constant MIN_DAILY_WITHDRAWAL_BPS = 100; // 1% in basis points
+
+    /// @notice Maximum daily withdrawal percentage (50% of total stake)
+    uint256 public constant MAX_CONFIGURABLE_DAILY_BPS = 5000; // 50% in basis points
     
     /// @notice Minimum stake threshold for slashing eligibility (1000 tokens) - SEC-008
     uint256 public constant MIN_STAKE_FOR_SLASHING = 1000 * 1e18;
@@ -82,7 +88,10 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     
     /// @notice Current unbonding period (can be adjusted by admin)
     uint256 public unbondingPeriod;
-    
+
+    /// @notice Current daily withdrawal limit in basis points (can be adjusted by admin) - SEC-002
+    uint256 public dailyWithdrawalLimitBps;
+
     /// @notice Treasury address for slashed funds and penalties
     address public treasury;
     
@@ -200,6 +209,11 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     /// @param newPeriod New unbonding period
     event UnbondingPeriodUpdated(uint256 oldPeriod, uint256 newPeriod);
 
+    /// @notice Emitted when daily withdrawal limit is updated
+    /// @param oldLimit Previous daily withdrawal limit in basis points
+    /// @param newLimit New daily withdrawal limit in basis points
+    event DailyWithdrawalLimitUpdated(uint256 oldLimit, uint256 newLimit);
+
     /// @notice Emitted when treasury address is updated
     /// @param oldTreasury Previous treasury address
     /// @param newTreasury New treasury address
@@ -274,6 +288,9 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
     /// @notice Thrown when unbonding period is invalid
     error InvalidUnbondingPeriod();
 
+    /// @notice Thrown when daily withdrawal limit is invalid
+    error InvalidDailyWithdrawalLimit();
+
     // ============ Constructor ============
 
     /**
@@ -294,7 +311,8 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         stakingToken = IERC20(_stakingToken);
         treasury = _treasury;
         unbondingPeriod = DEFAULT_UNBONDING_PERIOD;
-        
+        dailyWithdrawalLimitBps = DEFAULT_DAILY_WITHDRAWAL_BPS;
+
         // Initialize epoch
         currentEpoch = 1;
         epochStartTime = block.timestamp;
@@ -371,7 +389,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         // Check daily withdrawal limit - SEC-002
         uint256 today = block.timestamp / 1 days;
         uint256 projectedDailyTotal = dailyWithdrawals[today] + amount;
-        uint256 maxDailyWithdrawal = (totalStaked * MAX_DAILY_WITHDRAWAL_BPS) / BPS_DENOMINATOR;
+        uint256 maxDailyWithdrawal = (totalStaked * dailyWithdrawalLimitBps) / BPS_DENOMINATOR;
         
         if (projectedDailyTotal > maxDailyWithdrawal) {
             revert DailyWithdrawalLimitExceeded();
@@ -581,11 +599,27 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
         if (newPeriod < 1 days || newPeriod > 30 days) {
             revert InvalidUnbondingPeriod();
         }
-        
+
         uint256 oldPeriod = unbondingPeriod;
         unbondingPeriod = newPeriod;
-        
+
         emit UnbondingPeriodUpdated(oldPeriod, newPeriod);
+    }
+
+    /**
+     * @notice Update the daily withdrawal limit - SEC-002
+     * @param newLimitBps New daily withdrawal limit in basis points (100 = 1%, 1000 = 10%, etc.)
+     * @dev Only callable by ADMIN_ROLE. Must be between MIN_DAILY_WITHDRAWAL_BPS and MAX_CONFIGURABLE_DAILY_BPS
+     */
+    function setDailyWithdrawalLimit(uint256 newLimitBps) external onlyRole(ADMIN_ROLE) {
+        if (newLimitBps < MIN_DAILY_WITHDRAWAL_BPS || newLimitBps > MAX_CONFIGURABLE_DAILY_BPS) {
+            revert InvalidDailyWithdrawalLimit();
+        }
+
+        uint256 oldLimit = dailyWithdrawalLimitBps;
+        dailyWithdrawalLimitBps = newLimitBps;
+
+        emit DailyWithdrawalLimitUpdated(oldLimit, newLimitBps);
     }
 
     /**
@@ -759,7 +793,7 @@ contract NexusStaking is AccessControl, Pausable, ReentrancyGuard {
      */
     function getRemainingDailyWithdrawal() external view returns (uint256) {
         uint256 today = block.timestamp / 1 days;
-        uint256 maxDaily = (totalStaked * MAX_DAILY_WITHDRAWAL_BPS) / BPS_DENOMINATOR;
+        uint256 maxDaily = (totalStaked * dailyWithdrawalLimitBps) / BPS_DENOMINATOR;
         uint256 usedToday = dailyWithdrawals[today];
         
         if (usedToday >= maxDaily) {
