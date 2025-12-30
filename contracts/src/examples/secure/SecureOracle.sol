@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /**
  * @title SecureOracle
@@ -79,7 +79,7 @@ contract SecureOracle is AccessControl {
     // FIX 2: Add trusted price source
     function addSource(address source) external onlyRole(ADMIN_ROLE) {
         require(!priceSources[source].active, "Source exists");
-        priceSources[source] = PriceSource({source: source, price: 0, lastUpdate: 0, active: true});
+        priceSources[source] = PriceSource({ source: source, price: 0, lastUpdate: 0, active: true });
         sourceAddresses.push(source);
         _grantRole(ORACLE_UPDATER_ROLE, source);
         emit SourceAdded(source);
@@ -111,7 +111,9 @@ contract SecureOracle is AccessControl {
             ? observations[observations.length - 1].cumulativePrice + (newPrice * (block.timestamp - source.lastUpdate))
             : newPrice;
 
-        observations.push(PriceObservation({price: newPrice, timestamp: block.timestamp, cumulativePrice: cumulative}));
+        observations.push(
+            PriceObservation({ price: newPrice, timestamp: block.timestamp, cumulativePrice: cumulative })
+        );
 
         emit PriceUpdated(msg.sender, newPrice, block.timestamp);
 

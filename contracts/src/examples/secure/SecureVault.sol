@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title SecureVault
@@ -82,7 +82,7 @@ contract SecureVault is ReentrancyGuard, AccessControl, Pausable {
         emit Withdrawal(msg.sender, amount);
 
         // External call AFTER state update
-        (bool success,) = msg.sender.call{value: amount}("");
+        (bool success,) = msg.sender.call{ value: amount }("");
         if (!success) revert TransferFailed();
     }
 
@@ -99,14 +99,14 @@ contract SecureVault is ReentrancyGuard, AccessControl, Pausable {
 
         emit Withdrawal(msg.sender, amount);
 
-        (bool success,) = msg.sender.call{value: amount}("");
+        (bool success,) = msg.sender.call{ value: amount }("");
         if (!success) revert TransferFailed();
     }
 
     // FIX 2: Admin function protected by role
     function emergencyWithdraw(address payable recipient) external onlyRole(ADMIN_ROLE) nonReentrant {
         uint256 amount = address(this).balance;
-        (bool success,) = recipient.call{value: amount}("");
+        (bool success,) = recipient.call{ value: amount }("");
         if (!success) revert TransferFailed();
     }
 

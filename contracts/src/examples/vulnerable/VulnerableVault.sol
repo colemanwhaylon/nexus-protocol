@@ -44,7 +44,7 @@ contract VulnerableVault {
         require(amount > 0, "No balance");
 
         // VULNERABLE: External call BEFORE state update
-        (bool success,) = msg.sender.call{value: amount}("");
+        (bool success,) = msg.sender.call{ value: amount }("");
         require(success, "Transfer failed");
 
         // State update happens AFTER external call - attacker can re-enter
@@ -61,7 +61,7 @@ contract VulnerableVault {
             uint256 amount = balances[depositors[i]];
             if (amount > 0) {
                 balances[depositors[i]] = 0;
-                (bool success,) = recipient.call{value: amount}("");
+                (bool success,) = recipient.call{ value: amount }("");
                 require(success, "Transfer failed");
             }
         }
