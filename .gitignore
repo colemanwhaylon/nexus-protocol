@@ -32,7 +32,7 @@ contracts/cache_forge/
 contracts/coverage/
 contracts/lcov.info
 
-# Dependency directories
+# Dependency directories (installed via forge install)
 contracts/lib/
 contracts/node_modules/
 
