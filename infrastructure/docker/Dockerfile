@@ -7,7 +7,7 @@
 # ============================================
 # Stage 1: Builder
 # ============================================
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 # Build arguments
 ARG VERSION=dev
@@ -118,7 +118,7 @@ ENTRYPOINT ["/app/nexus-api"]
 # ============================================
 # Stage 3: Development (optional)
 # ============================================
-FROM golang:1.21-alpine AS development
+FROM golang:1.23-alpine AS development
 
 # Install development dependencies
 RUN apk add --no-cache \

@@ -10,8 +10,6 @@
 #   demo:       API with persistent SQLite (for portfolio demos)
 #   production: Full stack with PostgreSQL, Redis, monitoring
 
-version: '3.9'
-
 # ============================================
 # Networks
 # ============================================
