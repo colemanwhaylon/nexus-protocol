@@ -32,8 +32,8 @@ contracts/cache_forge/
 contracts/coverage/
 contracts/lcov.info
 
-# Dependency directories (installed via forge install)
-contracts/lib/
+# Dependency directories
+# Note: contracts/lib/ is NOT ignored - it contains git submodules for Foundry deps
 contracts/node_modules/
 
 # Gas snapshots
