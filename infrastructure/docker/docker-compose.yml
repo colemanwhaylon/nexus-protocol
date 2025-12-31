@@ -45,6 +45,104 @@ volumes:
 services:
 
   # ------------------------------------------
+  # Frontend - Development
+  # ------------------------------------------
+  frontend-dev:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: nexus-frontend-dev
+    profiles:
+      - dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_CHAIN_ID=31337
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+      - NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID:-}
+    volumes:
+      - ../../frontend:/app:cached
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - nexus-network
+    depends_on:
+      - api-dev
+    restart: unless-stopped
+
+  # ------------------------------------------
+  # Frontend - Demo
+  # ------------------------------------------
+  frontend-demo:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        - NEXT_PUBLIC_CHAIN_ID=11155111
+        - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+        - NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID:-}
+    container_name: nexus-frontend-demo
+    profiles:
+      - demo
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - nexus-network
+    depends_on:
+      - api-demo
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ------------------------------------------
+  # Frontend - Production
+  # ------------------------------------------
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        - NEXT_PUBLIC_CHAIN_ID=${CHAIN_ID:-1}
+        - NEXT_PUBLIC_API_URL=${API_URL:-https://api.nexusprotocol.io/api/v1}
+        - NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
+    container_name: nexus-frontend
+    profiles:
+      - production
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - nexus-network
+    depends_on:
+      - api
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ------------------------------------------
   # API Server - Development
   # ------------------------------------------
   api-dev:
