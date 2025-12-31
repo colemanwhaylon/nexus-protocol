@@ -1,9 +1,6 @@
-// NFT feature components
-// Stub file - components will be added in Phase 2
-
-// export { CollectionInfo } from "./CollectionInfo";
-// export { MintCard } from "./MintCard";
-// export { NFTCard } from "./NFTCard";
-// export { NFTGrid } from "./NFTGrid";
-// export { NFTAttributes } from "./NFTAttributes";
-// export { NFTDetail } from "./NFTDetail";
+export { CollectionInfo } from './CollectionInfo';
+export { MintCard } from './MintCard';
+export { NFTCard } from './NFTCard';
+export { NFTGrid } from './NFTGrid';
+export { NFTAttributes } from './NFTAttributes';
+export { NFTDetail } from './NFTDetail';
