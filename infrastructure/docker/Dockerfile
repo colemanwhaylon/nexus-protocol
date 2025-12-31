@@ -132,7 +132,8 @@ RUN apk add --no-cache \
     bash
 
 # Install development tools
-RUN go install github.com/cosmtrek/air@latest && \
+# Note: air@latest requires Go 1.25+, pin to v1.52.3 for Go 1.23 compatibility
+RUN go install github.com/air-verse/air@v1.52.3 && \
     go install github.com/swaggo/swag/cmd/swag@latest
 
 # Create non-root user
