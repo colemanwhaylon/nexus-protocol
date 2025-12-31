@@ -367,6 +367,8 @@ contract NexusStakingFuzzTest is Test {
      */
     function testFuzz_EarlyExitPenalty_Calculation(address staker, uint256 stakeAmount) public {
         vm.assume(staker != address(0) && staker != address(staking));
+        // Exclude special addresses: admin, treasury, slasher, seeder
+        vm.assume(staker != admin && staker != treasury && staker != slasher && staker != address(999));
         stakeAmount = bound(stakeAmount, 1e18, INITIAL_BALANCE / 10);
 
         token.mint(staker, stakeAmount);
