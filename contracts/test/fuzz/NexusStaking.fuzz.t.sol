@@ -17,6 +17,7 @@ contract NexusStakingFuzzTest is Test {
     address public admin = address(1);
     address public treasury = address(2);
     address public slasher = address(3);
+    address public seeder = address(999);
 
     uint256 public constant INITIAL_BALANCE = 1_000_000_000e18;
     uint256 public constant MIN_STAKE_FOR_SLASHING = 1000e18;
@@ -38,7 +39,6 @@ contract NexusStakingFuzzTest is Test {
         vm.stopPrank();
 
         // Seed with initial stake to increase totalStaked for daily limit calculations
-        address seeder = address(999);
         token.mint(seeder, 100_000_000e18);
         vm.prank(seeder);
         token.approve(address(staking), 100_000_000e18);
@@ -91,6 +91,8 @@ contract NexusStakingFuzzTest is Test {
      */
     function testFuzz_MultipleStakes_Accumulate(address staker, uint256 stake1, uint256 stake2) public {
         vm.assume(staker != address(0) && staker != address(staking));
+        // Exclude special addresses to avoid interference with pre-existing stakes
+        vm.assume(staker != admin && staker != treasury && staker != slasher && staker != seeder);
         stake1 = bound(stake1, 1, INITIAL_BALANCE / 2);
         stake2 = bound(stake2, 1, INITIAL_BALANCE / 2);
 
@@ -113,6 +115,8 @@ contract NexusStakingFuzzTest is Test {
      */
     function testFuzz_Unbonding_CannotExceedStake(address staker, uint256 stakeAmount, uint256 unbondAmount) public {
         vm.assume(staker != address(0) && staker != address(staking));
+        // Exclude special addresses to avoid interference with pre-existing stakes
+        vm.assume(staker != admin && staker != treasury && staker != slasher && staker != seeder);
         stakeAmount = bound(stakeAmount, MIN_STAKE_DURATION, INITIAL_BALANCE / 2);
         unbondAmount = bound(unbondAmount, stakeAmount + 1, INITIAL_BALANCE);
 
@@ -134,6 +138,8 @@ contract NexusStakingFuzzTest is Test {
      */
     function testFuzz_Unbonding_DecreasesStake(address staker, uint256 stakeAmount, uint256 unbondPercent) public {
         vm.assume(staker != address(0) && staker != address(staking));
+        // Exclude special addresses to avoid interference with pre-existing stakes
+        vm.assume(staker != admin && staker != treasury && staker != slasher && staker != seeder);
         stakeAmount = bound(stakeAmount, 1e18, INITIAL_BALANCE / 10);
         unbondPercent = bound(unbondPercent, 1, 100);
 
@@ -367,8 +373,8 @@ contract NexusStakingFuzzTest is Test {
      */
     function testFuzz_EarlyExitPenalty_Calculation(address staker, uint256 stakeAmount) public {
         vm.assume(staker != address(0) && staker != address(staking));
-        // Exclude special addresses: admin, treasury, slasher, seeder
-        vm.assume(staker != admin && staker != treasury && staker != slasher && staker != address(999));
+        // Exclude special addresses to avoid interference with pre-existing stakes
+        vm.assume(staker != admin && staker != treasury && staker != slasher && staker != seeder);
         stakeAmount = bound(stakeAmount, 1e18, INITIAL_BALANCE / 10);
 
         token.mint(staker, stakeAmount);
