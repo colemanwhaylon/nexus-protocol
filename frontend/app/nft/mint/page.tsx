@@ -1,8 +1,56 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useAccount, useChainId } from 'wagmi';
+import { formatEther } from 'viem';
+import { useNFT } from '@/hooks/useNFT';
+import { MintCard } from '@/components/features/NFT/MintCard';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function MintPage() {
+  const { isConnected } = useAccount();
+  const chainId = useChainId();
+  const [mintQuantity, setMintQuantity] = useState(1);
+  const processedHashRef = useRef<string | null>(null);
+
+  const { notifyMint } = useNotifications();
+
+  const {
+    mint,
+    totalSupply,
+    maxSupply,
+    mintPrice,
+    isMintActive,
+    isPending,
+    isConfirming,
+    isSuccess,
+    hash,
+    refetchBalance,
+  } = useNFT(chainId);
+
+  // Refetch after successful mint and send notification
+  useEffect(() => {
+    if (isSuccess && hash && hash !== processedHashRef.current) {
+      processedHashRef.current = hash;
+      refetchBalance();
+      // Notification with quantity info
+      notifyMint(`${mintQuantity}`, hash);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSuccess, hash, refetchBalance]);
+
+  const handleMint = async (quantity: number) => {
+    if (!mintPrice) return;
+    setMintQuantity(quantity);
+    const totalCost = mintPrice * BigInt(quantity);
+    mint(quantity, totalCost);
+  };
+
+  const isLoading = isPending || isConfirming;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -13,34 +61,38 @@ export default function MintPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              Mint Status
-              <Badge>Not Started</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Price</span>
-                <span className="font-medium">0.05 ETH</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Max per wallet</span>
-                <span className="font-medium">5</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Remaining</span>
-                <span className="font-medium">10,000</span>
-              </div>
-            </div>
-            <Button className="w-full" disabled>
-              Minting Not Active
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Mint Card */}
+        {!isConnected ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                Mint Status
+                <Badge variant="outline">Connect Wallet</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                Connect your wallet to mint NFTs.
+              </p>
+              <Button className="w-full" disabled>
+                Connect Wallet to Mint
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <MintCard
+            mintPrice={mintPrice}
+            maxPerTx={5}
+            totalMinted={totalSupply}
+            maxSupply={maxSupply || 10000n}
+            isMintActive={isMintActive ?? false}
+            onMint={handleMint}
+            isLoading={isLoading}
+            disabled={!isMintActive}
+          />
+        )}
 
+        {/* Benefits Card */}
         <Card>
           <CardHeader>
             <CardTitle>NFT Benefits</CardTitle>
@@ -53,6 +105,42 @@ export default function MintPage() {
               <li>• Early access to new protocol features</li>
               <li>• Community events and airdrops</li>
             </ul>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Stats Section */}
+      <div className="grid gap-6 md:grid-cols-3 mt-8">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Minted</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {totalSupply?.toString() || '0'} / {maxSupply?.toString() || '10,000'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Mint Price</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {mintPrice ? parseFloat(formatEther(mintPrice)).toFixed(4) : '0'} ETH
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Mint Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Badge variant={isMintActive ? "default" : "secondary"} className="text-lg px-3 py-1">
+              {isMintActive ? 'Active' : 'Not Active'}
+            </Badge>
           </CardContent>
         </Card>
       </div>

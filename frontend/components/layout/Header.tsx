@@ -7,6 +7,7 @@ import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { NotificationBell } from '@/components/features/Notifications';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -46,8 +47,10 @@ export function Header() {
           ))}
         </div>
 
-        {/* Wallet Connect + Mobile Menu Button */}
-        <div className="flex items-center gap-4">
+        {/* Notifications + Wallet Connect + Mobile Menu Button */}
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+
           <ConnectButton
             chainStatus="icon"
             accountStatus={{

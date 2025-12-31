@@ -5,9 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Users, UserCheck } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Users, UserMinus } from 'lucide-react';
 import { isAddress } from 'viem';
 import type { Address } from 'viem';
+
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 interface DelegationFormProps {
   currentDelegate?: Address;
@@ -28,8 +31,9 @@ export function DelegationForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isValidAddress = delegatee ? isAddress(delegatee) : false;
-  const isSelfDelegated = currentDelegate === userAddress;
-  const canSubmit = isValidAddress && !disabled && !isSubmitting;
+  const isSameAsUser = delegatee.toLowerCase() === userAddress?.toLowerCase();
+  const hasDelegated = currentDelegate && currentDelegate !== ZERO_ADDRESS;
+  const canSubmit = isValidAddress && !isSameAsUser && !disabled && !isSubmitting;
 
   const shortenAddress = (addr: string) =>
     `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -48,14 +52,14 @@ export function DelegationForm({
     }
   };
 
-  const handleSelfDelegate = async () => {
-    if (!onDelegate || !userAddress || disabled || isSubmitting) return;
+  const handleRemoveDelegation = async () => {
+    if (!onDelegate || disabled || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
-      await onDelegate(userAddress);
+      await onDelegate(ZERO_ADDRESS as Address);
     } catch (error) {
-      console.error('Self-delegation failed:', error);
+      console.error('Remove delegation failed:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -69,25 +73,27 @@ export function DelegationForm({
           Delegate Stake
         </CardTitle>
         <CardDescription>
-          Delegate your staking power to another address
+          Delegate your voting power to another address (self-delegation not allowed)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {currentDelegate && (
-          <div className="p-3 bg-muted rounded-lg">
-            <p className="text-sm text-muted-foreground">Current Delegate</p>
-            <div className="flex items-center gap-2">
-              {isSelfDelegated ? (
-                <>
-                  <UserCheck className="h-4 w-4 text-green-500" />
-                  <span className="font-medium">Self-delegated</span>
-                </>
-              ) : (
-                <span className="font-mono">{shortenAddress(currentDelegate)}</span>
-              )}
-            </div>
+        {/* Current Delegation Status */}
+        <div className="p-3 bg-muted rounded-lg">
+          <p className="text-sm text-muted-foreground mb-1">Current Delegate</p>
+          <div className="flex items-center justify-between">
+            {hasDelegated ? (
+              <>
+                <span className="font-mono text-sm">{shortenAddress(currentDelegate)}</span>
+                <Badge variant="default">Active</Badge>
+              </>
+            ) : (
+              <>
+                <span className="text-muted-foreground">Not delegated</span>
+                <Badge variant="secondary">None</Badge>
+              </>
+            )}
           </div>
-        )}
+        </div>
 
         <div className="space-y-2">
           <Label htmlFor="delegatee">Delegate To</Label>
@@ -96,11 +102,14 @@ export function DelegationForm({
             placeholder="0x..."
             value={delegatee}
             onChange={(e) => setDelegatee(e.target.value)}
-            disabled={disabled || isLoading}
-            className={delegatee && !isValidAddress ? 'border-destructive' : ''}
+            disabled={disabled || isLoading || isSubmitting}
+            className={delegatee && (!isValidAddress || isSameAsUser) ? 'border-destructive' : ''}
           />
           {delegatee && !isValidAddress && (
             <p className="text-sm text-destructive">Invalid address format</p>
+          )}
+          {delegatee && isSameAsUser && (
+            <p className="text-sm text-destructive">Cannot delegate to yourself</p>
           )}
         </div>
 
@@ -122,15 +131,15 @@ export function DelegationForm({
               </>
             )}
           </Button>
-          
-          {!isSelfDelegated && userAddress && (
+
+          {hasDelegated && (
             <Button
               variant="outline"
               disabled={disabled || isSubmitting}
-              onClick={handleSelfDelegate}
+              onClick={handleRemoveDelegation}
             >
-              <UserCheck className="mr-2 h-4 w-4" />
-              Self
+              <UserMinus className="mr-2 h-4 w-4" />
+              Remove
             </Button>
           )}
         </div>

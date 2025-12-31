@@ -190,3 +190,15 @@ test-results/
 coverage/
 
 cache/
+
+# =============================================================================
+# PROJECT-SPECIFIC EXCLUSIONS
+# =============================================================================
+# Screenshots and temporary files for deletion
+candelete/
+
+# pnpm store (should use global store, not project-local)
+frontend/.pnpm-store/
+
+# Claude plans (auto-generated)
+.claude/plans/
