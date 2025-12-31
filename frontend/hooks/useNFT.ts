@@ -1,36 +1,141 @@
-"use client";
+'use client';
 
-import { useReadContract, useWriteContract } from "wagmi";
-import { useWallet } from "./useWallet";
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi';
+import type { Address } from 'viem';
+import { getContractAddresses } from '@/lib/contracts/addresses';
 
-// Stub hook for NFT functionality
-// Will be implemented with full contract integration in Phase 2
+const nftAbi = [
+  {
+    name: 'mint',
+    type: 'function',
+    stateMutability: 'payable',
+    inputs: [{ name: 'quantity', type: 'uint256' }],
+    outputs: [],
+  },
+  {
+    name: 'totalSupply',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'maxSupply',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'mintPrice',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'balanceOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'tokenOfOwnerByIndex',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'index', type: 'uint256' },
+    ],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'tokenURI',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ type: 'string' }],
+  },
+  {
+    name: 'ownerOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ type: 'address' }],
+  },
+  {
+    name: 'isMintActive',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'bool' }],
+  },
+] as const;
 
-export function useNFT() {
-  const { address, isConnected } = useWallet();
+export function useNFT(chainId?: number) {
+  const { address } = useAccount();
+  const addresses = getContractAddresses(chainId);
+  const nftAddress = addresses.nexusNFT as Address;
 
-  // TODO: Implement NFT queries
-  // TODO: Implement minting operations
-  // TODO: Implement transfer operations
+  const { writeContract, data: hash, isPending, error: writeError, reset } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const { data: totalSupply } = useReadContract({
+    address: nftAddress,
+    abi: nftAbi,
+    functionName: 'totalSupply',
+  });
+
+  const { data: maxSupply } = useReadContract({
+    address: nftAddress,
+    abi: nftAbi,
+    functionName: 'maxSupply',
+  });
+
+  const { data: mintPrice } = useReadContract({
+    address: nftAddress,
+    abi: nftAbi,
+    functionName: 'mintPrice',
+  });
+
+  const { data: isMintActive } = useReadContract({
+    address: nftAddress,
+    abi: nftAbi,
+    functionName: 'isMintActive',
+  });
+
+  const { data: balance, refetch: refetchBalance } = useReadContract({
+    address: nftAddress,
+    abi: nftAbi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: !!address },
+  });
+
+  const mint = (quantity: number, value: bigint) => {
+    writeContract({
+      address: nftAddress,
+      abi: nftAbi,
+      functionName: 'mint',
+      args: [BigInt(quantity)],
+      value,
+    });
+  };
 
   return {
-    // State
-    isConnected,
-    address,
-    
-    // Placeholder collection data
-    totalSupply: 10000,
-    minted: 0,
-    maxPerWallet: 5,
-    mintPrice: BigInt(50000000000000000), // 0.05 ETH
-    isMintActive: false,
-    
-    // Placeholder user data
-    ownedTokens: [] as number[],
-    mintedCount: 0,
-    
-    // Placeholder actions
-    mint: async () => { throw new Error("Not implemented"); },
-    transfer: async () => { throw new Error("Not implemented"); },
+    mint,
+    totalSupply: totalSupply as bigint | undefined,
+    maxSupply: maxSupply as bigint | undefined,
+    mintPrice: mintPrice as bigint | undefined,
+    isMintActive: isMintActive as boolean | undefined,
+    balance: balance as bigint | undefined,
+    hash,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: writeError,
+    reset,
+    refetchBalance,
   };
 }
