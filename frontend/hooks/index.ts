@@ -7,3 +7,4 @@ export { useTokenBalance } from "./useTokenBalance";
 export { useTokenInfo } from "./useTokenInfo";
 export { useTokenTransfer } from "./useTokenTransfer";
 export { useTokenApproval } from "./useTokenApproval";
+export { useTransactionToast, txToast } from "./useTransactionToast";
