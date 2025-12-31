@@ -22,7 +22,7 @@ export function VotingPowerCard({
   delegatedTo,
   delegatedFrom = [],
   decimals = 18,
-  symbol = 'NEXUS',
+  symbol: _symbol = 'NEXUS',
   isLoading,
 }: VotingPowerCardProps) {
   const formattedPower = parseFloat(formatUnits(votingPower, decimals));

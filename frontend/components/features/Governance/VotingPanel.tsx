@@ -19,7 +19,7 @@ interface VotingPanelProps {
 }
 
 export function VotingPanel({
-  proposalId,
+  proposalId: _proposalId,
   votingPower = 0n,
   hasVoted = false,
   currentVote,

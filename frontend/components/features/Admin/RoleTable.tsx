@@ -69,7 +69,7 @@ export function RoleTable({
     }
   };
 
-  const getRoleBadgeVariant = (roleName: string) => {
+  const getRoleBadgeVariant = (roleName: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (roleName.toLowerCase()) {
       case 'admin':
         return 'destructive';
@@ -123,7 +123,7 @@ export function RoleTable({
             {Object.entries(groupedByRole).map(([roleName, roleAssignments]) => (
               <div key={roleName} className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant={getRoleBadgeVariant(roleName) as any}>
+                  <Badge variant={getRoleBadgeVariant(roleName)}>
                     {roleName}
                   </Badge>
                   <span className="text-sm text-muted-foreground">

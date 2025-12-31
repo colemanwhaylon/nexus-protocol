@@ -19,7 +19,7 @@ const SUPPORTED_CHAINS = [
 
 export function NetworkSwitcher() {
   const chainId = useChainId();
-  const { switchChain, isPending, error } = useSwitchChain();
+  const { switchChain, isPending } = useSwitchChain();
 
   const currentChain = SUPPORTED_CHAINS.find((c) => c.id === chainId);
   const isUnsupported = !currentChain;

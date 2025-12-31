@@ -49,14 +49,15 @@ const addresses: Record<number, ContractAddresses> = {
   },
 };
 
-export function getContractAddresses(chainId: number): ContractAddresses {
-  const chainAddresses = addresses[chainId];
+export function getContractAddresses(chainId?: number): ContractAddresses {
+  const effectiveChainId = chainId ?? CHAIN_IDS.LOCALHOST;
+  const chainAddresses = addresses[effectiveChainId];
   if (!chainAddresses) {
-    throw new Error(`No contract addresses configured for chain ID: ${chainId}`);
+    throw new Error(`No contract addresses configured for chain ID: ${effectiveChainId}`);
   }
   return chainAddresses;
 }
 
-export function getContractAddress(chainId: number, contract: keyof ContractAddresses): Address {
+export function getContractAddress(chainId: number | undefined, contract: keyof ContractAddresses): Address {
   return getContractAddresses(chainId)[contract];
 }

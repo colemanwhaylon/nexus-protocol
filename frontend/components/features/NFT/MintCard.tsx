@@ -25,7 +25,7 @@ export function MintCard({
   maxSupply = 10000n,
   isMintActive = true,
   onMint,
-  isLoading,
+  isLoading: _isLoading,
   disabled,
 }: MintCardProps) {
   const [quantity, setQuantity] = useState(1);

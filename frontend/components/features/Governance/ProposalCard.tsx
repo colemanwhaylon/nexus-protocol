@@ -22,7 +22,7 @@ interface ProposalCardProps {
 }
 
 export function ProposalCard({
-  id,
+  id: _id,
   title,
   description,
   proposer,
