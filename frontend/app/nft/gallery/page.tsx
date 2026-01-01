@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAccount, useChainId, useReadContract } from 'wagmi';
 import { getContractAddresses } from '@/lib/contracts/addresses';
 import { useNFT } from '@/hooks/useNFT';
+import { NFTGrid, NFTCard } from '@/components/features/NFT';
 import { Loader2, ExternalLink, Image as ImageIcon } from 'lucide-react';
 
 const nftAbi = [
@@ -23,32 +25,37 @@ const nftAbi = [
   },
 ] as const;
 
-function NFTCard({ tokenId }: { tokenId: bigint }) {
-  return (
-    <Link href={`/nft/${tokenId.toString()}`}>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-        <CardContent className="p-4">
-          <div className="aspect-square bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg mb-3 flex items-center justify-center">
-            <ImageIcon className="h-12 w-12 text-white/50" />
-          </div>
-          <div className="space-y-1">
-            <p className="font-semibold">Nexus NFT #{tokenId.toString()}</p>
-            <p className="text-sm text-muted-foreground">Genesis Collection</p>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
+interface NFTData {
+  tokenId: string;
+  name?: string;
+  image?: string;
 }
 
 export default function GalleryPage() {
+  const router = useRouter();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const addresses = getContractAddresses(chainId);
   const nftAddress = addresses.nexusNFT as `0x${string}`;
 
   const { balance, totalSupply, maxSupply } = useNFT(chainId);
+  const [ownedNFTs, setOwnedNFTs] = useState<NFTData[]>([]);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
+  const [favoriteTokenIds, setFavoriteTokenIds] = useState<string[]>([]);
+
+  // Handle NFT selection (navigate to detail page)
+  const handleSelectNFT = (tokenId: string) => {
+    router.push(`/nft/${tokenId}`);
+  };
+
+  // Handle favorite toggle
+  const handleFavorite = (tokenId: string) => {
+    setFavoriteTokenIds(prev => 
+      prev.includes(tokenId)
+        ? prev.filter(id => id !== tokenId)
+        : [...prev, tokenId]
+    );
+  };
 
   // Set loading state based on balance
   useEffect(() => {
@@ -114,10 +121,7 @@ export default function GalleryPage() {
               </p>
             </div>
           ) : isLoadingTokens ? (
-            <div className="text-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading your NFTs...</p>
-            </div>
+            <NFTGrid isLoading={true} columns={4} />
           ) : !balance || balance === 0n ? (
             <div className="text-center py-12">
               <ImageIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -139,6 +143,9 @@ export default function GalleryPage() {
                   ownerAddress={address!}
                   index={BigInt(i)}
                   nftAddress={nftAddress}
+                  onSelect={handleSelectNFT}
+                  onFavorite={handleFavorite}
+                  isFavorite={favoriteTokenIds}
                 />
               ))}
             </div>
@@ -149,15 +156,21 @@ export default function GalleryPage() {
   );
 }
 
-// Separate component to fetch individual token ID
+// Separate component to fetch individual token ID and use NFTCard
 function NFTTokenCard({
   ownerAddress,
   index,
   nftAddress,
+  onSelect,
+  onFavorite,
+  isFavorite,
 }: {
   ownerAddress: `0x${string}`;
   index: bigint;
   nftAddress: `0x${string}`;
+  onSelect: (tokenId: string) => void;
+  onFavorite: (tokenId: string) => void;
+  isFavorite: string[];
 }) {
   const { data: tokenId, isLoading } = useReadContract({
     address: nftAddress,
@@ -167,18 +180,21 @@ function NFTTokenCard({
   });
 
   if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-4">
-          <div className="aspect-square bg-muted rounded-lg mb-3 flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <NFTCard tokenId="" isLoading={true} />;
   }
 
   if (!tokenId) return null;
 
-  return <NFTCard tokenId={tokenId} />;
+  const tokenIdStr = tokenId.toString();
+
+  return (
+    <NFTCard
+      tokenId={tokenIdStr}
+      name={`Nexus NFT #${tokenIdStr}`}
+      isOwned={true}
+      isFavorite={isFavorite.includes(tokenIdStr)}
+      onClick={() => onSelect(tokenIdStr)}
+      onFavorite={() => onFavorite(tokenIdStr)}
+    />
+  );
 }
