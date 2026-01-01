@@ -335,7 +335,6 @@ export default function StakingPage() {
 
                 <Button
                   className="w-full"
-                  variant="secondary"
                   onClick={handleUnstake}
                   disabled={!unstakeAmount || isLoading || !stakedBalance || stakedBalance === BigInt(0)}
                 >
