@@ -2,7 +2,6 @@
 
 import { useChainId } from 'wagmi';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { getContractAddresses } from '@/lib/contracts/addresses';
 import { ProtocolStatus, AuditLog } from '@/components/features/Admin';
 
@@ -24,15 +23,15 @@ export default function AdminDashboard() {
       isPaused: false,
       version: '1.0.0'
     },
-    { 
-      name: 'NexusStaking', 
-      address: addresses.nexusStaking || '0x...', 
+    {
+      name: 'NexusStaking',
+      address: addresses.nexusStaking || '0x...',
       isPaused: false,
       version: '1.0.0'
     },
-    { 
-      name: 'RewardsDistributor', 
-      address: addresses.rewardsDistributor || '0x...', 
+    {
+      name: 'NexusGovernor',
+      address: addresses.nexusGovernor || '0x...',
       isPaused: false,
       version: '1.0.0'
     },

@@ -1,13 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { KYCTable } from '@/components/features/Admin';
 import { Users, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 export default function CompliancePage() {
-  const [isLoading, setIsLoading] = useState(false);
+  const isLoading = false;
 
   // Mock KYC requests for demo
   const kycRequests = [

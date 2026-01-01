@@ -10,7 +10,7 @@ import { useAccount, useChainId, useReadContract } from 'wagmi';
 import { getContractAddresses } from '@/lib/contracts/addresses';
 import { useNFT } from '@/hooks/useNFT';
 import { NFTGrid, NFTCard } from '@/components/features/NFT';
-import { Loader2, ExternalLink, Image as ImageIcon } from 'lucide-react';
+import { ExternalLink, Image as ImageIcon } from 'lucide-react';
 
 const nftAbi = [
   {
@@ -25,12 +25,6 @@ const nftAbi = [
   },
 ] as const;
 
-interface NFTData {
-  tokenId: string;
-  name?: string;
-  image?: string;
-}
-
 export default function GalleryPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
@@ -39,7 +33,6 @@ export default function GalleryPage() {
   const nftAddress = addresses.nexusNFT as `0x${string}`;
 
   const { balance, totalSupply, maxSupply } = useNFT(chainId);
-  const [ownedNFTs, setOwnedNFTs] = useState<NFTData[]>([]);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [favoriteTokenIds, setFavoriteTokenIds] = useState<string[]>([]);
 

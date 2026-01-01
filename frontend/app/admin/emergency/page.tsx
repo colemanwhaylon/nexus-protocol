@@ -30,15 +30,15 @@ export default function EmergencyPage() {
       isPaused: isPaused,
       version: '1.0.0'
     },
-    { 
-      name: 'NexusStaking', 
-      address: addresses.nexusStaking || '0x...', 
+    {
+      name: 'NexusStaking',
+      address: addresses.nexusStaking || '0x...',
       isPaused: isPaused,
       version: '1.0.0'
     },
-    { 
-      name: 'RewardsDistributor', 
-      address: addresses.rewardsDistributor || '0x...', 
+    {
+      name: 'NexusEmergency',
+      address: addresses.nexusEmergency || '0x...',
       isPaused: isPaused,
       version: '1.0.0'
     },
