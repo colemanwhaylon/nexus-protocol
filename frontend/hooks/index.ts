@@ -3,6 +3,7 @@ export { useStaking } from "./useStaking";
 export { useNFT } from "./useNFT";
 export { useGovernance } from "./useGovernance";
 export { useAdmin } from "./useAdmin";
+export { useAdminKYC } from "./useAdminKYC";
 export { useTokenBalance } from "./useTokenBalance";
 export { useTokenInfo } from "./useTokenInfo";
 export { useTokenTransfer } from "./useTokenTransfer";

@@ -1,98 +1,212 @@
 'use client';
 
-import { useState } from 'react';
-import { useChainId } from 'wagmi';
+import { useState, useEffect, useCallback } from 'react';
+import { useChainId, useReadContracts, useAccount } from 'wagmi';
 import { RoleManager, RoleTable } from '@/components/features/Admin';
+import { useAdmin, useRoleMembers, ROLES, ROLE_METADATA, getRoleHash, accessControlAbi } from '@/hooks/useAdmin';
+import { useNotifications } from '@/hooks/useNotifications';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle, ShieldAlert } from 'lucide-react';
 import type { Address } from 'viem';
+
+interface RoleAssignment {
+  role: string;
+  roleName: string;
+  account: string;
+  grantedAt?: number;
+  grantedBy?: string;
+}
+
+// Define available roles for the UI
+const AVAILABLE_ROLES = [
+  { id: 'DEFAULT_ADMIN_ROLE', name: 'Default Admin', description: 'Full administrative access' },
+  { id: 'ADMIN_ROLE', name: 'Admin', description: 'Protocol administration' },
+  { id: 'OPERATOR_ROLE', name: 'Operator', description: 'Day-to-day operations' },
+  { id: 'COMPLIANCE_ROLE', name: 'Compliance', description: 'KYC/AML management' },
+  { id: 'PAUSER_ROLE', name: 'Pauser', description: 'Emergency pause capability' },
+];
+
+// Roles to enumerate members for
+const ROLES_TO_ENUMERATE = [
+  { hash: ROLES.DEFAULT_ADMIN_ROLE, id: 'DEFAULT_ADMIN_ROLE' },
+  { hash: ROLES.ADMIN_ROLE, id: 'ADMIN_ROLE' },
+  { hash: ROLES.OPERATOR_ROLE, id: 'OPERATOR_ROLE' },
+  { hash: ROLES.COMPLIANCE_ROLE, id: 'COMPLIANCE_ROLE' },
+  { hash: ROLES.PAUSER_ROLE, id: 'PAUSER_ROLE' },
+];
 
 export default function RolesPage() {
   const chainId = useChainId();
-  const [isLoading, setIsLoading] = useState(false);
+  const { address: connectedAddress } = useAccount();
+  const [roleAssignments, setRoleAssignments] = useState<RoleAssignment[]>([]);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
 
-  // Define available roles
-  const roles = [
-    { id: 'DEFAULT_ADMIN_ROLE', name: 'Admin', description: 'Full administrative access' },
-    { id: 'OPERATOR_ROLE', name: 'Operator', description: 'Operational management' },
-    { id: 'COMPLIANCE_ROLE', name: 'Compliance', description: 'KYC and compliance management' },
-    { id: 'PAUSER_ROLE', name: 'Pauser', description: 'Emergency pause capability' },
-  ];
+  // Get admin hooks
+  const {
+    grantRole,
+    revokeRole,
+    isPending,
+    canManageRoles,
+    accessControlAddress,
+  } = useAdmin(chainId);
 
-  // Mock role assignments for demo
-  const [roleAssignments, setRoleAssignments] = useState([
-    {
-      role: 'DEFAULT_ADMIN_ROLE',
-      roleName: 'Admin',
-      account: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-      grantedAt: Math.floor(Date.now() / 1000) - 604800,
-      grantedBy: '0x0000000000000000000000000000000000000000',
-    },
-    {
-      role: 'OPERATOR_ROLE',
-      roleName: 'Operator',
-      account: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-      grantedAt: Math.floor(Date.now() / 1000) - 259200,
-      grantedBy: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    },
-    {
-      role: 'COMPLIANCE_ROLE',
-      roleName: 'Compliance',
-      account: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
-      grantedAt: Math.floor(Date.now() / 1000) - 172800,
-      grantedBy: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    },
-    {
-      role: 'PAUSER_ROLE',
-      roleName: 'Pauser',
-      account: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
-      grantedAt: Math.floor(Date.now() / 1000) - 86400,
-      grantedBy: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    },
-    {
-      role: 'PAUSER_ROLE',
-      roleName: 'Pauser',
-      account: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-      grantedAt: Math.floor(Date.now() / 1000) - 604800,
-      grantedBy: '0x0000000000000000000000000000000000000000',
-    },
-  ]);
+  const {
+    isContractDeployed,
+    roleCounts,
+    refetchAllCounts,
+  } = useRoleMembers(chainId);
 
-  const handleGrantRole = async (role: string, account: Address) => {
-    setIsLoading(true);
+  const { notifyRoleGranted, notifyRoleRevoked, notifyError } = useNotifications();
+
+  // Build contract read calls to fetch all role members
+  const buildMemberQueries = useCallback(() => {
+    if (!isContractDeployed) return [];
+
+    const queries: Array<{
+      address: Address;
+      abi: typeof accessControlAbi;
+      functionName: 'getRoleMember';
+      args: [string, bigint];
+    }> = [];
+
+    for (const { hash } of ROLES_TO_ENUMERATE) {
+      const count = roleCounts[hash];
+      if (count && count > 0n) {
+        for (let i = 0n; i < count; i++) {
+          queries.push({
+            address: accessControlAddress as Address,
+            abi: accessControlAbi,
+            functionName: 'getRoleMember',
+            args: [hash, i],
+          });
+        }
+      }
+    }
+
+    return queries;
+  }, [isContractDeployed, roleCounts, accessControlAddress]);
+
+  // Fetch all role members using multicall
+  const memberQueries = buildMemberQueries();
+  const { data: memberResults, refetch: refetchMembers, isLoading: isLoadingMemberResults } = useReadContracts({
+    contracts: memberQueries,
+    query: {
+      enabled: memberQueries.length > 0,
+    },
+  });
+
+  // Process member results into role assignments
+  useEffect(() => {
+    if (!isContractDeployed) {
+      setIsLoadingMembers(false);
+      return;
+    }
+
+    if (memberQueries.length === 0) {
+      // No members to fetch
+      setRoleAssignments([]);
+      setIsLoadingMembers(false);
+      return;
+    }
+
+    if (!memberResults || isLoadingMemberResults) {
+      return;
+    }
+
+    const assignments: RoleAssignment[] = [];
+    let queryIndex = 0;
+
+    for (const { hash, id } of ROLES_TO_ENUMERATE) {
+      const count = roleCounts[hash];
+      if (count && count > 0n) {
+        for (let i = 0n; i < count; i++) {
+          const result = memberResults[queryIndex];
+          if (result?.status === 'success' && result.result) {
+            const metadata = ROLE_METADATA[hash as keyof typeof ROLE_METADATA];
+            assignments.push({
+              role: id,
+              roleName: metadata?.name || id,
+              account: result.result as string,
+              // Note: The contract doesn't store grant timestamps, so we omit them
+            });
+          }
+          queryIndex++;
+        }
+      }
+    }
+
+    setRoleAssignments(assignments);
+    setIsLoadingMembers(false);
+  }, [memberResults, isLoadingMemberResults, roleCounts, isContractDeployed, memberQueries.length]);
+
+  // Handle granting a role
+  const handleGrantRole = async (roleId: string, account: Address) => {
     try {
-      // TODO: Call smart contract to grant role
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const roleName = roles.find(r => r.id === role)?.name || role;
-      setRoleAssignments(prev => [
-        ...prev,
-        {
-          role,
-          roleName,
-          account,
-          grantedAt: Math.floor(Date.now() / 1000),
-          grantedBy: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-        },
-      ]);
-      console.log('Role granted', role, 'to', account);
-    } finally {
-      setIsLoading(false);
+      const roleHash = getRoleHash(roleId);
+      const metadata = ROLE_METADATA[roleHash as keyof typeof ROLE_METADATA];
+      const roleName = metadata?.name || roleId;
+
+      const txHash = await grantRole(roleHash, account);
+      notifyRoleGranted(roleName, account, txHash);
+
+      // Refetch role data after successful grant
+      setTimeout(() => {
+        refetchAllCounts();
+        refetchMembers();
+      }, 2000);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      notifyError('Grant Role Failed', errorMessage);
+      throw error;
     }
   };
 
-  const handleRevokeRole = async (role: string, account: string) => {
-    setIsLoading(true);
+  // Handle revoking a role
+  const handleRevokeRole = async (roleId: string, account: string) => {
     try {
-      // TODO: Call smart contract to revoke role
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setRoleAssignments(prev => 
-        prev.filter(a => !(a.role === role && a.account === account))
-      );
-      console.log('Role revoked', role, 'from', account);
-    } finally {
-      setIsLoading(false);
+      const roleHash = getRoleHash(roleId);
+      const metadata = ROLE_METADATA[roleHash as keyof typeof ROLE_METADATA];
+      const roleName = metadata?.name || roleId;
+
+      const txHash = await revokeRole(roleHash, account as Address);
+      notifyRoleRevoked(roleName, account, txHash);
+
+      // Refetch role data after successful revoke
+      setTimeout(() => {
+        refetchAllCounts();
+        refetchMembers();
+      }, 2000);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      notifyError('Revoke Role Failed', errorMessage);
+      throw error;
     }
   };
+
+  // Show warning if contract not deployed
+  if (!isContractDeployed) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">Role Management</h1>
+          <p className="text-muted-foreground">
+            Manage protocol roles and permissions
+          </p>
+        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Contract Not Deployed</AlertTitle>
+          <AlertDescription>
+            The NexusAccessControl contract is not deployed on this network (Chain ID: {chainId}).
+            Please deploy the contract or switch to a network where it is deployed.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Show warning if user doesn't have admin role
+  const showNoPermissionWarning = connectedAddress && canManageRoles === false;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -103,14 +217,25 @@ export default function RolesPage() {
         </p>
       </div>
 
+      {showNoPermissionWarning && (
+        <Alert className="mb-6" variant="destructive">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertTitle>Insufficient Permissions</AlertTitle>
+          <AlertDescription>
+            Your connected wallet does not have admin privileges.
+            You can view role assignments but cannot grant or revoke roles.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Role Manager - Grant/Revoke */}
         <RoleManager
-          roles={roles}
+          roles={AVAILABLE_ROLES}
           onGrantRole={handleGrantRole}
           onRevokeRole={handleRevokeRole}
-          isLoading={isLoading}
-          disabled={false}
+          isLoading={isPending}
+          disabled={!canManageRoles}
         />
 
         {/* Current Assignments */}
@@ -118,8 +243,8 @@ export default function RolesPage() {
           assignments={roleAssignments}
           chainId={chainId}
           onRevoke={handleRevokeRole}
-          isLoading={isLoading}
-          canRevoke={true}
+          isLoading={isLoadingMembers || isPending}
+          canRevoke={!!canManageRoles}
         />
       </div>
     </div>

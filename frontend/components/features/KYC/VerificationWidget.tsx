@@ -10,6 +10,10 @@ import { Loader2, CheckCircle, XCircle, Clock, CreditCard, Wallet, Coins } from 
 import { cn } from '@/lib/utils';
 
 // Sumsub WebSDK types
+interface SumsubSDKInstance {
+  launch: (containerId: string) => void;
+}
+
 declare global {
   interface Window {
     snsWebSdk?: {
@@ -19,8 +23,7 @@ declare global {
         onError: (error: Error) => void
       ) => {
         withConf: (config: SumsubConfig) => {
-          build: () => void;
-          launch: (containerId: string) => void;
+          build: () => SumsubSDKInstance;
         };
       };
     };
@@ -109,11 +112,12 @@ export function VerificationWidget({ onComplete, onError, className }: Verificat
     switch (type) {
       case 'idCheck.onApplicantStatusChanged':
         if (payload.reviewStatus === 'completed') {
-          if (payload.reviewResult?.reviewAnswer === 'GREEN') {
+          const reviewResult = payload.reviewResult as { reviewAnswer?: string; rejectLabels?: string[] } | undefined;
+          if (reviewResult?.reviewAnswer === 'GREEN') {
             notifyKYCApproved();
             onComplete?.();
           } else {
-            const rejectLabels = (payload.reviewResult?.rejectLabels as string[]) || [];
+            const rejectLabels = reviewResult?.rejectLabels || [];
             notifyKYCRejected(rejectLabels.join(', ') || 'Verification failed');
             onError?.('Verification was not approved');
           }

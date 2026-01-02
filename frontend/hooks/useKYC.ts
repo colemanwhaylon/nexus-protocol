@@ -374,6 +374,3 @@ export function useKYC(options: UseKYCOptions = {}) {
     clearError: () => setError(null),
   };
 }
-
-// Re-export types
-export type { PaymentMethod, KYCStatus, KYCPricing, PaymentMethodInfo, KYCVerification };
