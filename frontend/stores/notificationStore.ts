@@ -4,7 +4,20 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'pending';
-export type NotificationCategory = 'transaction' | 'approval' | 'stake' | 'unstake' | 'delegate' | 'mint' | 'governance' | 'system';
+export type NotificationCategory =
+  | 'transaction'
+  | 'approval'
+  | 'stake'
+  | 'unstake'
+  | 'delegate'
+  | 'mint'
+  | 'governance'
+  | 'system'
+  | 'kyc'        // KYC verification events
+  | 'admin'      // Admin panel operations
+  | 'emergency'  // Emergency pause/unpause events
+  | 'nft'        // NFT transfer, reveal, etc.
+  | 'payment';   // Payment events (Stripe, crypto)
 
 export interface Notification {
   id: string;

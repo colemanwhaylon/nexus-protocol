@@ -252,6 +252,166 @@ INSERT INTO jurisdictions (code, name, allowed, required_level, requires_accredi
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================
+-- Pricing & Fee Configuration Tables
+-- ============================================
+
+-- Fee types and their current pricing (DATABASE-DRIVEN PRICING)
+-- This allows changing fees via DB updates instead of code changes
+CREATE TABLE IF NOT EXISTS pricing (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    service_code VARCHAR(50) NOT NULL UNIQUE,  -- 'kyc_verification', 'nft_mint', etc.
+    service_name VARCHAR(100) NOT NULL,
+    description TEXT,
+
+    -- Base cost (what we pay)
+    cost_usd DECIMAL(18,8) NOT NULL DEFAULT 0,
+    cost_provider VARCHAR(50),  -- 'sumsub', 'gas', 'internal'
+
+    -- Pricing in different currencies
+    price_usd DECIMAL(18,8) NOT NULL,
+    price_eth DECIMAL(18,8),           -- NULL = not accepted
+    price_nexus DECIMAL(18,8),         -- NULL = not accepted
+
+    -- Markup calculation
+    markup_percent DECIMAL(5,2) NOT NULL DEFAULT 0,  -- e.g., 200.00 = 200%
+
+    -- Status
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    -- Audit
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by VARCHAR(42)  -- Admin address who made change
+);
+
+CREATE INDEX idx_pricing_service_code ON pricing(service_code);
+CREATE INDEX idx_pricing_is_active ON pricing(is_active);
+
+-- Price history for audit trail
+CREATE TABLE IF NOT EXISTS pricing_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pricing_id UUID NOT NULL REFERENCES pricing(id) ON DELETE CASCADE,
+
+    -- Previous values
+    old_price_usd DECIMAL(18,8),
+    old_price_eth DECIMAL(18,8),
+    old_price_nexus DECIMAL(18,8),
+    old_markup_percent DECIMAL(5,2),
+
+    -- New values
+    new_price_usd DECIMAL(18,8),
+    new_price_eth DECIMAL(18,8),
+    new_price_nexus DECIMAL(18,8),
+    new_markup_percent DECIMAL(5,2),
+
+    -- Who and when
+    changed_by VARCHAR(42) NOT NULL,
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    change_reason TEXT
+);
+
+CREATE INDEX idx_pricing_history_pricing_id ON pricing_history(pricing_id);
+CREATE INDEX idx_pricing_history_changed_at ON pricing_history(changed_at);
+
+-- Payment methods accepted
+CREATE TABLE IF NOT EXISTS payment_methods (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    method_code VARCHAR(20) NOT NULL UNIQUE,  -- 'nexus', 'eth', 'stripe'
+    method_name VARCHAR(50) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    processor_config JSONB,  -- Stripe keys, etc (encrypted in app layer)
+    min_amount_usd DECIMAL(18,8) DEFAULT 0,
+    max_amount_usd DECIMAL(18,8),
+    fee_percent DECIMAL(5,2) DEFAULT 0,  -- Payment processor fee
+    display_order SMALLINT DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_payment_methods_code ON payment_methods(method_code);
+CREATE INDEX idx_payment_methods_active ON payment_methods(is_active);
+
+-- Payment transactions
+CREATE TABLE IF NOT EXISTS payments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    -- What was paid for
+    service_code VARCHAR(50) NOT NULL,
+    pricing_id UUID REFERENCES pricing(id),
+
+    -- Who paid
+    payer_address VARCHAR(42) NOT NULL,
+
+    -- Payment details
+    payment_method VARCHAR(20) NOT NULL,
+    amount_charged DECIMAL(18,8) NOT NULL,
+    currency VARCHAR(10) NOT NULL,  -- 'USD', 'ETH', 'NEXUS'
+    amount_usd DECIMAL(18,8),  -- USD equivalent at time of payment
+
+    -- Transaction references
+    tx_hash VARCHAR(66),           -- Blockchain tx (ETH/NEXUS)
+    stripe_payment_id VARCHAR(100), -- Stripe payment intent
+    stripe_session_id VARCHAR(100), -- Stripe checkout session
+
+    -- Status
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+
+    -- Error tracking
+    error_message TEXT,
+
+    -- Timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+
+    -- Constraints
+    CONSTRAINT valid_payment_status CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled'))
+);
+
+CREATE INDEX idx_payments_payer ON payments(payer_address);
+CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_service ON payments(service_code);
+CREATE INDEX idx_payments_created ON payments(created_at);
+CREATE INDEX idx_payments_stripe_session ON payments(stripe_session_id);
+
+-- KYC verification requests (links payment to Sumsub verification)
+CREATE TABLE IF NOT EXISTS kyc_verifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    -- Link to payment
+    payment_id UUID REFERENCES payments(id),
+
+    -- User info
+    user_address VARCHAR(42) NOT NULL,
+
+    -- Sumsub data
+    sumsub_applicant_id VARCHAR(100),
+    sumsub_inspection_id VARCHAR(100),
+    sumsub_review_status VARCHAR(50),  -- 'init', 'pending', 'completed', etc.
+    sumsub_review_result JSONB,  -- Full Sumsub response
+
+    -- Verification status
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+
+    -- On-chain status
+    whitelist_tx_hash VARCHAR(66),  -- Tx that added to whitelist
+
+    -- Timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    submitted_at TIMESTAMPTZ,  -- When user completed Sumsub flow
+    verified_at TIMESTAMPTZ,   -- When approved
+    rejected_at TIMESTAMPTZ,   -- When rejected
+
+    -- Constraints
+    CONSTRAINT valid_kyc_status CHECK (status IN ('pending', 'payment_required', 'submitted', 'in_review', 'approved', 'rejected', 'expired'))
+);
+
+CREATE INDEX idx_kyc_verifications_user ON kyc_verifications(user_address);
+CREATE INDEX idx_kyc_verifications_status ON kyc_verifications(status);
+CREATE INDEX idx_kyc_verifications_sumsub ON kyc_verifications(sumsub_applicant_id);
+
+-- ============================================
 -- Functions and Triggers
 -- ============================================
 
@@ -290,6 +450,65 @@ CREATE TRIGGER update_kyc_registrations_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Triggers for new pricing/payment tables
+CREATE TRIGGER update_pricing_updated_at
+    BEFORE UPDATE ON pricing
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_payment_methods_updated_at
+    BEFORE UPDATE ON payment_methods
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_payments_updated_at
+    BEFORE UPDATE ON payments
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_kyc_verifications_updated_at
+    BEFORE UPDATE ON kyc_verifications
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- Pricing History Auto-Logging
+-- ============================================
+
+-- Function to automatically log pricing changes
+CREATE OR REPLACE FUNCTION log_pricing_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only log if price-related fields changed
+    IF OLD.price_usd IS DISTINCT FROM NEW.price_usd
+       OR OLD.price_eth IS DISTINCT FROM NEW.price_eth
+       OR OLD.price_nexus IS DISTINCT FROM NEW.price_nexus
+       OR OLD.markup_percent IS DISTINCT FROM NEW.markup_percent THEN
+
+        INSERT INTO pricing_history (
+            pricing_id,
+            old_price_usd, old_price_eth, old_price_nexus, old_markup_percent,
+            new_price_usd, new_price_eth, new_price_nexus, new_markup_percent,
+            changed_by, change_reason
+        ) VALUES (
+            NEW.id,
+            OLD.price_usd, OLD.price_eth, OLD.price_nexus, OLD.markup_percent,
+            NEW.price_usd, NEW.price_eth, NEW.price_nexus, NEW.markup_percent,
+            COALESCE(NEW.updated_by, 'system'),
+            'Price update'
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply pricing history trigger
+CREATE TRIGGER log_pricing_changes
+    AFTER UPDATE ON pricing
+    FOR EACH ROW
+    EXECUTE FUNCTION log_pricing_change();
+
 -- ============================================
 -- Seed Data (for demo/testing)
 -- ============================================
@@ -299,6 +518,23 @@ INSERT INTO compliance_officers (address, added_by) VALUES
     ('0x0000000000000000000000000000000000000001', 'system'),
     ('0x0000000000000000000000000000000000000002', 'system')
 ON CONFLICT (address) DO NOTHING;
+
+-- Insert payment methods
+INSERT INTO payment_methods (method_code, method_name, is_active, fee_percent, display_order, processor_config) VALUES
+    ('nexus', 'NEXUS Token', true, 0, 1, '{"contract": "NexusToken", "discount_percent": 10}'::jsonb),
+    ('eth', 'Ethereum (ETH)', true, 0, 2, '{"min_confirmations": 2}'::jsonb),
+    ('stripe', 'Credit Card (Stripe)', true, 2.9, 3, '{"currency": "usd", "payment_method_types": ["card"]}'::jsonb)
+ON CONFLICT (method_code) DO NOTHING;
+
+-- Insert initial pricing (200% markup as per user decision: $5 Sumsub cost -> $15 charge)
+-- ETH prices assume ~$3000/ETH, NEXUS assumes $0.10/token
+INSERT INTO pricing (service_code, service_name, description, cost_usd, cost_provider, price_usd, price_eth, price_nexus, markup_percent, is_active) VALUES
+    ('kyc_verification', 'KYC Identity Verification', 'Full identity verification with document check and AML screening via Sumsub', 5.00, 'sumsub', 15.00, 0.005, 150, 200.00, true),
+    ('kyc_aml_recheck', 'AML Re-screening', 'Periodic AML/sanctions re-check for existing users', 1.00, 'sumsub', 3.00, 0.001, 30, 200.00, true),
+    ('kyc_enhanced', 'Enhanced Due Diligence', 'Enhanced verification for high-value accounts', 15.00, 'sumsub', 45.00, 0.015, 450, 200.00, true),
+    ('nft_mint', 'NFT Minting Fee', 'Platform fee for minting new NFTs', 0, 'platform', 5.00, 0.00167, 50, 0, true),
+    ('governance_proposal', 'Governance Proposal Fee', 'Fee for submitting governance proposals (refundable if passed)', 0, 'platform', 10.00, 0.00333, 100, 0, true)
+ON CONFLICT (service_code) DO NOTHING;
 
 -- Grant read access to analytics user
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO nexus_readonly;

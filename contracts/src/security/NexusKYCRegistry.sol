@@ -3,6 +3,8 @@ pragma solidity 0.8.24;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title NexusKYCRegistry
@@ -25,6 +27,8 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
  *      - SEC-013: Events emitted for all state changes
  */
 contract NexusKYCRegistry is AccessControl, Pausable {
+    using SafeERC20 for IERC20;
+
     // ============ Constants ============
 
     /// @notice Role for administrative operations
@@ -99,6 +103,41 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     /// @notice Whether blacklist checking is enabled
     bool public blacklistEnabled;
 
+    /// @notice Fee treasury address for collected fees
+    address public feeTreasury;
+
+    /// @notice KYC verification fee in native currency (ETH/MATIC)
+    uint256 public kycFeeNative;
+
+    /// @notice KYC verification fee in NEXUS tokens
+    uint256 public kycFeeNexus;
+
+    /// @notice NEXUS token contract for fee payments
+    IERC20 public nexusToken;
+
+    /// @notice Mapping to track if address has paid for KYC
+    mapping(address account => bool hasPaid) public hasPaidKYCFee;
+
+    /// @notice Mapping to track payment method used
+    mapping(address account => PaymentMethod method) public paymentMethodUsed;
+
+    /// @notice Total fees collected in native currency
+    uint256 public totalNativeFeesCollected;
+
+    /// @notice Total fees collected in NEXUS tokens
+    uint256 public totalNexusFeesCollected;
+
+    // ============ Enums ============
+
+    /// @notice Payment methods for KYC fee
+    enum PaymentMethod {
+        None,
+        Native,   // ETH/MATIC
+        Nexus,    // NEXUS token
+        Stripe,   // Fiat via Stripe (recorded by backend)
+        Free      // Fee waived by admin
+    }
+
     // ============ Events ============
 
     /// @notice Emitted when KYC status is updated
@@ -154,6 +193,40 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     /// @param reason The reason for revocation
     event KYCRevoked(address indexed account, address indexed revokedBy, string reason);
 
+    /// @notice Emitted when KYC fee is paid
+    /// @param account The account that paid
+    /// @param method The payment method used
+    /// @param amount The fee amount paid
+    event KYCFeePaid(address indexed account, PaymentMethod indexed method, uint256 amount);
+
+    /// @notice Emitted when KYC fee is waived
+    /// @param account The account whose fee was waived
+    /// @param waivedBy The admin who waived the fee
+    event KYCFeeWaived(address indexed account, address indexed waivedBy);
+
+    /// @notice Emitted when fees are updated
+    /// @param nativeFee The new native currency fee
+    /// @param nexusFee The new NEXUS token fee
+    event KYCFeesUpdated(uint256 nativeFee, uint256 nexusFee);
+
+    /// @notice Emitted when fee treasury is updated
+    /// @param previousTreasury The previous treasury address
+    /// @param newTreasury The new treasury address
+    event FeeTreasuryUpdated(address indexed previousTreasury, address indexed newTreasury);
+
+    /// @notice Emitted when fees are withdrawn
+    /// @param to The recipient address
+    /// @param nativeAmount Amount of native currency withdrawn
+    /// @param nexusAmount Amount of NEXUS tokens withdrawn
+    event FeesWithdrawn(address indexed to, uint256 nativeAmount, uint256 nexusAmount);
+
+    /// @notice Emitted when off-chain payment is recorded
+    /// @param account The account that paid
+    /// @param method The payment method (Stripe)
+    /// @param externalId External payment reference
+    /// @param recordedBy The compliance officer who recorded it
+    event OffChainPaymentRecorded(address indexed account, PaymentMethod indexed method, string externalId, address indexed recordedBy);
+
     // ============ Errors ============
 
     /// @notice Thrown when address is zero
@@ -200,6 +273,26 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     /// @notice Thrown when country is restricted
     /// @param countryHash The restricted country hash
     error CountryRestricted(bytes32 countryHash);
+
+    /// @notice Thrown when KYC fee has already been paid
+    error FeeAlreadyPaid();
+
+    /// @notice Thrown when KYC fee has not been paid
+    error FeeNotPaid();
+
+    /// @notice Thrown when insufficient fee is sent
+    /// @param sent Amount sent
+    /// @param required Amount required
+    error InsufficientFee(uint256 sent, uint256 required);
+
+    /// @notice Thrown when fee transfer fails
+    error FeeTransferFailed();
+
+    /// @notice Thrown when fee treasury is not set
+    error TreasuryNotSet();
+
+    /// @notice Thrown when NEXUS token is not configured
+    error NexusTokenNotConfigured();
 
     // ============ Constructor ============
 
@@ -496,6 +589,175 @@ contract NexusKYCRegistry is AccessControl, Pausable {
         _unpause();
     }
 
+    // ============ Fee Configuration Functions ============
+
+    /**
+     * @notice Set the fee treasury address
+     * @param treasury The new treasury address
+     */
+    function setFeeTreasury(address treasury) external onlyRole(ADMIN_ROLE) {
+        if (treasury == address(0)) revert ZeroAddress();
+        address previousTreasury = feeTreasury;
+        feeTreasury = treasury;
+        emit FeeTreasuryUpdated(previousTreasury, treasury);
+    }
+
+    /**
+     * @notice Set the NEXUS token contract
+     * @param token The NEXUS token address
+     */
+    function setNexusToken(address token) external onlyRole(ADMIN_ROLE) {
+        if (token == address(0)) revert ZeroAddress();
+        nexusToken = IERC20(token);
+    }
+
+    /**
+     * @notice Set KYC verification fees
+     * @param nativeFee Fee in native currency (ETH/MATIC)
+     * @param nexusFee Fee in NEXUS tokens
+     */
+    function setKYCFees(uint256 nativeFee, uint256 nexusFee) external onlyRole(ADMIN_ROLE) {
+        kycFeeNative = nativeFee;
+        kycFeeNexus = nexusFee;
+        emit KYCFeesUpdated(nativeFee, nexusFee);
+    }
+
+    // ============ Fee Payment Functions ============
+
+    /**
+     * @notice Pay KYC fee with native currency (ETH/MATIC)
+     * @dev Requires exact fee amount or more. Excess is not refunded.
+     */
+    function payKYCFeeNative() external payable whenNotPaused {
+        if (hasPaidKYCFee[msg.sender]) revert FeeAlreadyPaid();
+        if (msg.value < kycFeeNative) revert InsufficientFee(msg.value, kycFeeNative);
+
+        hasPaidKYCFee[msg.sender] = true;
+        paymentMethodUsed[msg.sender] = PaymentMethod.Native;
+        totalNativeFeesCollected += msg.value;
+
+        emit KYCFeePaid(msg.sender, PaymentMethod.Native, msg.value);
+    }
+
+    /**
+     * @notice Pay KYC fee with NEXUS tokens
+     * @dev Requires prior approval of NEXUS tokens
+     */
+    function payKYCFeeNexus() external whenNotPaused {
+        if (hasPaidKYCFee[msg.sender]) revert FeeAlreadyPaid();
+        if (address(nexusToken) == address(0)) revert NexusTokenNotConfigured();
+
+        hasPaidKYCFee[msg.sender] = true;
+        paymentMethodUsed[msg.sender] = PaymentMethod.Nexus;
+        totalNexusFeesCollected += kycFeeNexus;
+
+        nexusToken.safeTransferFrom(msg.sender, address(this), kycFeeNexus);
+
+        emit KYCFeePaid(msg.sender, PaymentMethod.Nexus, kycFeeNexus);
+    }
+
+    /**
+     * @notice Record off-chain payment (Stripe, etc.)
+     * @param account The account that paid
+     * @param externalId External payment reference ID
+     */
+    function recordOffChainPayment(
+        address account,
+        string calldata externalId
+    ) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
+        if (account == address(0)) revert ZeroAddress();
+        if (hasPaidKYCFee[account]) revert FeeAlreadyPaid();
+
+        hasPaidKYCFee[account] = true;
+        paymentMethodUsed[account] = PaymentMethod.Stripe;
+
+        emit OffChainPaymentRecorded(account, PaymentMethod.Stripe, externalId, msg.sender);
+    }
+
+    /**
+     * @notice Waive KYC fee for an account
+     * @param account The account to waive fee for
+     */
+    function waiveKYCFee(address account) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        if (account == address(0)) revert ZeroAddress();
+        if (hasPaidKYCFee[account]) revert FeeAlreadyPaid();
+
+        hasPaidKYCFee[account] = true;
+        paymentMethodUsed[account] = PaymentMethod.Free;
+
+        emit KYCFeeWaived(account, msg.sender);
+    }
+
+    /**
+     * @notice Batch record off-chain payments
+     * @param accounts The accounts that paid
+     * @param externalIds External payment reference IDs
+     */
+    function batchRecordOffChainPayments(
+        address[] calldata accounts,
+        string[] calldata externalIds
+    ) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
+        if (accounts.length == 0) revert EmptyArray();
+        if (accounts.length != externalIds.length) revert ArrayLengthMismatch();
+
+        for (uint256 i = 0; i < accounts.length;) {
+            address account = accounts[i];
+            if (account != address(0) && !hasPaidKYCFee[account]) {
+                hasPaidKYCFee[account] = true;
+                paymentMethodUsed[account] = PaymentMethod.Stripe;
+                emit OffChainPaymentRecorded(account, PaymentMethod.Stripe, externalIds[i], msg.sender);
+            }
+            unchecked { ++i; }
+        }
+    }
+
+    // ============ Fee Withdrawal Functions ============
+
+    /**
+     * @notice Withdraw collected fees to treasury
+     */
+    function withdrawFees() external onlyRole(ADMIN_ROLE) {
+        if (feeTreasury == address(0)) revert TreasuryNotSet();
+
+        uint256 nativeBalance = address(this).balance;
+        uint256 nexusBalance = address(nexusToken) != address(0)
+            ? nexusToken.balanceOf(address(this))
+            : 0;
+
+        if (nativeBalance > 0) {
+            (bool success, ) = feeTreasury.call{value: nativeBalance}("");
+            if (!success) revert FeeTransferFailed();
+        }
+
+        if (nexusBalance > 0) {
+            nexusToken.safeTransfer(feeTreasury, nexusBalance);
+        }
+
+        emit FeesWithdrawn(feeTreasury, nativeBalance, nexusBalance);
+    }
+
+    /**
+     * @notice Withdraw specific amounts of fees
+     * @param nativeAmount Amount of native currency to withdraw
+     * @param nexusAmount Amount of NEXUS tokens to withdraw
+     */
+    function withdrawFeesPartial(uint256 nativeAmount, uint256 nexusAmount) external onlyRole(ADMIN_ROLE) {
+        if (feeTreasury == address(0)) revert TreasuryNotSet();
+
+        if (nativeAmount > 0) {
+            if (nativeAmount > address(this).balance) revert InsufficientFee(address(this).balance, nativeAmount);
+            (bool success, ) = feeTreasury.call{value: nativeAmount}("");
+            if (!success) revert FeeTransferFailed();
+        }
+
+        if (nexusAmount > 0) {
+            if (address(nexusToken) == address(0)) revert NexusTokenNotConfigured();
+            nexusToken.safeTransfer(feeTreasury, nexusAmount);
+        }
+
+        emit FeesWithdrawn(feeTreasury, nativeAmount, nexusAmount);
+    }
+
     // ============ Verification Functions ============
 
     /**
@@ -678,6 +940,44 @@ contract NexusKYCRegistry is AccessControl, Pausable {
      */
     function getBlacklistCount() external view returns (uint256) {
         return _blacklistedAddresses.length;
+    }
+
+    /**
+     * @notice Get fee payment status for an account
+     * @param account The address to check
+     * @return hasPaid Whether the account has paid the KYC fee
+     * @return method The payment method used
+     */
+    function getFeeStatus(address account) external view returns (bool hasPaid, PaymentMethod method) {
+        return (hasPaidKYCFee[account], paymentMethodUsed[account]);
+    }
+
+    /**
+     * @notice Get current KYC fee amounts
+     * @return nativeFee Fee in native currency (ETH/MATIC)
+     * @return nexusFee Fee in NEXUS tokens
+     */
+    function getKYCFees() external view returns (uint256 nativeFee, uint256 nexusFee) {
+        return (kycFeeNative, kycFeeNexus);
+    }
+
+    /**
+     * @notice Get total fees collected
+     * @return nativeTotal Total native currency collected
+     * @return nexusTotal Total NEXUS tokens collected
+     */
+    function getTotalFeesCollected() external view returns (uint256 nativeTotal, uint256 nexusTotal) {
+        return (totalNativeFeesCollected, totalNexusFeesCollected);
+    }
+
+    /**
+     * @notice Get current fee balances in contract
+     * @return nativeBalance Native currency balance
+     * @return nexusBalance NEXUS token balance
+     */
+    function getFeeBalances() external view returns (uint256 nativeBalance, uint256 nexusBalance) {
+        nativeBalance = address(this).balance;
+        nexusBalance = address(nexusToken) != address(0) ? nexusToken.balanceOf(address(this)) : 0;
     }
 
     /**
