@@ -28,6 +28,14 @@ var (
 	ErrKYCAlreadyPending = errors.New("kyc verification already pending")
 	ErrKYCExpired        = errors.New("kyc verification expired")
 
+	// Meta-transaction errors
+	ErrMetaTxNotFound       = errors.New("meta-transaction not found")
+	ErrMetaTxAlreadyExists  = errors.New("meta-transaction already exists")
+	ErrMetaTxExpired        = errors.New("meta-transaction deadline expired")
+	ErrMetaTxInvalidNonce   = errors.New("invalid meta-transaction nonce")
+	ErrMetaTxInvalidSig     = errors.New("invalid meta-transaction signature")
+	ErrMetaTxAlreadyRelayed = errors.New("meta-transaction already relayed")
+
 	// General errors
 	ErrInvalidAddress      = errors.New("invalid ethereum address")
 	ErrUnauthorized        = errors.New("unauthorized operation")

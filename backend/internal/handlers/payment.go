@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -248,7 +249,7 @@ func (h *PaymentHandler) HandleStripeWebhook(c *gin.Context) {
 	switch event.Type {
 	case "checkout.session.completed":
 		var session stripe.CheckoutSession
-		if err := webhook.UnmarshalEvent(event, &session); err != nil {
+		if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
 			h.logger.Error("failed to unmarshal session", zap.Error(err))
 			c.JSON(http.StatusBadRequest, PaymentResponse{Success: false, Error: "Invalid event data"})
 			return
@@ -275,7 +276,7 @@ func (h *PaymentHandler) HandleStripeWebhook(c *gin.Context) {
 
 	case "checkout.session.expired":
 		var session stripe.CheckoutSession
-		if err := webhook.UnmarshalEvent(event, &session); err != nil {
+		if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
 			h.logger.Error("failed to unmarshal session", zap.Error(err))
 			c.JSON(http.StatusBadRequest, PaymentResponse{Success: false, Error: "Invalid event data"})
 			return

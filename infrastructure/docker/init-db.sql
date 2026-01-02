@@ -536,6 +536,59 @@ INSERT INTO pricing (service_code, service_name, description, cost_usd, cost_pro
     ('governance_proposal', 'Governance Proposal Fee', 'Fee for submitting governance proposals (refundable if passed)', 0, 'platform', 10.00, 0.00333, 100, 0, true)
 ON CONFLICT (service_code) DO NOTHING;
 
+-- ============================================
+-- Meta-Transactions (ERC-2771 Relayer)
+-- ============================================
+
+-- Meta-transaction requests and their status
+CREATE TABLE IF NOT EXISTS meta_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    -- Request details
+    from_address VARCHAR(42) NOT NULL,       -- Original signer
+    to_address VARCHAR(42) NOT NULL,         -- Target contract
+    function_name VARCHAR(100) NOT NULL,     -- Human-readable function name
+    calldata TEXT NOT NULL,                  -- Encoded function call
+    value NUMERIC(78, 0) NOT NULL DEFAULT 0, -- ETH value (usually 0)
+    gas_limit BIGINT NOT NULL,               -- Requested gas limit
+    nonce BIGINT NOT NULL,                   -- ERC-2771 nonce
+    deadline TIMESTAMPTZ NOT NULL,           -- Request expiry
+
+    -- Signature
+    signature TEXT NOT NULL,                 -- EIP-712 signature
+
+    -- Execution status
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    tx_hash VARCHAR(66),                     -- Relayed transaction hash
+    gas_used BIGINT,                         -- Actual gas used
+    gas_price NUMERIC(78, 0),                -- Gas price paid
+    relay_cost_eth NUMERIC(18, 18),          -- Cost to relayer in ETH
+
+    -- Error tracking
+    error_message TEXT,
+    retry_count INT NOT NULL DEFAULT 0,
+
+    -- Timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    submitted_at TIMESTAMPTZ,                -- When sent to chain
+    confirmed_at TIMESTAMPTZ,                -- When tx confirmed
+
+    -- Constraints
+    CONSTRAINT valid_meta_tx_status CHECK (status IN ('pending', 'submitted', 'confirmed', 'failed', 'expired', 'cancelled'))
+);
+
+CREATE INDEX idx_meta_tx_from ON meta_transactions(from_address);
+CREATE INDEX idx_meta_tx_status ON meta_transactions(status);
+CREATE INDEX idx_meta_tx_tx_hash ON meta_transactions(tx_hash);
+CREATE INDEX idx_meta_tx_created ON meta_transactions(created_at);
+
+-- Add trigger for updated_at
+CREATE TRIGGER update_meta_transactions_updated_at
+    BEFORE UPDATE ON meta_transactions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- Grant read access to analytics user
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO nexus_readonly;
 
