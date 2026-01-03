@@ -7,7 +7,7 @@
 # ============================================
 # Stage 1: Builder
 # ============================================
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Build arguments
 ARG VERSION=dev
@@ -118,7 +118,7 @@ ENTRYPOINT ["/app/nexus-api"]
 # ============================================
 # Stage 3: Development (optional)
 # ============================================
-FROM golang:1.23-alpine AS development
+FROM golang:1.24-alpine AS development
 
 # Install development dependencies
 RUN apk add --no-cache \
@@ -140,9 +140,10 @@ RUN go install github.com/air-verse/air@v1.52.3 && \
 RUN addgroup -g 1000 nexus && \
     adduser -u 1000 -G nexus -s /bin/bash -D nexus
 
-# Create directories
+# Create directories and set permissions for Go cache
 RUN mkdir -p /app/data /app/logs && \
-    chown -R nexus:nexus /app
+    chown -R nexus:nexus /app && \
+    chown -R nexus:nexus /go
 
 WORKDIR /app
 
