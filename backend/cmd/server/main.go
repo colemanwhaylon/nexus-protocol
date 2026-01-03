@@ -95,7 +95,9 @@ func main() {
 	sumsubHandler := handlers.NewSumsubHandler(paymentRepo, pricingRepo, logger)
 	relayerHandler, err := handlers.NewRelayerHandler(relayerRepo, logger)
 	if err != nil {
-		logger.Fatal("failed to create relayer handler", zap.Error(err))
+		// Relayer is optional in dev mode - warn but continue
+		logger.Warn("relayer handler disabled", zap.Error(err))
+		relayerHandler = nil
 	}
 
 	// Setup router
@@ -155,16 +157,18 @@ func main() {
 			kyc.POST("/webhook", sumsubHandler.HandleWebhook)
 		}
 
-		// Meta-transaction relayer routes
-		relay := api.Group("/relay")
-		{
-			relay.POST("", relayerHandler.Relay)
-			relay.GET("/status/:id", relayerHandler.GetStatus)
-			relay.GET("/tx/:txHash", relayerHandler.GetByTxHash)
-			relay.GET("/nonce/:address", relayerHandler.GetNonce)
-			relay.GET("/user/:address", relayerHandler.ListUserMetaTxs)
-			relay.GET("/info/relayer", relayerHandler.GetRelayerAddress)
-			relay.GET("/info/forwarder", relayerHandler.GetForwarderAddress)
+		// Meta-transaction relayer routes (only if relayer is configured)
+		if relayerHandler != nil {
+			relay := api.Group("/relay")
+			{
+				relay.POST("", relayerHandler.Relay)
+				relay.GET("/status/:id", relayerHandler.GetStatus)
+				relay.GET("/tx/:txHash", relayerHandler.GetByTxHash)
+				relay.GET("/nonce/:address", relayerHandler.GetNonce)
+				relay.GET("/user/:address", relayerHandler.ListUserMetaTxs)
+				relay.GET("/info/relayer", relayerHandler.GetRelayerAddress)
+				relay.GET("/info/forwarder", relayerHandler.GetForwarderAddress)
+			}
 		}
 	}
 

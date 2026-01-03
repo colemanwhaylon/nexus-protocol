@@ -42,7 +42,7 @@ func NewRelayerHandler(
 	logger *zap.Logger,
 ) (*RelayerHandler, error) {
 	// Connect to Ethereum node
-	rpcURL := os.Getenv("ETH_RPC_URL")
+	rpcURL := os.Getenv("RPC_URL")
 	if rpcURL == "" {
 		rpcURL = "http://localhost:8545"
 	}

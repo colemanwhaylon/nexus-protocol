@@ -35,6 +35,7 @@ func (r *PostgresPricingRepo) GetPricing(ctx context.Context, serviceCode string
 	`
 
 	p := &repository.Pricing{}
+	var updatedBy sql.NullString
 	err := r.db.QueryRowContext(ctx, query, serviceCode).Scan(
 		&p.ID,
 		&p.ServiceCode,
@@ -49,7 +50,7 @@ func (r *PostgresPricingRepo) GetPricing(ctx context.Context, serviceCode string
 		&p.IsActive,
 		&p.CreatedAt,
 		&p.UpdatedAt,
-		&p.UpdatedBy,
+		&updatedBy,
 	)
 
 	if err != nil {
@@ -57,6 +58,10 @@ func (r *PostgresPricingRepo) GetPricing(ctx context.Context, serviceCode string
 			return nil, repository.ErrPricingNotFound
 		}
 		return nil, fmt.Errorf("getting pricing for %s: %w", serviceCode, err)
+	}
+
+	if updatedBy.Valid {
+		p.UpdatedBy = updatedBy.String
 	}
 
 	return p, nil
@@ -84,6 +89,7 @@ func (r *PostgresPricingRepo) ListPricing(ctx context.Context, activeOnly bool) 
 	var result []*repository.Pricing
 	for rows.Next() {
 		p := &repository.Pricing{}
+		var updatedBy sql.NullString
 		err := rows.Scan(
 			&p.ID,
 			&p.ServiceCode,
@@ -98,10 +104,13 @@ func (r *PostgresPricingRepo) ListPricing(ctx context.Context, activeOnly bool) 
 			&p.IsActive,
 			&p.CreatedAt,
 			&p.UpdatedAt,
-			&p.UpdatedBy,
+			&updatedBy,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning pricing row: %w", err)
+		}
+		if updatedBy.Valid {
+			p.UpdatedBy = updatedBy.String
 		}
 		result = append(result, p)
 	}
