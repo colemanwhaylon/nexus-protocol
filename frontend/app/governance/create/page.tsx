@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft, Info, AlertTriangle } from "lucide-react";
 import { CreateProposalForm } from "@/components/features/Governance";
+import {
+  useAccount,
+  useChainId,
+  useReadContract,
+} from "wagmi";
+import { getContractAddresses } from "@/lib/contracts/addresses";
+import { useGovernance } from "@/hooks/useGovernance";
+import { parseEther } from "viem";
+import type { Address } from "viem";
+
+// Token ABI for reading voting power
+const tokenAbi = [
+  {
+    name: "getVotes",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
 
 interface ProposalAction {
   target: string;
@@ -15,39 +35,86 @@ interface ProposalAction {
   calldata: string;
 }
 
+const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000";
+
 export default function CreateProposalPage() {
   const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { address: userAddress, isConnected } = useAccount();
+  const chainId = useChainId();
+  const addresses = getContractAddresses(chainId);
 
-  // Mock data - in production, this would come from contract calls and wallet connection
-  const mockVotingPower = BigInt("100000000000000000000000"); // 100,000 NEXUS
-  const mockProposalThreshold = BigInt("50000000000000000000000"); // 50,000 NEXUS
-  const hasEnoughPower = mockVotingPower >= mockProposalThreshold;
+  const governorAddress = addresses.nexusGovernor;
+  const tokenAddress = addresses.nexusToken;
+  const isGovernorDeployed = governorAddress !== ZERO_ADDRESS;
+  const isTokenDeployed = tokenAddress !== ZERO_ADDRESS;
+
+  const {
+    createProposal,
+    proposalThreshold,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: writeError,
+    reset,
+  } = useGovernance(chainId);
+
+  // Read user's voting power from token contract
+  const { data: votingPower, isLoading: isLoadingVotingPower } = useReadContract({
+    address: tokenAddress,
+    abi: tokenAbi,
+    functionName: "getVotes",
+    args: userAddress ? [userAddress] : undefined,
+    query: {
+      enabled: isTokenDeployed && !!userAddress,
+    },
+  });
+
+  // Redirect to governance page after successful creation
+  useEffect(() => {
+    if (isSuccess) {
+      // Small delay to allow for transaction confirmation
+      const timer = setTimeout(() => {
+        router.push("/governance");
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSuccess, router]);
 
   const handleSubmit = async (
     title: string,
     description: string,
     actions: ProposalAction[]
   ) => {
-    setIsSubmitting(true);
-    try {
-      // In production, this would:
-      // 1. Encode the actions into calldata
-      // 2. Call the propose() function on the Governor contract
-      // 3. Wait for transaction confirmation
-      console.log("Creating proposal:", { title, description, actions });
+    if (!isGovernorDeployed) return;
 
-      // Simulate transaction delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Reset any previous errors
+    reset();
 
-      // Redirect to governance page after successful creation
-      router.push("/governance");
-    } catch (error) {
-      console.error("Failed to create proposal:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Convert actions to contract format
+    const targets = actions.map((a) => a.target as Address);
+    const values = actions.map((a) => {
+      try {
+        return parseEther(a.value || "0");
+      } catch {
+        return BigInt(0);
+      }
+    });
+    const calldatas = actions.map((a) => (a.calldata || "0x") as `0x${string}`);
+
+    createProposal({
+      title,
+      description,
+      targets,
+      values,
+      calldatas,
+    });
   };
+
+  const hasEnoughPower = votingPower !== undefined && proposalThreshold !== undefined
+    ? votingPower >= proposalThreshold
+    : false;
+
+  const isSubmitting = isPending || isConfirming;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -65,26 +132,70 @@ export default function CreateProposalPage() {
         </p>
       </div>
 
+      {/* Governor not deployed warning */}
+      {!isGovernorDeployed && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Governor Not Deployed</AlertTitle>
+          <AlertDescription>
+            The Governor contract is not yet deployed on this network. You cannot create proposals until deployment is complete.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Not connected warning */}
+      {!isConnected && (
+        <Alert className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Wallet Not Connected</AlertTitle>
+          <AlertDescription>
+            Please connect your wallet to create a proposal.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Transaction error */}
+      {writeError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Transaction Failed</AlertTitle>
+          <AlertDescription>
+            {writeError.message || "Failed to create proposal. Please try again."}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Transaction success */}
+      {isSuccess && (
+        <Alert className="mb-6 border-green-500 bg-green-50 dark:bg-green-900/20">
+          <Info className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800 dark:text-green-200">Proposal Created!</AlertTitle>
+          <AlertDescription className="text-green-700 dark:text-green-300">
+            Your proposal has been submitted successfully. Redirecting to governance page...
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Form - 2 columns */}
         <div className="lg:col-span-2">
           <CreateProposalForm
-            votingPower={mockVotingPower}
-            proposalThreshold={mockProposalThreshold}
+            votingPower={votingPower as bigint | undefined}
+            proposalThreshold={proposalThreshold}
             onSubmit={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !isGovernorDeployed || !isConnected}
           />
         </div>
 
         {/* Sidebar - Guidelines */}
         <div className="space-y-6">
           {/* Eligibility Alert */}
-          {!hasEnoughPower && (
+          {isConnected && !isLoadingVotingPower && !hasEnoughPower && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Insufficient Voting Power</AlertTitle>
               <AlertDescription>
-                You need at least 50,000 NEXUS voting power to create a proposal.
+                You need at least {proposalThreshold ? (Number(proposalThreshold) / 1e18).toLocaleString() : "50,000"} NEXUS voting power to create a proposal.
                 Stake more tokens or receive delegations to reach the threshold.
               </AlertDescription>
             </Alert>

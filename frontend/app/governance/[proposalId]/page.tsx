@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Share2, ExternalLink } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ArrowLeft, Share2, ExternalLink, AlertTriangle, Loader2 } from "lucide-react";
 import {
   ProposalDetail,
   ProposalTimeline,
@@ -11,6 +12,16 @@ import {
   VotingPanel,
   VoteResults,
 } from "@/components/features/Governance";
+import {
+  useAccount,
+  useChainId,
+  usePublicClient,
+  useReadContract,
+} from "wagmi";
+import { getContractAddresses } from "@/lib/contracts/addresses";
+import { useGovernance, VoteSupport } from "@/hooks/useGovernance";
+import { parseAbiItem } from "viem";
+import type { Address } from "viem";
 
 type VoteType = "for" | "against" | "abstain";
 
@@ -18,93 +29,355 @@ interface Props {
   params: { proposalId: string };
 }
 
-// Mock proposal data - in production, this would come from contract calls
-const getMockProposal = (id: string) => ({
-  id,
-  title: "Increase staking rewards by 2%",
-  description: `## Summary
-This proposal aims to increase the base staking rewards from 8% to 10% APY to incentivize more token holders to participate in staking.
+// Governor ABI for reading proposal data
+const governorAbi = [
+  {
+    name: "state",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [{ type: "uint8" }],
+  },
+  {
+    name: "proposalVotes",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [
+      { name: "againstVotes", type: "uint256" },
+      { name: "forVotes", type: "uint256" },
+      { name: "abstainVotes", type: "uint256" },
+    ],
+  },
+  {
+    name: "proposalDeadline",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    name: "proposalSnapshot",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    name: "proposalProposer",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [{ type: "address" }],
+  },
+  {
+    name: "hasVoted",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "proposalId", type: "uint256" },
+      { name: "account", type: "address" },
+    ],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    name: "quorum",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "blockNumber", type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
 
-## Motivation
-Current staking participation is at 35% of circulating supply. Increasing rewards will:
-- Encourage more long-term holding
-- Reduce circulating supply and selling pressure
-- Strengthen protocol security through increased stake
+// Token ABI for reading voting power
+const tokenAbi = [
+  {
+    name: "getVotes",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
 
-## Implementation
-The RewardsDistributor contract will be updated with new reward parameters. This change requires a single transaction to update the rewardRate variable.
+interface ProposalData {
+  id: string;
+  title: string;
+  description: string;
+  proposer: Address;
+  state: "Pending" | "Active" | "Canceled" | "Defeated" | "Succeeded" | "Queued" | "Expired" | "Executed";
+  forVotes: bigint;
+  againstVotes: bigint;
+  abstainVotes: bigint;
+  startBlock: number;
+  endBlock: number;
+  createdAt: number;
+  votingStartedAt: number;
+  quorum: bigint;
+  actions: {
+    target: string;
+    value: bigint;
+    calldata: string;
+    signature?: string;
+  }[];
+  // Raw data for queue/execute/cancel operations
+  targets: Address[];
+  values: bigint[];
+  calldatas: `0x${string}`[];
+  fullDescription: string;
+}
 
-## Risks
-- Increased token inflation (~0.5% additional annually)
-- Potential for short-term farming behavior
+const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000";
 
-## Timeline
-If passed, changes will take effect immediately after the timelock period.`,
-  proposer: "0x742d35Cc6634C0532925a3b844Bc9e7595f2bd18",
-  state: "Active" as const,
-  forVotes: BigInt("250000000000000000000000"),
-  againstVotes: BigInt("75000000000000000000000"),
-  abstainVotes: BigInt("25000000000000000000000"),
-  startBlock: 18500000,
-  endBlock: 18550000,
-  createdAt: Math.floor(Date.now() / 1000) - 86400 * 2,
-  votingStartedAt: Math.floor(Date.now() / 1000) - 86400,
-  quorum: BigInt("400000000000000000000000"),
-  actions: [
-    {
-      target: "0x1234567890123456789012345678901234567890",
-      value: BigInt(0),
-      calldata: "0x",
-      signature: "setRewardRate(uint256)",
-    },
-  ],
-});
+// Map numeric state to display state
+const stateDisplayMap: Record<number, ProposalData["state"]> = {
+  0: "Pending",
+  1: "Active",
+  2: "Canceled",
+  3: "Defeated",
+  4: "Succeeded",
+  5: "Queued",
+  6: "Expired",
+  7: "Executed",
+};
 
 export default function ProposalDetailPage({ params }: Props) {
-  const [proposal, setProposal] = useState<ReturnType<typeof getMockProposal> | null>(null);
+  const { address: userAddress } = useAccount();
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const addresses = getContractAddresses(chainId);
+
+  const governorAddress = addresses.nexusGovernor;
+  const tokenAddress = addresses.nexusToken;
+  const isGovernorDeployed = governorAddress !== ZERO_ADDRESS;
+  const isTokenDeployed = tokenAddress !== ZERO_ADDRESS;
+
+  const [proposal, setProposal] = useState<ProposalData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasVoted, setHasVoted] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentVote, setCurrentVote] = useState<VoteType | undefined>();
 
-  // Mock user data
-  const mockVotingPower = BigInt("100000000000000000000000"); // 100,000 NEXUS
-  const mockUserAddress = "0xYourAddress1234567890123456789012345678";
+  const proposalIdBigInt = BigInt(params.proposalId);
 
-  useEffect(() => {
-    // Simulate loading proposal data
-    const loadProposal = async () => {
-      setIsLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setProposal(getMockProposal(params.proposalId));
+  const {
+    castVote,
+    queue,
+    execute,
+    cancel,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error: writeError,
+    reset,
+  } = useGovernance(chainId);
+
+  // Read user's voting power
+  const { data: votingPower } = useReadContract({
+    address: tokenAddress,
+    abi: tokenAbi,
+    functionName: "getVotes",
+    args: userAddress ? [userAddress] : undefined,
+    query: {
+      enabled: isTokenDeployed && !!userAddress,
+    },
+  });
+
+  // Check if user has voted
+  const { data: hasVotedData, refetch: refetchHasVoted } = useReadContract({
+    address: governorAddress,
+    abi: governorAbi,
+    functionName: "hasVoted",
+    args: userAddress ? [proposalIdBigInt, userAddress] : undefined,
+    query: {
+      enabled: isGovernorDeployed && !!userAddress,
+    },
+  });
+
+  const hasVoted = hasVotedData as boolean | undefined;
+
+  // Fetch proposal data from contract events
+  const fetchProposal = useCallback(async () => {
+    if (!publicClient || !isGovernorDeployed) {
       setIsLoading(false);
-    };
-    loadProposal();
-  }, [params.proposalId]);
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      // Get ProposalCreated event for this specific proposal
+      const logs = await publicClient.getLogs({
+        address: governorAddress,
+        event: parseAbiItem(
+          "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
+        ),
+        fromBlock: "earliest",
+        toBlock: "latest",
+      });
+
+      // Find the log for this proposal ID
+      const proposalLog = logs.find(
+        (log) => log.args.proposalId?.toString() === params.proposalId
+      );
+
+      if (!proposalLog) {
+        setLoadError("Proposal not found");
+        setIsLoading(false);
+        return;
+      }
+
+      const proposalId = proposalLog.args.proposalId as bigint;
+      const description = proposalLog.args.description as string;
+      const targets = proposalLog.args.targets as Address[];
+      const values = proposalLog.args.values as bigint[];
+      const calldatas = proposalLog.args.calldatas as `0x${string}`[];
+      const signatures = proposalLog.args.signatures as string[];
+      const proposer = proposalLog.args.proposer as Address;
+      const voteStart = proposalLog.args.voteStart as bigint;
+      const voteEnd = proposalLog.args.voteEnd as bigint;
+
+      // Extract title from description (first line or before ##)
+      const titleMatch = description.match(/^#\s*(.+)/m);
+      const title = titleMatch ? titleMatch[1] : description.split("\n")[0] || `Proposal #${proposalId.toString()}`;
+
+      // Get proposal state
+      const stateResult = await publicClient.readContract({
+        address: governorAddress,
+        abi: governorAbi,
+        functionName: "state",
+        args: [proposalId],
+      });
+
+      // Get proposal votes
+      const votesResult = await publicClient.readContract({
+        address: governorAddress,
+        abi: governorAbi,
+        functionName: "proposalVotes",
+        args: [proposalId],
+      });
+
+      const [againstVotes, forVotes, abstainVotes] = votesResult as [bigint, bigint, bigint];
+
+      // Get quorum at the snapshot block
+      let quorum = BigInt(0);
+      try {
+        quorum = await publicClient.readContract({
+          address: governorAddress,
+          abi: governorAbi,
+          functionName: "quorum",
+          args: [voteStart],
+        }) as bigint;
+      } catch {
+        // Quorum might not be available for all blocks
+        console.warn("Could not fetch quorum");
+      }
+
+      // Build actions array
+      const actions = targets.map((target, index) => ({
+        target,
+        value: values[index],
+        calldata: calldatas[index],
+        signature: signatures[index] || undefined,
+      }));
+
+      // Estimate timestamps based on block numbers (assuming ~12s per block on Ethereum)
+      const currentBlock = await publicClient.getBlockNumber();
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const blocksPerDay = 7200; // ~12s per block
+
+      // Rough estimate for creation time
+      const blocksSinceVoteStart = Number(currentBlock) - Number(voteStart);
+      const createdAt = currentTimestamp - (blocksSinceVoteStart * 12) - 86400; // Subtract a day for voting delay
+      const votingStartedAt = currentTimestamp - (blocksSinceVoteStart * 12);
+
+      setProposal({
+        id: proposalId.toString(),
+        title,
+        description,
+        proposer,
+        state: stateDisplayMap[Number(stateResult)] || "Pending",
+        forVotes,
+        againstVotes,
+        abstainVotes,
+        startBlock: Number(voteStart),
+        endBlock: Number(voteEnd),
+        createdAt,
+        votingStartedAt,
+        quorum,
+        actions,
+        // Raw data for operations
+        targets,
+        values,
+        calldatas,
+        fullDescription: description,
+      });
+    } catch (error) {
+      console.error("Error fetching proposal:", error);
+      setLoadError("Failed to load proposal data");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [publicClient, governorAddress, isGovernorDeployed, params.proposalId]);
+
+  // Fetch proposal on mount
+  useEffect(() => {
+    fetchProposal();
+  }, [fetchProposal]);
+
+  // Refetch data after successful transaction
+  useEffect(() => {
+    if (isSuccess) {
+      refetchHasVoted();
+      fetchProposal();
+    }
+  }, [isSuccess, refetchHasVoted, fetchProposal]);
 
   const handleVote = async (vote: VoteType) => {
-    // In production, this would call the castVote function on the Governor contract
-    console.log("Casting vote:", vote, "for proposal:", params.proposalId);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setHasVoted(true);
+    reset();
+
+    const support = vote === "for" ? VoteSupport.For
+      : vote === "against" ? VoteSupport.Against
+      : VoteSupport.Abstain;
+
+    castVote(proposalIdBigInt, support);
     setCurrentVote(vote);
   };
 
   const handleQueue = async () => {
-    // In production, this would call the queue function on the Governor contract
-    console.log("Queueing proposal:", params.proposalId);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (!proposal) return;
+    reset();
+
+    queue({
+      targets: proposal.targets,
+      values: proposal.values,
+      calldatas: proposal.calldatas,
+      description: proposal.fullDescription,
+    });
   };
 
   const handleExecute = async () => {
-    // In production, this would call the execute function on the Governor contract
-    console.log("Executing proposal:", params.proposalId);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (!proposal) return;
+    reset();
+
+    execute({
+      targets: proposal.targets,
+      values: proposal.values,
+      calldatas: proposal.calldatas,
+      description: proposal.fullDescription,
+    });
   };
 
   const handleCancel = async () => {
-    // In production, this would call the cancel function on the Governor contract
-    console.log("Canceling proposal:", params.proposalId);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (!proposal) return;
+    reset();
+
+    cancel({
+      targets: proposal.targets,
+      values: proposal.values,
+      calldatas: proposal.calldatas,
+      description: proposal.fullDescription,
+    });
   };
 
   const handleShare = async () => {
@@ -112,13 +385,24 @@ export default function ProposalDetailPage({ params }: Props) {
     try {
       await navigator.clipboard.writeText(url);
       // In production, show a toast notification
-      console.log("Link copied to clipboard");
     } catch {
       console.error("Failed to copy link");
     }
   };
 
-  if (isLoading || !proposal) {
+  const getExplorerUrl = () => {
+    const baseUrl = chainId === 1
+      ? "https://etherscan.io"
+      : chainId === 11155111
+        ? "https://sepolia.etherscan.io"
+        : "";
+    return baseUrl ? `${baseUrl}/tx/${params.proposalId}` : "#";
+  };
+
+  const isTransacting = isPending || isConfirming;
+
+  // Loading state
+  if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
@@ -141,6 +425,29 @@ export default function ProposalDetailPage({ params }: Props) {
     );
   }
 
+  // Error state
+  if (loadError || !proposal) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <Link href="/governance">
+            <Button variant="ghost" size="sm" className="mb-4">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Governance
+            </Button>
+          </Link>
+        </div>
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error Loading Proposal</AlertTitle>
+          <AlertDescription>
+            {loadError || "Could not find proposal with this ID."}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   const quorumReached = (proposal.forVotes + proposal.againstVotes + proposal.abstainVotes) >= proposal.quorum;
 
   return (
@@ -159,7 +466,7 @@ export default function ProposalDetailPage({ params }: Props) {
             Share
           </Button>
           <Link
-            href={`https://etherscan.io/tx/${proposal.id}`}
+            href={getExplorerUrl()}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -170,6 +477,28 @@ export default function ProposalDetailPage({ params }: Props) {
           </Link>
         </div>
       </div>
+
+      {/* Transaction error */}
+      {writeError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Transaction Failed</AlertTitle>
+          <AlertDescription>
+            {writeError.message || "Failed to process transaction. Please try again."}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Transaction pending */}
+      {isTransacting && (
+        <Alert className="mb-6">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <AlertTitle>Transaction Pending</AlertTitle>
+          <AlertDescription>
+            Please confirm the transaction in your wallet and wait for confirmation...
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Main Content */}
       <div className="grid gap-6 lg:grid-cols-3">
@@ -185,7 +514,7 @@ export default function ProposalDetailPage({ params }: Props) {
             startBlock={proposal.startBlock}
             endBlock={proposal.endBlock}
             createdAt={proposal.createdAt}
-            chainId={1}
+            chainId={chainId}
           />
 
           {/* Vote Results */}
@@ -203,9 +532,9 @@ export default function ProposalDetailPage({ params }: Props) {
           {/* Voting Panel */}
           <VotingPanel
             proposalId={proposal.id}
-            votingPower={mockVotingPower}
-            hasVoted={hasVoted}
-            currentVote={currentVote}
+            votingPower={votingPower as bigint | undefined}
+            hasVoted={hasVoted ?? false}
+            currentVote={hasVoted ? currentVote : undefined}
             isActive={proposal.state === "Active"}
             onVote={handleVote}
           />
@@ -221,8 +550,8 @@ export default function ProposalDetailPage({ params }: Props) {
           <ProposalActions
             state={proposal.state}
             proposer={proposal.proposer}
-            currentUser={mockUserAddress}
-            isAdmin={false}
+            currentUser={userAddress}
+            isAdmin={false} // TODO: Check if user has admin role from AccessControl contract
             onQueue={handleQueue}
             onExecute={handleExecute}
             onCancel={handleCancel}

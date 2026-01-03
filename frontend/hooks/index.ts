@@ -5,6 +5,7 @@ export { useGovernance } from "./useGovernance";
 export { useAdmin } from "./useAdmin";
 export { useAdminKYC } from "./useAdminKYC";
 export { useKYC } from "./useKYC";
+export { usePricing } from "./usePricing";
 export { useTokenBalance } from "./useTokenBalance";
 export { useTokenInfo } from "./useTokenInfo";
 export { useTokenTransfer } from "./useTokenTransfer";
