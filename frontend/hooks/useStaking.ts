@@ -70,13 +70,21 @@ export function useStaking(chainId?: number) {
     abi: stakingAbi,
     functionName: 'getStakeInfo',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: {
+      enabled: !!address,
+      staleTime: 0, // Always refetch
+      gcTime: 0, // Don't cache
+    },
   });
 
-  const { data: totalStaked } = useReadContract({
+  const { data: totalStaked, refetch: refetchTotalStaked } = useReadContract({
     address: stakingAddress,
     abi: stakingAbi,
     functionName: 'totalStaked',
+    query: {
+      staleTime: 0,
+      gcTime: 0,
+    },
   });
 
   const { data: votingPower, refetch: refetchVotingPower } = useReadContract({
@@ -84,7 +92,11 @@ export function useStaking(chainId?: number) {
     abi: stakingAbi,
     functionName: 'getVotingPower',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: {
+      enabled: !!address,
+      staleTime: 0,
+      gcTime: 0,
+    },
   });
 
   const stake = (amount: bigint) => {
@@ -132,9 +144,12 @@ export function useStaking(chainId?: number) {
     isSuccess,
     error: writeError,
     reset,
-    refetch: () => {
-      refetchStakeInfo();
-      refetchVotingPower();
+    refetch: async () => {
+      await Promise.all([
+        refetchStakeInfo(),
+        refetchVotingPower(),
+        refetchTotalStaked(),
+      ]);
     },
   };
 }

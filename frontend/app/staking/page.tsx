@@ -29,7 +29,7 @@ export default function StakingPage() {
   const [lastAction, setLastAction] = useState<{ type: StakingAction; value: string } | null>(null);
 
   // Notifications
-  const { notifyApproval, notifyStake, notifyUnstake, notifyDelegate } = useNotifications();
+  const { notifyApproval, notifyStake, notifyUnstake, notifyDelegate, notifyError } = useNotifications();
 
   // Get contract addresses
   const addresses = getContractAddresses(chainId);
@@ -64,6 +64,8 @@ export default function StakingPage() {
     isPending: isStakePending,
     isConfirming,
     isSuccess,
+    error: stakingError,
+    reset: resetStaking,
     refetch: refetchStaking,
   } = useStaking(chainId);
 
@@ -104,17 +106,58 @@ export default function StakingPage() {
         setLastAction(null);
       }
 
-      // Small delay to ensure blockchain state is updated
-      setTimeout(() => {
-        refetchBalance();
-        refetchStaking();
-        refetchAllowance();
+      // Delay to ensure blockchain state is updated, then refetch
+      setTimeout(async () => {
+        await refetchBalance();
+        await refetchStaking();
+        await refetchAllowance();
         setStakeAmount('');
         setUnstakeAmount('');
-      }, 500);
+      }, 2000);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuccess, stakingHash, refetchBalance, refetchStaking, refetchAllowance]);
+
+  // Handle staking errors
+  useEffect(() => {
+    if (stakingError) {
+      // Extract user-friendly error message
+      let errorMessage = 'Transaction failed. Please try again.';
+      const errorString = stakingError.message || String(stakingError);
+
+      if (errorString.includes('User rejected') || errorString.includes('user rejected')) {
+        errorMessage = 'Transaction was rejected by user.';
+      } else if (errorString.includes('nonce too low')) {
+        errorMessage = 'Nonce mismatch. Please reset your wallet activity (MetaMask → Settings → Advanced → Clear activity tab data).';
+      } else if (errorString.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for transaction.';
+      } else if (errorString.includes('execution reverted')) {
+        errorMessage = 'Contract execution reverted. Check staking requirements.';
+      }
+
+      // Notify based on last action or generic error
+      if (lastAction) {
+        switch (lastAction.type) {
+          case 'stake':
+            notifyStake(lastAction.value, undefined, false);
+            break;
+          case 'unstake':
+            notifyUnstake(lastAction.value, undefined, false);
+            break;
+          case 'delegate':
+            notifyDelegate(lastAction.value, undefined, false);
+            break;
+        }
+        setLastAction(null);
+      } else {
+        notifyError('Transaction Failed', errorMessage);
+      }
+
+      // Reset the error state
+      resetStaking();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stakingError]);
 
   // Format numbers for display
   const formatTokens = (value: bigint | undefined) => {
@@ -280,16 +323,22 @@ export default function StakingPage() {
                     className="w-full"
                     onClick={handleApprove}
                     disabled={!stakeAmount || isLoading}
+                    suppressHydrationWarning
                   >
-                    {isApprovePending ? 'Approving...' : 'Approve NEXUS'}
+                    <span suppressHydrationWarning>
+                      {isApprovePending ? 'Approving...' : 'Approve NEXUS'}
+                    </span>
                   </Button>
                 ) : (
                   <Button
                     className="w-full"
                     onClick={handleStake}
                     disabled={!stakeAmount || isLoading}
+                    suppressHydrationWarning
                   >
-                    {isStakePending || isConfirming ? 'Staking...' : 'Stake NEXUS'}
+                    <span suppressHydrationWarning>
+                      {isStakePending || isConfirming ? 'Staking...' : 'Stake NEXUS'}
+                    </span>
                   </Button>
                 )}
               </>
@@ -337,8 +386,11 @@ export default function StakingPage() {
                   className="w-full"
                   onClick={handleUnstake}
                   disabled={!unstakeAmount || isLoading || !stakedBalance || stakedBalance === BigInt(0)}
+                  suppressHydrationWarning
                 >
-                  {isStakePending || isConfirming ? 'Unstaking...' : 'Unstake NEXUS'}
+                  <span suppressHydrationWarning>
+                    {isStakePending || isConfirming ? 'Unstaking...' : 'Unstake NEXUS'}
+                  </span>
                 </Button>
 
                 <p className="text-xs text-muted-foreground">
