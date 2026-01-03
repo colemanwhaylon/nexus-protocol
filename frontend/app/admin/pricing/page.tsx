@@ -423,7 +423,7 @@ function PaymentMethodCard({ method, onToggle, onUpdateFee, isUpdating }: Paymen
 }
 
 export default function PricingPage() {
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const {
     pricingList,
     paymentMethods,

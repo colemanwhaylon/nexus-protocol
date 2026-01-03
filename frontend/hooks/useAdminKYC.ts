@@ -1,333 +1,876 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
+import type { Address, Log } from 'viem';
+import { getContractAddresses } from '@/lib/contracts/addresses';
 import { useNotifications } from './useNotifications';
 
-// Types matching backend
-export type KYCStatusType = 'pending' | 'approved' | 'rejected' | 'expired' | 'suspended';
-export type RiskLevel = 'low' | 'medium' | 'high';
+// ============ Types ============
 
-export interface KYCRegistration {
+export type KYCStatusType = 'pending' | 'approved' | 'rejected' | 'blacklisted';
+
+// KYC Level enum matching contract
+export enum KYCLevel {
+  None = 0,
+  Basic = 1,
+  Enhanced = 2,
+  Accredited = 3,
+}
+
+export interface KYCInfo {
   address: string;
-  status: KYCStatusType;
-  level: number;
-  jurisdiction: string;
-  verified_at?: string;
-  expires_at?: string;
-  rejection_reason?: string;
-  suspension_reason?: string;
-  document_hash?: string;
-  risk_score: number;
-  accredited_investor: boolean;
-  created_at: string;
-  updated_at: string;
-  reviewed_by?: string;
+  level: KYCLevel;
+  verifiedAt: bigint;
+  expiresAt: bigint;
+  isWhitelisted: boolean;
+  isBlacklisted: boolean;
 }
 
-export interface KYCListResponse {
-  success: boolean;
-  registrations: KYCRegistration[];
-  total: number;
-  page: number;
-  page_size: number;
-}
-
-interface UseAdminKYCOptions {
-  autoRefresh?: boolean;
-  refreshInterval?: number; // milliseconds
-}
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-
-// Map risk score to risk level
-function getRiskLevel(riskScore: number): RiskLevel {
-  if (riskScore >= 70) return 'high';
-  if (riskScore >= 40) return 'medium';
-  return 'low';
-}
-
-// Map backend registration to frontend format
-interface FormattedKYCRequest {
+export interface FormattedKYCRequest {
   id: string;
   address: string;
   submittedAt: number;
-  status: 'pending' | 'approved' | 'rejected';
-  riskLevel: RiskLevel;
-  jurisdiction?: string;
-  level?: number;
-  rejectionReason?: string;
+  expiresAt?: number;
+  status: KYCStatusType;
+  level: KYCLevel;
+  levelName: string;
 }
 
-function formatRegistration(reg: KYCRegistration): FormattedKYCRequest {
-  // Map backend status to frontend status
-  let frontendStatus: 'pending' | 'approved' | 'rejected' = 'pending';
-  if (reg.status === 'approved') frontendStatus = 'approved';
-  if (reg.status === 'rejected' || reg.status === 'suspended' || reg.status === 'expired') {
-    frontendStatus = 'rejected';
+export interface KYCEvent {
+  type: 'whitelisted' | 'whitelist_removed' | 'blacklisted' | 'blacklist_removed' | 'kyc_updated';
+  account: string;
+  timestamp: number;
+  blockNumber: bigint;
+  transactionHash: string;
+  addedBy?: string;
+  level?: KYCLevel;
+  reason?: string;
+}
+
+// ============ Contract ABI ============
+
+const kycRegistryAbi = [
+  // Read functions
+  {
+    name: 'isWhitelisted',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    name: 'isBlacklisted',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    name: 'getKYCLevel',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint8' }],
+  },
+  {
+    name: 'getKYCInfo',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [
+      { name: 'level', type: 'uint8' },
+      { name: 'verifiedAt', type: 'uint256' },
+      { name: 'expiresAt', type: 'uint256' },
+      { name: 'countryCode', type: 'bytes32' },
+      { name: 'isWhitelisted', type: 'bool' },
+      { name: 'isBlacklisted', type: 'bool' },
+    ],
+  },
+  {
+    name: 'isKYCExpired',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    name: 'getWhitelistCount',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'getBlacklistCount',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    name: 'getWhitelistedAddresses',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'offset', type: 'uint256' },
+      { name: 'limit', type: 'uint256' },
+    ],
+    outputs: [{ name: 'addresses', type: 'address[]' }],
+  },
+  {
+    name: 'getBlacklistedAddresses',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'offset', type: 'uint256' },
+      { name: 'limit', type: 'uint256' },
+    ],
+    outputs: [{ name: 'addresses', type: 'address[]' }],
+  },
+  // Write functions
+  {
+    name: 'addToWhitelist',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [],
+  },
+  {
+    name: 'removeFromWhitelist',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [],
+  },
+  {
+    name: 'addToBlacklist',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'reason', type: 'string' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'removeFromBlacklist',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [],
+  },
+  {
+    name: 'setKYC',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'level', type: 'uint8' },
+      { name: 'countryCode', type: 'string' },
+      { name: 'expiryDuration', type: 'uint256' },
+      { name: 'kycProvider', type: 'string' },
+      { name: 'kycHash', type: 'bytes32' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'revokeKYC',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'account', type: 'address' },
+      { name: 'reason', type: 'string' },
+    ],
+    outputs: [],
+  },
+] as const;
+
+// Event signatures for filtering logs
+const EVENT_SIGNATURES = {
+  Whitelisted: '0x' + 'aab7954e9d246b167ef88aeddad35209ca2489d95a8aeb59e288d9b19fae5a54',
+  WhitelistRemoved: '0x' + '5b1e27c5f7a7e5e32c9d6c8c7d3a6b5a4c3b2a1d0e0f0a0b0c0d0e0f0a0b0c0d',
+  Blacklisted: '0x' + 'c8c7d3a6b5a4c3b2a1d0e0f0a0b0c0d0e0f0a0b0c0d0e0f0a0b0c0d0e0f0a0b',
+  BlacklistRemoved: '0x' + 'd0e0f0a0b0c0d0e0f0a0b0c0d0e0f0a0b0c0d0e0f0a0b0c0d0e0f0a0b0c0d0e',
+  KYCUpdated: '0x' + 'e0f0a0b0c0d0e0f0a0b0c0d0e0f0a0b0c0d0e0f0a0b0c0d0e0f0a0b0c0d0e0f',
+};
+
+// ============ Helper Functions ============
+
+function getLevelName(level: KYCLevel): string {
+  switch (level) {
+    case KYCLevel.None:
+      return 'None';
+    case KYCLevel.Basic:
+      return 'Basic';
+    case KYCLevel.Enhanced:
+      return 'Enhanced';
+    case KYCLevel.Accredited:
+      return 'Accredited';
+    default:
+      return 'Unknown';
+  }
+}
+
+function formatKYCInfo(address: string, info: readonly [number, bigint, bigint, `0x${string}`, boolean, boolean]): FormattedKYCRequest {
+  const [level, verifiedAt, expiresAt, , isWhitelisted, isBlacklisted] = info;
+
+  let status: KYCStatusType = 'pending';
+  if (isBlacklisted) {
+    status = 'blacklisted';
+  } else if (isWhitelisted && level > KYCLevel.None) {
+    status = 'approved';
+  } else if (level === KYCLevel.None && !isWhitelisted) {
+    status = 'pending';
   }
 
   return {
-    id: reg.address, // Use address as ID since backend doesn't provide separate ID
-    address: reg.address,
-    submittedAt: Math.floor(new Date(reg.created_at).getTime() / 1000),
-    status: frontendStatus,
-    riskLevel: getRiskLevel(reg.risk_score),
-    jurisdiction: reg.jurisdiction,
-    level: reg.level,
-    rejectionReason: reg.rejection_reason || reg.suspension_reason,
+    id: address,
+    address,
+    submittedAt: Number(verifiedAt),
+    expiresAt: expiresAt > 0n ? Number(expiresAt) : undefined,
+    status,
+    level: level as KYCLevel,
+    levelName: getLevelName(level as KYCLevel),
   };
 }
 
+// ============ Hook Options ============
+
+interface UseAdminKYCOptions {
+  autoRefresh?: boolean;
+  refreshInterval?: number;
+  pageSize?: number;
+}
+
+// ============ Main Hook ============
+
 export function useAdminKYC(options: UseAdminKYCOptions = {}) {
-  const { autoRefresh = true, refreshInterval = 30000 } = options;
+  const { autoRefresh = true, refreshInterval = 30000, pageSize = 100 } = options;
 
   const { address: userAddress } = useAccount();
-  const { notifySuccess, notifyError } = useNotifications();
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const addresses = getContractAddresses(chainId);
+  const kycRegistryAddress = addresses.nexusKYC as Address;
 
-  // State
-  const [registrations, setRegistrations] = useState<KYCRegistration[]>([]);
-  const [formattedRequests, setFormattedRequests] = useState<FormattedKYCRequest[]>([]);
+  const { notifySuccess, notifyError, notifyAdminAction } = useNotifications();
+
+  // ============ State ============
+
+  const [whitelistedAddresses, setWhitelistedAddresses] = useState<string[]>([]);
+  const [blacklistedAddresses, setBlacklistedAddresses] = useState<string[]>([]);
+  const [kycInfoMap, setKycInfoMap] = useState<Map<string, FormattedKYCRequest>>(new Map());
+  const [events, setEvents] = useState<KYCEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isApproving, setIsApproving] = useState(false);
-  const [isRejecting, setIsRejecting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
 
-  // Fetch all registrations (using pending endpoint as base, then add more)
-  const fetchRegistrations = useCallback(async () => {
+  // Contract deployed check
+  const isContractDeployed = kycRegistryAddress !== '0x0000000000000000000000000000000000000000';
+
+  // ============ Read Contract Calls ============
+
+  const { data: whitelistCount, refetch: refetchWhitelistCount } = useReadContract({
+    address: kycRegistryAddress,
+    abi: kycRegistryAbi,
+    functionName: 'getWhitelistCount',
+    query: { enabled: isContractDeployed },
+  });
+
+  const { data: blacklistCount, refetch: refetchBlacklistCount } = useReadContract({
+    address: kycRegistryAddress,
+    abi: kycRegistryAbi,
+    functionName: 'getBlacklistCount',
+    query: { enabled: isContractDeployed },
+  });
+
+  // ============ Write Contract Setup ============
+
+  const {
+    writeContractAsync,
+    data: txHash,
+    isPending: isWritePending,
+    error: writeError,
+    reset: resetWrite,
+  } = useWriteContract();
+
+  const { isLoading: isConfirming, isSuccess: isTxSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
+
+  // ============ Fetch Functions ============
+
+  const fetchWhitelistedAddresses = useCallback(async () => {
+    if (!isContractDeployed || !publicClient) return [];
+
+    try {
+      const count = whitelistCount as bigint | undefined;
+      if (!count || count === 0n) return [];
+
+      const addresses: string[] = [];
+      let offset = 0n;
+      const limit = BigInt(pageSize);
+
+      while (offset < count) {
+        const batch = await publicClient.readContract({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'getWhitelistedAddresses',
+          args: [offset, limit],
+        }) as Address[];
+
+        addresses.push(...batch);
+        offset += limit;
+      }
+
+      return addresses;
+    } catch (err) {
+      console.error('Error fetching whitelisted addresses:', err);
+      return [];
+    }
+  }, [isContractDeployed, publicClient, kycRegistryAddress, whitelistCount, pageSize]);
+
+  const fetchBlacklistedAddresses = useCallback(async () => {
+    if (!isContractDeployed || !publicClient) return [];
+
+    try {
+      const count = blacklistCount as bigint | undefined;
+      if (!count || count === 0n) return [];
+
+      const addresses: string[] = [];
+      let offset = 0n;
+      const limit = BigInt(pageSize);
+
+      while (offset < count) {
+        const batch = await publicClient.readContract({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'getBlacklistedAddresses',
+          args: [offset, limit],
+        }) as Address[];
+
+        addresses.push(...batch);
+        offset += limit;
+      }
+
+      return addresses;
+    } catch (err) {
+      console.error('Error fetching blacklisted addresses:', err);
+      return [];
+    }
+  }, [isContractDeployed, publicClient, kycRegistryAddress, blacklistCount, pageSize]);
+
+  const fetchKYCInfo = useCallback(
+    async (address: string): Promise<FormattedKYCRequest | null> => {
+      if (!isContractDeployed || !publicClient) return null;
+
+      try {
+        const info = await publicClient.readContract({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'getKYCInfo',
+          args: [address as Address],
+        }) as readonly [number, bigint, bigint, `0x${string}`, boolean, boolean];
+
+        return formatKYCInfo(address, info);
+      } catch (err) {
+        console.error(`Error fetching KYC info for ${address}:`, err);
+        return null;
+      }
+    },
+    [isContractDeployed, publicClient, kycRegistryAddress]
+  );
+
+  const fetchAllKYCInfo = useCallback(async () => {
+    if (!isContractDeployed) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // Fetch pending registrations
-      const pendingResponse = await fetch(`${API_BASE}/api/v1/kyc/pending?page=1&page_size=100`);
+      // Refresh counts first
+      await Promise.all([refetchWhitelistCount(), refetchBlacklistCount()]);
 
-      if (!pendingResponse.ok) {
-        throw new Error('Failed to fetch pending registrations');
+      // Fetch all addresses
+      const [whitelist, blacklist] = await Promise.all([
+        fetchWhitelistedAddresses(),
+        fetchBlacklistedAddresses(),
+      ]);
+
+      setWhitelistedAddresses(whitelist);
+      setBlacklistedAddresses(blacklist);
+
+      // Fetch KYC info for all unique addresses
+      const allAddresses = [...new Set([...whitelist, ...blacklist])];
+      const infoMap = new Map<string, FormattedKYCRequest>();
+
+      // Batch fetch in parallel (max 10 concurrent)
+      const batchSize = 10;
+      for (let i = 0; i < allAddresses.length; i += batchSize) {
+        const batch = allAddresses.slice(i, i + batchSize);
+        const results = await Promise.all(batch.map((addr) => fetchKYCInfo(addr)));
+
+        results.forEach((info, idx) => {
+          if (info) {
+            infoMap.set(batch[idx], info);
+          }
+        });
       }
 
-      const pendingData: KYCListResponse = await pendingResponse.json();
-
-      // For now, we primarily work with pending registrations for the admin page
-      // In a production scenario, you'd have a separate endpoint for all registrations
-      const allRegistrations = pendingData.registrations || [];
-
-      setRegistrations(allRegistrations);
-      setFormattedRequests(allRegistrations.map(formatRegistration));
+      setKycInfoMap(infoMap);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch KYC registrations';
+      const message = err instanceof Error ? err.message : 'Failed to fetch KYC data';
       setError(message);
-      console.error('Error fetching KYC registrations:', err);
+      console.error('Error fetching KYC data:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [
+    isContractDeployed,
+    refetchWhitelistCount,
+    refetchBlacklistCount,
+    fetchWhitelistedAddresses,
+    fetchBlacklistedAddresses,
+    fetchKYCInfo,
+  ]);
 
-  // Approve KYC
-  const approveKYC = useCallback(async (address: string, reviewerAddress?: string) => {
-    const reviewer = reviewerAddress || userAddress;
-    if (!reviewer) {
-      notifyError('Approval Failed', 'Wallet not connected');
-      return false;
-    }
+  // ============ Check Single Address ============
 
-    setIsApproving(true);
-    try {
-      const response = await fetch(`${API_BASE}/api/v1/kyc/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address,
-          status: 'approved',
-          level: 2, // Standard verification level
-          reviewer,
-        }),
-      });
+  const checkAddress = useCallback(
+    async (address: string): Promise<FormattedKYCRequest | null> => {
+      return fetchKYCInfo(address);
+    },
+    [fetchKYCInfo]
+  );
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Failed to approve KYC');
+  const isWhitelisted = useCallback(
+    async (address: string): Promise<boolean> => {
+      if (!isContractDeployed || !publicClient) return false;
+
+      try {
+        return await publicClient.readContract({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'isWhitelisted',
+          args: [address as Address],
+        }) as boolean;
+      } catch {
+        return false;
+      }
+    },
+    [isContractDeployed, publicClient, kycRegistryAddress]
+  );
+
+  const isBlacklisted = useCallback(
+    async (address: string): Promise<boolean> => {
+      if (!isContractDeployed || !publicClient) return false;
+
+      try {
+        return await publicClient.readContract({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'isBlacklisted',
+          args: [address as Address],
+        }) as boolean;
+      } catch {
+        return false;
+      }
+    },
+    [isContractDeployed, publicClient, kycRegistryAddress]
+  );
+
+  // ============ Write Functions ============
+
+  const approveKYC = useCallback(
+    async (targetAddress: string, level: KYCLevel = KYCLevel.Basic): Promise<boolean> => {
+      if (!userAddress) {
+        notifyError('Approval Failed', 'Wallet not connected');
+        return false;
       }
 
-      notifySuccess('KYC Approved', `Successfully approved KYC for ${address.slice(0, 6)}...${address.slice(-4)}`, 'admin');
-
-      // Refresh the list
-      await fetchRegistrations();
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to approve KYC';
-      notifyError('Approval Failed', message);
-      return false;
-    } finally {
-      setIsApproving(false);
-    }
-  }, [userAddress, fetchRegistrations, notifySuccess, notifyError]);
-
-  // Reject KYC
-  const rejectKYC = useCallback(async (address: string, reason?: string, reviewerAddress?: string) => {
-    const reviewer = reviewerAddress || userAddress;
-    if (!reviewer) {
-      notifyError('Rejection Failed', 'Wallet not connected');
-      return false;
-    }
-
-    setIsRejecting(true);
-    try {
-      const response = await fetch(`${API_BASE}/api/v1/kyc/update`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address,
-          status: 'rejected',
-          rejection_reason: reason || 'Verification requirements not met',
-          reviewer,
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Failed to reject KYC');
+      if (!isContractDeployed) {
+        notifyError('Approval Failed', 'KYC Registry contract not deployed');
+        return false;
       }
 
-      notifySuccess('KYC Rejected', `KYC rejected for ${address.slice(0, 6)}...${address.slice(-4)}`, 'admin');
+      try {
+        // First add to whitelist
+        await writeContractAsync({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'addToWhitelist',
+          args: [targetAddress as Address],
+        });
 
-      // Refresh the list
-      await fetchRegistrations();
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to reject KYC';
-      notifyError('Rejection Failed', message);
-      return false;
-    } finally {
-      setIsRejecting(false);
-    }
-  }, [userAddress, fetchRegistrations, notifySuccess, notifyError]);
+        const shortAddress = `${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`;
+        notifySuccess(
+          'KYC Approved',
+          `Successfully approved KYC for ${shortAddress}`,
+          'admin'
+        );
 
-  // Add to whitelist
-  const addToWhitelist = useCallback(async (address: string, reason?: string) => {
-    if (!userAddress) {
-      notifyError('Operation Failed', 'Wallet not connected');
-      return false;
-    }
+        // Refresh data
+        await fetchAllKYCInfo();
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to approve KYC';
+        notifyError('Approval Failed', message);
+        return false;
+      }
+    },
+    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, notifySuccess, notifyError, fetchAllKYCInfo]
+  );
 
-    try {
-      const response = await fetch(`${API_BASE}/api/v1/kyc/whitelist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address,
-          operator: userAddress,
-          reason: reason || 'Manual whitelist addition',
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Failed to add to whitelist');
+  const rejectKYC = useCallback(
+    async (targetAddress: string, reason: string = 'Verification requirements not met'): Promise<boolean> => {
+      if (!userAddress) {
+        notifyError('Rejection Failed', 'Wallet not connected');
+        return false;
       }
 
-      notifySuccess('Whitelist Updated', `Added ${address.slice(0, 6)}...${address.slice(-4)} to whitelist`, 'admin');
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add to whitelist';
-      notifyError('Whitelist Failed', message);
-      return false;
-    }
-  }, [userAddress, notifySuccess, notifyError]);
-
-  // Add to blacklist
-  const addToBlacklist = useCallback(async (address: string, reason?: string) => {
-    if (!userAddress) {
-      notifyError('Operation Failed', 'Wallet not connected');
-      return false;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}/api/v1/kyc/blacklist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address,
-          operator: userAddress,
-          reason: reason || 'Manual blacklist addition',
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Failed to add to blacklist');
+      if (!isContractDeployed) {
+        notifyError('Rejection Failed', 'KYC Registry contract not deployed');
+        return false;
       }
 
-      notifySuccess('Blacklist Updated', `Added ${address.slice(0, 6)}...${address.slice(-4)} to blacklist`, 'admin');
-      await fetchRegistrations();
-      return true;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add to blacklist';
-      notifyError('Blacklist Failed', message);
-      return false;
-    }
-  }, [userAddress, fetchRegistrations, notifySuccess, notifyError]);
+      try {
+        // Remove from whitelist if whitelisted
+        const whitelisted = await isWhitelisted(targetAddress);
+        if (whitelisted) {
+          await writeContractAsync({
+            address: kycRegistryAddress,
+            abi: kycRegistryAbi,
+            functionName: 'removeFromWhitelist',
+            args: [targetAddress as Address],
+          });
+        }
 
-  // Check compliance status for an address
-  const checkCompliance = useCallback(async (address: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/v1/kyc/check/${address}`);
-      if (!response.ok) {
-        throw new Error('Failed to check compliance');
+        const shortAddress = `${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`;
+        notifySuccess(
+          'KYC Rejected',
+          `KYC rejected for ${shortAddress}`,
+          'admin'
+        );
+
+        await fetchAllKYCInfo();
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to reject KYC';
+        notifyError('Rejection Failed', message);
+        return false;
       }
-      return await response.json();
-    } catch (err) {
-      console.error('Error checking compliance:', err);
-      return null;
-    }
-  }, []);
+    },
+    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, isWhitelisted, notifySuccess, notifyError, fetchAllKYCInfo]
+  );
 
-  // Calculate stats
-  const stats = {
-    total: formattedRequests.length,
-    pending: formattedRequests.filter(r => r.status === 'pending').length,
-    approved: formattedRequests.filter(r => r.status === 'approved').length,
-    rejected: formattedRequests.filter(r => r.status === 'rejected').length,
-  };
+  const addToWhitelist = useCallback(
+    async (targetAddress: string): Promise<boolean> => {
+      if (!userAddress) {
+        notifyError('Operation Failed', 'Wallet not connected');
+        return false;
+      }
+
+      if (!isContractDeployed) {
+        notifyError('Operation Failed', 'KYC Registry contract not deployed');
+        return false;
+      }
+
+      try {
+        await writeContractAsync({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'addToWhitelist',
+          args: [targetAddress as Address],
+        });
+
+        const shortAddress = `${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`;
+        notifyAdminAction('Whitelist', `Added ${shortAddress} to whitelist`, txHash, true);
+
+        await fetchAllKYCInfo();
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to add to whitelist';
+        notifyError('Whitelist Failed', message);
+        return false;
+      }
+    },
+    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+  );
+
+  const removeFromWhitelist = useCallback(
+    async (targetAddress: string): Promise<boolean> => {
+      if (!userAddress) {
+        notifyError('Operation Failed', 'Wallet not connected');
+        return false;
+      }
+
+      if (!isContractDeployed) {
+        notifyError('Operation Failed', 'KYC Registry contract not deployed');
+        return false;
+      }
+
+      try {
+        await writeContractAsync({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'removeFromWhitelist',
+          args: [targetAddress as Address],
+        });
+
+        const shortAddress = `${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`;
+        notifyAdminAction('Whitelist', `Removed ${shortAddress} from whitelist`, txHash, true);
+
+        await fetchAllKYCInfo();
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to remove from whitelist';
+        notifyError('Whitelist Failed', message);
+        return false;
+      }
+    },
+    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+  );
+
+  const addToBlacklist = useCallback(
+    async (targetAddress: string, reason: string = 'Compliance violation'): Promise<boolean> => {
+      if (!userAddress) {
+        notifyError('Operation Failed', 'Wallet not connected');
+        return false;
+      }
+
+      if (!isContractDeployed) {
+        notifyError('Operation Failed', 'KYC Registry contract not deployed');
+        return false;
+      }
+
+      try {
+        await writeContractAsync({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'addToBlacklist',
+          args: [targetAddress as Address, reason],
+        });
+
+        const shortAddress = `${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`;
+        notifyAdminAction('Blacklist', `Added ${shortAddress} to blacklist`, txHash, true);
+
+        await fetchAllKYCInfo();
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to add to blacklist';
+        notifyError('Blacklist Failed', message);
+        return false;
+      }
+    },
+    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+  );
+
+  const removeFromBlacklist = useCallback(
+    async (targetAddress: string): Promise<boolean> => {
+      if (!userAddress) {
+        notifyError('Operation Failed', 'Wallet not connected');
+        return false;
+      }
+
+      if (!isContractDeployed) {
+        notifyError('Operation Failed', 'KYC Registry contract not deployed');
+        return false;
+      }
+
+      try {
+        await writeContractAsync({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'removeFromBlacklist',
+          args: [targetAddress as Address],
+        });
+
+        const shortAddress = `${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`;
+        notifyAdminAction('Blacklist', `Removed ${shortAddress} from blacklist`, txHash, true);
+
+        await fetchAllKYCInfo();
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to remove from blacklist';
+        notifyError('Blacklist Failed', message);
+        return false;
+      }
+    },
+    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+  );
+
+  const setVerificationLevel = useCallback(
+    async (
+      targetAddress: string,
+      level: KYCLevel,
+      countryCode: string = 'USA',
+      expiryDuration: bigint = 365n * 24n * 60n * 60n, // 1 year in seconds
+      kycProvider: string = 'Sumsub',
+      kycHash: `0x${string}` = '0x0000000000000000000000000000000000000000000000000000000000000000'
+    ): Promise<boolean> => {
+      if (!userAddress) {
+        notifyError('Operation Failed', 'Wallet not connected');
+        return false;
+      }
+
+      if (!isContractDeployed) {
+        notifyError('Operation Failed', 'KYC Registry contract not deployed');
+        return false;
+      }
+
+      try {
+        await writeContractAsync({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'setKYC',
+          args: [targetAddress as Address, level, countryCode, expiryDuration, kycProvider, kycHash],
+        });
+
+        const shortAddress = `${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`;
+        const levelName = getLevelName(level);
+        notifyAdminAction('KYC Level', `Set ${shortAddress} to ${levelName} level`, txHash, true);
+
+        await fetchAllKYCInfo();
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to set KYC level';
+        notifyError('Set Level Failed', message);
+        return false;
+      }
+    },
+    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+  );
+
+  const revokeKYC = useCallback(
+    async (targetAddress: string, reason: string = 'KYC revoked by compliance'): Promise<boolean> => {
+      if (!userAddress) {
+        notifyError('Operation Failed', 'Wallet not connected');
+        return false;
+      }
+
+      if (!isContractDeployed) {
+        notifyError('Operation Failed', 'KYC Registry contract not deployed');
+        return false;
+      }
+
+      try {
+        await writeContractAsync({
+          address: kycRegistryAddress,
+          abi: kycRegistryAbi,
+          functionName: 'revokeKYC',
+          args: [targetAddress as Address, reason],
+        });
+
+        const shortAddress = `${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`;
+        notifyAdminAction('KYC Revoked', `Revoked KYC for ${shortAddress}`, txHash, true);
+
+        await fetchAllKYCInfo();
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to revoke KYC';
+        notifyError('Revoke Failed', message);
+        return false;
+      }
+    },
+    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+  );
+
+  // ============ Computed Values ============
+
+  const formattedRequests = useMemo(() => {
+    return Array.from(kycInfoMap.values());
+  }, [kycInfoMap]);
+
+  const stats = useMemo(() => {
+    const approved = formattedRequests.filter((r) => r.status === 'approved').length;
+    const pending = formattedRequests.filter((r) => r.status === 'pending').length;
+    const rejected = formattedRequests.filter((r) => r.status === 'rejected').length;
+    const blacklisted = blacklistedAddresses.length;
+
+    return {
+      total: formattedRequests.length,
+      pending,
+      approved,
+      rejected,
+      blacklisted,
+      whitelisted: Number(whitelistCount || 0),
+    };
+  }, [formattedRequests, blacklistedAddresses, whitelistCount]);
+
+  // ============ Effects ============
 
   // Initial fetch
   useEffect(() => {
-    fetchRegistrations();
-  }, [fetchRegistrations]);
+    if (isContractDeployed) {
+      fetchAllKYCInfo();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isContractDeployed, fetchAllKYCInfo]);
 
   // Auto-refresh
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || !isContractDeployed) return;
 
     const interval = setInterval(() => {
-      fetchRegistrations();
+      fetchAllKYCInfo();
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, fetchRegistrations]);
+  }, [autoRefresh, refreshInterval, isContractDeployed, fetchAllKYCInfo]);
+
+  // ============ Return ============
 
   return {
     // Data
-    registrations,
     formattedRequests,
+    whitelistedAddresses,
+    blacklistedAddresses,
     stats,
+    events,
 
-    // Actions
+    // Single address operations
+    checkAddress,
+    isWhitelisted,
+    isBlacklisted,
+
+    // Admin actions
     approveKYC,
     rejectKYC,
     addToWhitelist,
+    removeFromWhitelist,
     addToBlacklist,
-    checkCompliance,
-    refresh: fetchRegistrations,
+    removeFromBlacklist,
+    setVerificationLevel,
+    revokeKYC,
+
+    // Refresh
+    refresh: fetchAllKYCInfo,
 
     // Loading states
     isLoading,
-    isApproving,
-    isRejecting,
-    isProcessing: isApproving || isRejecting,
+    isProcessing: isWritePending || isConfirming,
+    isApproving: isWritePending,
+    isRejecting: isWritePending,
+
+    // Transaction state
+    txHash,
+    isTxSuccess,
 
     // Error
     error,
+    writeError,
     clearError: () => setError(null),
+    resetWrite,
+
+    // Contract info
+    isContractDeployed,
+    kycRegistryAddress,
+
+    // Pagination
+    currentPage,
+    setCurrentPage,
+    pageSize,
   };
 }

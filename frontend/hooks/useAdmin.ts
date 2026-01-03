@@ -58,6 +58,15 @@ const accessControlAbi = [
     outputs: [{ type: 'address' }],
   },
   {
+    name: 'getRoleAdmin',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'role', type: 'bytes32' },
+    ],
+    outputs: [{ type: 'bytes32' }],
+  },
+  {
     name: 'pause',
     type: 'function',
     stateMutability: 'nonpayable',
@@ -79,6 +88,12 @@ const accessControlAbi = [
     outputs: [{ type: 'bool' }],
   },
 ] as const;
+
+// Role event signatures for log fetching
+export const ROLE_EVENTS = {
+  RoleGranted: 'event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender)',
+  RoleRevoked: 'event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender)',
+} as const;
 
 const emergencyAbi = [
   {
@@ -614,5 +629,93 @@ export function useRoleMembers(chainId?: number) {
       [ROLES.PAUSER_ROLE]: pauserCount as bigint | undefined,
     },
     refetchAllCounts,
+  };
+}
+
+/**
+ * Hook to get the admin role for a specific role
+ */
+export function useRoleAdmin(role: HexString, chainId?: number) {
+  const connectedChainId = useChainId();
+  const effectiveChainId = chainId ?? connectedChainId;
+  const addresses = getContractAddresses(effectiveChainId);
+  const accessControlAddress = addresses.nexusAccessControl as Address;
+  const isContractDeployed = accessControlAddress !== '0x0000000000000000000000000000000000000000';
+
+  const { data, refetch, isLoading, error } = useReadContract({
+    address: accessControlAddress,
+    abi: accessControlAbi,
+    functionName: 'getRoleAdmin',
+    args: [role],
+    query: { enabled: isContractDeployed },
+  });
+
+  return {
+    adminRole: data as HexString | undefined,
+    adminRoleName: data ? getRoleName(data as HexString) : undefined,
+    refetch,
+    isLoading,
+    error,
+  };
+}
+
+/**
+ * Hook to get all role admins for the standard roles
+ */
+export function useAllRoleAdmins(chainId?: number) {
+  const connectedChainId = useChainId();
+  const effectiveChainId = chainId ?? connectedChainId;
+  const addresses = getContractAddresses(effectiveChainId);
+  const accessControlAddress = addresses.nexusAccessControl as Address;
+  const isContractDeployed = accessControlAddress !== '0x0000000000000000000000000000000000000000';
+
+  const { data: defaultAdminAdmin } = useReadContract({
+    address: accessControlAddress,
+    abi: accessControlAbi,
+    functionName: 'getRoleAdmin',
+    args: [ROLES.DEFAULT_ADMIN_ROLE],
+    query: { enabled: isContractDeployed },
+  });
+
+  const { data: adminAdmin } = useReadContract({
+    address: accessControlAddress,
+    abi: accessControlAbi,
+    functionName: 'getRoleAdmin',
+    args: [ROLES.ADMIN_ROLE],
+    query: { enabled: isContractDeployed },
+  });
+
+  const { data: operatorAdmin } = useReadContract({
+    address: accessControlAddress,
+    abi: accessControlAbi,
+    functionName: 'getRoleAdmin',
+    args: [ROLES.OPERATOR_ROLE],
+    query: { enabled: isContractDeployed },
+  });
+
+  const { data: complianceAdmin } = useReadContract({
+    address: accessControlAddress,
+    abi: accessControlAbi,
+    functionName: 'getRoleAdmin',
+    args: [ROLES.COMPLIANCE_ROLE],
+    query: { enabled: isContractDeployed },
+  });
+
+  const { data: pauserAdmin } = useReadContract({
+    address: accessControlAddress,
+    abi: accessControlAbi,
+    functionName: 'getRoleAdmin',
+    args: [ROLES.PAUSER_ROLE],
+    query: { enabled: isContractDeployed },
+  });
+
+  return {
+    roleAdmins: {
+      [ROLES.DEFAULT_ADMIN_ROLE]: defaultAdminAdmin as HexString | undefined,
+      [ROLES.ADMIN_ROLE]: adminAdmin as HexString | undefined,
+      [ROLES.OPERATOR_ROLE]: operatorAdmin as HexString | undefined,
+      [ROLES.COMPLIANCE_ROLE]: complianceAdmin as HexString | undefined,
+      [ROLES.PAUSER_ROLE]: pauserAdmin as HexString | undefined,
+    },
   };
 }

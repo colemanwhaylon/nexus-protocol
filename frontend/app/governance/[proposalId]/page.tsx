@@ -284,7 +284,6 @@ export default function ProposalDetailPage({ params }: Props) {
       // Estimate timestamps based on block numbers (assuming ~12s per block on Ethereum)
       const currentBlock = await publicClient.getBlockNumber();
       const currentTimestamp = Math.floor(Date.now() / 1000);
-      const blocksPerDay = 7200; // ~12s per block
 
       // Rough estimate for creation time
       const blocksSinceVoteStart = Number(currentBlock) - Number(voteStart);
