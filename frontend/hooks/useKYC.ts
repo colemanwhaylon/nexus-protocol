@@ -9,6 +9,8 @@ export type PaymentMethod = 'nexus' | 'eth' | 'stripe';
 
 export type KYCStatus =
   | 'not_started'
+  | 'pending'
+  | 'submitted'
   | 'payment_pending'
   | 'payment_completed'
   | 'verification_pending'
@@ -45,6 +47,12 @@ export interface KYCVerification {
   createdAt: string;
   updatedAt: string;
   expiresAt?: string;
+}
+
+export interface SumsubApplicant {
+  applicantId: string;
+  accessToken: string;
+  expiresAt: string;
 }
 
 interface UseKYCOptions {
@@ -130,7 +138,77 @@ export function useKYC(options: UseKYCOptions = {}) {
     }
   }, [address, notifyKYCApproved, notifyKYCRejected]);
 
-  // Start KYC process
+  // Initiate KYC - creates Sumsub applicant
+  const initiateKYC = useCallback(async () => {
+    if (!address) {
+      setError('Wallet not connected');
+      return null;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // POST /api/v1/kyc/applicant - Create Sumsub applicant
+      const response = await fetch(`${API_BASE}/api/v1/kyc/applicant`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wallet_address: address,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to create KYC applicant');
+      }
+
+      const applicantData = await response.json();
+      notifyKYCStarted();
+      setStatus('pending');
+
+      return applicantData;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to initiate KYC';
+      setError(message);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [address, notifyKYCStarted]);
+
+  // Get Sumsub access token for SDK
+  const getSumsubAccessToken = useCallback(async (): Promise<string | null> => {
+    if (!address) {
+      setError('Wallet not connected');
+      return null;
+    }
+
+    try {
+      // GET /api/v1/kyc/token/:address - Get Sumsub access token
+      const response = await fetch(`${API_BASE}/api/v1/kyc/token/${address}`);
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to get access token');
+      }
+
+      const tokenData = await response.json();
+      setSumsubAccessToken(tokenData.token);
+      return tokenData.token;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to get access token';
+      setError(message);
+      return null;
+    }
+  }, [address]);
+
+  // Select payment method
+  const selectPaymentMethod = useCallback((method: PaymentMethod) => {
+    setSelectedPaymentMethod(method);
+  }, []);
+
+  // Start KYC process with payment
   const startVerification = useCallback(async (paymentMethod: PaymentMethod = selectedPaymentMethod) => {
     if (!address) {
       setError('Wallet not connected');
@@ -141,8 +219,35 @@ export function useKYC(options: UseKYCOptions = {}) {
     setError(null);
 
     try {
-      // Step 1: Create payment session
-      const paymentResponse = await fetch(`${API_BASE}/api/v1/payments/create`, {
+      if (paymentMethod === 'stripe') {
+        // POST /api/v1/payments/stripe/checkout - Create Stripe session
+        const stripeResponse = await fetch(`${API_BASE}/api/v1/payments/stripe/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            wallet_address: address,
+            service_code: 'kyc_verification',
+            success_url: `${window.location.origin}/kyc/success`,
+            cancel_url: `${window.location.origin}/kyc/cancel`,
+          }),
+        });
+
+        if (!stripeResponse.ok) {
+          const errData = await stripeResponse.json();
+          throw new Error(errData.error || 'Failed to create Stripe checkout session');
+        }
+
+        const stripeData = await stripeResponse.json();
+        notifyPaymentPending('Credit Card', pricing?.priceUSD?.toString() || '15', 'USD');
+
+        if (stripeData.checkout_url) {
+          window.location.href = stripeData.checkout_url;
+        }
+        return stripeData;
+      }
+
+      // POST /api/v1/payments/crypto - Process crypto payment (NEXUS or ETH)
+      const cryptoResponse = await fetch(`${API_BASE}/api/v1/payments/crypto`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -152,28 +257,21 @@ export function useKYC(options: UseKYCOptions = {}) {
         }),
       });
 
-      if (!paymentResponse.ok) {
-        const errData = await paymentResponse.json();
-        throw new Error(errData.error || 'Failed to create payment session');
+      if (!cryptoResponse.ok) {
+        const errData = await cryptoResponse.json();
+        throw new Error(errData.error || 'Failed to create crypto payment');
       }
 
-      const paymentData = await paymentResponse.json();
+      const cryptoData = await cryptoResponse.json();
 
-      if (paymentMethod === 'stripe' && paymentData.checkout_url) {
-        // Redirect to Stripe checkout
-        notifyPaymentPending('Credit Card', pricing?.priceUSD?.toString() || '15', 'USD');
-        window.location.href = paymentData.checkout_url;
-        return paymentData;
-      }
-
-      // For crypto payments, return payment details
+      // Notify about payment required
       notifyPaymentRequired('KYC Verification',
         paymentMethod === 'nexus' ? pricing?.priceNEXUS?.toString() || '150' : pricing?.priceETH?.toString() || '0.005',
         paymentMethod === 'nexus' ? 'NEXUS' : 'ETH'
       );
 
       setStatus('payment_pending');
-      return paymentData;
+      return cryptoData;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start verification';
       setError(message);
@@ -232,8 +330,8 @@ export function useKYC(options: UseKYCOptions = {}) {
 
     setIsLoading(true);
     try {
-      // Create applicant
-      const applicantResponse = await fetch(`${API_BASE}/api/v1/sumsub/applicant`, {
+      // POST /api/v1/kyc/applicant - Create Sumsub applicant
+      const applicantResponse = await fetch(`${API_BASE}/api/v1/kyc/applicant`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet_address: address }),
@@ -245,8 +343,8 @@ export function useKYC(options: UseKYCOptions = {}) {
 
       const applicantData = await applicantResponse.json();
 
-      // Get access token for SDK
-      const tokenResponse = await fetch(`${API_BASE}/api/v1/sumsub/access-token/${applicantData.applicant_id}`);
+      // GET /api/v1/kyc/token/:address - Get Sumsub access token
+      const tokenResponse = await fetch(`${API_BASE}/api/v1/kyc/token/${address}`);
       if (!tokenResponse.ok) {
         throw new Error('Failed to get verification access token');
       }
@@ -357,12 +455,16 @@ export function useKYC(options: UseKYCOptions = {}) {
     paymentMethods,
     selectedPaymentMethod,
     setSelectedPaymentMethod,
+    selectPaymentMethod,
     calculateTotalPrice,
 
     // Sumsub
     sumsubAccessToken,
 
     // Actions
+    initiateKYC,
+    getVerificationStatus: fetchVerificationStatus,
+    getSumsubAccessToken,
     startVerification,
     confirmCryptoPayment,
     startSumsubVerification,

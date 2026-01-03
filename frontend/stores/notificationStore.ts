@@ -16,8 +16,9 @@ export type NotificationCategory =
   | 'kyc'        // KYC verification events
   | 'admin'      // Admin panel operations
   | 'emergency'  // Emergency pause/unpause events
-  | 'nft'        // NFT transfer, reveal, etc.
-  | 'payment';   // Payment events (Stripe, crypto)
+  | 'nft'        // NFT transfer, reveal, burn, etc.
+  | 'payment'    // Payment events (Stripe, crypto)
+  | 'relay';     // Meta-transaction relay events
 
 export interface Notification {
   id: string;

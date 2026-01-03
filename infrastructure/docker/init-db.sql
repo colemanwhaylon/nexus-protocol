@@ -307,7 +307,11 @@ CREATE TABLE IF NOT EXISTS pricing_history (
     -- Who and when
     changed_by VARCHAR(42) NOT NULL,
     changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    change_reason TEXT
+    change_reason TEXT,
+
+    -- Audit timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_pricing_history_pricing_id ON pricing_history(pricing_id);
@@ -509,6 +513,12 @@ CREATE TRIGGER log_pricing_changes
     FOR EACH ROW
     EXECUTE FUNCTION log_pricing_change();
 
+-- Trigger for pricing_history updated_at (if records are ever modified)
+CREATE TRIGGER update_pricing_history_updated_at
+    BEFORE UPDATE ON pricing_history
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- ============================================
 -- Seed Data (for demo/testing)
 -- ============================================
@@ -529,10 +539,17 @@ ON CONFLICT (method_code) DO NOTHING;
 -- Insert initial pricing (200% markup as per user decision: $5 Sumsub cost -> $15 charge)
 -- ETH prices assume ~$3000/ETH, NEXUS assumes $0.10/token
 INSERT INTO pricing (service_code, service_name, description, cost_usd, cost_provider, price_usd, price_eth, price_nexus, markup_percent, is_active) VALUES
+    -- KYC verification: $15 USD (cost $5, markup 200%)
     ('kyc_verification', 'KYC Identity Verification', 'Full identity verification with document check and AML screening via Sumsub', 5.00, 'sumsub', 15.00, 0.005, 150, 200.00, true),
     ('kyc_aml_recheck', 'AML Re-screening', 'Periodic AML/sanctions re-check for existing users', 1.00, 'sumsub', 3.00, 0.001, 30, 200.00, true),
     ('kyc_enhanced', 'Enhanced Due Diligence', 'Enhanced verification for high-value accounts', 15.00, 'sumsub', 45.00, 0.015, 450, 200.00, true),
-    ('nft_mint', 'NFT Minting Fee', 'Platform fee for minting new NFTs', 0, 'platform', 5.00, 0.00167, 50, 0, true),
+    -- Meta-transaction relay: $0.50 per tx
+    ('meta_tx_relay', 'Meta-Transaction Relay', 'Gasless transaction relay fee per meta-transaction', 0.10, 'gas', 0.50, 0.000167, 5, 400.00, true),
+    -- NFT minting: $25 USD
+    ('nft_mint', 'NFT Minting Fee', 'Platform fee for minting new NFTs (includes gas subsidy)', 5.00, 'platform', 25.00, 0.00833, 250, 400.00, true),
+    -- Premium features: $10/month
+    ('premium_monthly', 'Premium Features (Monthly)', 'Monthly subscription for premium platform features', 2.00, 'platform', 10.00, 0.00333, 100, 400.00, true),
+    -- Governance proposal fee (existing)
     ('governance_proposal', 'Governance Proposal Fee', 'Fee for submitting governance proposals (refundable if passed)', 0, 'platform', 10.00, 0.00333, 100, 0, true)
 ON CONFLICT (service_code) DO NOTHING;
 

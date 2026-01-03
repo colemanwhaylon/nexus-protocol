@@ -113,6 +113,49 @@ export function useNotifications() {
     }
   };
 
+  const notifyNFTMinted = (tokenId: string, collection?: string, txHash?: string, success = true) => {
+    const collectionName = collection || 'Nexus';
+    if (success) {
+      notify({
+        title: 'NFT Minted Successfully',
+        message: `${collectionName} NFT #${tokenId} has been minted to your wallet`,
+        type: 'success',
+        category: 'nft',
+        txHash,
+        metadata: { tokenId, collection: collectionName },
+      });
+    } else {
+      notify({
+        title: 'NFT Mint Failed',
+        message: `Failed to mint ${collectionName} NFT`,
+        type: 'error',
+        category: 'nft',
+        metadata: { collection: collectionName },
+      });
+    }
+  };
+
+  const notifyNFTBurned = (tokenId: string, txHash?: string, success = true) => {
+    if (success) {
+      notify({
+        title: 'NFT Burned',
+        message: `NFT #${tokenId} has been permanently burned`,
+        type: 'success',
+        category: 'nft',
+        txHash,
+        metadata: { tokenId, action: 'burn' },
+      });
+    } else {
+      notify({
+        title: 'Burn Failed',
+        message: `Failed to burn NFT #${tokenId}`,
+        type: 'error',
+        category: 'nft',
+        metadata: { tokenId },
+      });
+    }
+  };
+
   const notifyNFTTransfer = (tokenId: string, to: string, txHash?: string, success = true) => {
     const shortAddress = `${to.slice(0, 6)}...${to.slice(-4)}`;
     if (success) {
@@ -134,6 +177,9 @@ export function useNotifications() {
     }
   };
 
+  // Alias for notifyNFTTransfer - for naming consistency
+  const notifyNFTTransferred = notifyNFTTransfer;
+
   const notifyNFTReveal = (tokenId: string, success = true) => {
     if (success) {
       notify({
@@ -154,6 +200,15 @@ export function useNotifications() {
   };
 
   // KYC-specific notifications
+  const notifyKYCSubmitted = () => {
+    notify({
+      title: 'KYC Submitted',
+      message: 'Your KYC documents have been submitted for review. You will be notified once verification is complete.',
+      type: 'info',
+      category: 'kyc',
+    });
+  };
+
   const notifyKYCStarted = () => {
     notify({
       title: 'KYC Verification Started',
@@ -193,6 +248,17 @@ export function useNotifications() {
   };
 
   // Admin-specific notifications
+  const notifyAdminAction = (action: string, details: string, txHash?: string, success = true) => {
+    notify({
+      title: success ? 'Admin Action Completed' : 'Admin Action Failed',
+      message: success ? `${action}: ${details}` : `Failed to ${action.toLowerCase()}: ${details}`,
+      type: success ? 'success' : 'error',
+      category: 'admin',
+      txHash,
+      metadata: { action, details },
+    });
+  };
+
   const notifyRoleGranted = (role: string, address: string, txHash?: string) => {
     const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
     notify({
@@ -272,6 +338,41 @@ export function useNotifications() {
     });
   };
 
+  // Relay (meta-transaction) notifications
+  const notifyRelaySubmitted = (operation: string, relayerId?: string) => {
+    notify({
+      title: 'Transaction Submitted to Relay',
+      message: `Your ${operation} has been submitted for gasless execution.`,
+      type: 'pending',
+      category: 'relay',
+      metadata: { operation, relayerId: relayerId || 'default' },
+    });
+  };
+
+  const notifyRelayConfirmed = (operation: string, txHash: string) => {
+    notify({
+      title: 'Relay Transaction Confirmed',
+      message: `Your gasless ${operation} has been confirmed on-chain.`,
+      type: 'success',
+      category: 'relay',
+      txHash,
+      metadata: { operation },
+    });
+  };
+
+  const notifyRelayFailed = (operation: string, reason?: string) => {
+    notify({
+      title: 'Relay Transaction Failed',
+      message: reason || `Your gasless ${operation} could not be processed. Please try again.`,
+      type: 'error',
+      category: 'relay',
+      metadata: { operation, reason: reason || 'unknown' },
+    });
+  };
+
+  // Payment convenience aliases
+  const notifyPaymentSuccess = notifyPaymentCompleted;
+
   // Governance-specific notifications
   const notifyProposalCreated = (proposalId: string, title: string, txHash?: string) => {
     notify({
@@ -307,14 +408,19 @@ export function useNotifications() {
     notifyApproval,
     // NFT
     notifyMint,
+    notifyNFTMinted,
     notifyNFTTransfer,
+    notifyNFTTransferred,
     notifyNFTReveal,
+    notifyNFTBurned,
     // KYC
+    notifyKYCSubmitted,
     notifyKYCStarted,
     notifyKYCApproved,
     notifyKYCRejected,
     notifyPaymentRequired,
     // Admin
+    notifyAdminAction,
     notifyRoleGranted,
     notifyRoleRevoked,
     // Emergency
@@ -323,7 +429,12 @@ export function useNotifications() {
     // Payment
     notifyPaymentPending,
     notifyPaymentCompleted,
+    notifyPaymentSuccess,
     notifyPaymentFailed,
+    // Relay
+    notifyRelaySubmitted,
+    notifyRelayConfirmed,
+    notifyRelayFailed,
     // Governance
     notifyProposalCreated,
     notifyVoteCast,

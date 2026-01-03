@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useKYC, type PaymentMethod } from '@/hooks/useKYC';
+import { useKYC, type PaymentMethod, type KYCStatus } from '@/hooks/useKYC';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, XCircle, Clock, CreditCard, Wallet, Coins } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Clock, CreditCard, Wallet, Coins, RefreshCw, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Sumsub WebSDK types
@@ -40,7 +40,9 @@ interface SumsubConfig {
 interface VerificationWidgetProps {
   onComplete?: () => void;
   onError?: (error: string) => void;
+  onStatusChange?: (status: KYCStatus) => void;
   className?: string;
+  theme?: 'light' | 'dark';
 }
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: React.ElementType; description: string }[] = [
@@ -64,15 +66,23 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: React.Elemen
   },
 ];
 
-export function VerificationWidget({ onComplete, onError, className }: VerificationWidgetProps) {
+export function VerificationWidget({
+  onComplete,
+  onError,
+  onStatusChange,
+  className,
+  theme = 'dark'
+}: VerificationWidgetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [sdkLoaded, setSdkLoaded] = useState(false);
   const [widgetLaunched, setWidgetLaunched] = useState(false);
+  const previousStatus = useRef<KYCStatus | null>(null);
 
   const {
     status,
     isVerified,
     isInProgress,
+    canRetry,
     pricing,
     paymentMethods,
     selectedPaymentMethod,
@@ -80,12 +90,21 @@ export function VerificationWidget({ onComplete, onError, className }: Verificat
     calculateTotalPrice,
     sumsubAccessToken,
     startVerification,
+    refreshStatus,
     isLoading,
     error,
     clearError,
   } = useKYC();
 
   const { notifyKYCApproved, notifyKYCRejected } = useNotifications();
+
+  // Notify parent of status changes
+  useEffect(() => {
+    if (status !== previousStatus.current) {
+      previousStatus.current = status;
+      onStatusChange?.(status);
+    }
+  }, [status, onStatusChange]);
 
   // Load Sumsub SDK script
   useEffect(() => {
@@ -151,7 +170,7 @@ export function VerificationWidget({ onComplete, onError, className }: Verificat
           .init(sumsubAccessToken, handleMessage, handleError)
           .withConf({
             lang: 'en',
-            theme: 'dark',
+            theme: theme,
           })
           .build();
 
@@ -162,7 +181,12 @@ export function VerificationWidget({ onComplete, onError, className }: Verificat
         onError?.('Failed to launch verification widget');
       }
     }
-  }, [sdkLoaded, sumsubAccessToken, widgetLaunched, handleMessage, handleError, onError]);
+  }, [sdkLoaded, sumsubAccessToken, widgetLaunched, handleMessage, handleError, onError, theme]);
+
+  // Handle refresh status
+  const handleRefreshStatus = async () => {
+    await refreshStatus();
+  };
 
   // Handle payment method selection and start verification
   const handleStartVerification = async () => {
@@ -187,6 +211,27 @@ export function VerificationWidget({ onComplete, onError, className }: Verificat
             Rejected
           </Badge>
         );
+      case 'expired':
+        return (
+          <Badge className="bg-orange-500/10 text-orange-500 border-orange-500/20">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Expired
+          </Badge>
+        );
+      case 'submitted':
+        return (
+          <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/20">
+            <Clock className="w-3 h-3 mr-1" />
+            Submitted
+          </Badge>
+        );
+      case 'pending':
+        return (
+          <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending Review
+          </Badge>
+        );
       case 'verification_in_progress':
       case 'verification_pending':
         return (
@@ -198,8 +243,15 @@ export function VerificationWidget({ onComplete, onError, className }: Verificat
       case 'payment_pending':
         return (
           <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20">
-            <Clock className="w-3 h-3 mr-1" />
+            <CreditCard className="w-3 h-3 mr-1" />
             Payment Pending
+          </Badge>
+        );
+      case 'payment_completed':
+        return (
+          <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Payment Complete
           </Badge>
         );
       default:
@@ -221,6 +273,88 @@ export function VerificationWidget({ onComplete, onError, className }: Verificat
             <h3 className="text-xl font-semibold text-green-500 mb-2">Identity Verified</h3>
             <p className="text-muted-foreground">
               Your identity has been verified. You have full access to the platform.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If rejected or expired, show retry option
+  if (canRetry) {
+    return (
+      <Card className={cn(status === 'rejected' ? 'border-red-500/20 bg-red-500/5' : 'border-orange-500/20 bg-orange-500/5', className)}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>KYC Verification</CardTitle>
+            {renderStatusBadge()}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="text-center py-6">
+            {status === 'rejected' ? (
+              <>
+                <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-red-500 mb-2">Verification Not Approved</h3>
+                <p className="text-muted-foreground mb-6">
+                  Your identity verification was not approved. You can retry the verification process.
+                </p>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-16 h-16 text-orange-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-orange-500 mb-2">Verification Expired</h3>
+                <p className="text-muted-foreground mb-6">
+                  Your previous verification has expired. Please start a new verification.
+                </p>
+              </>
+            )}
+            <Button onClick={handleStartVerification} disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Retry Verification'
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If pending or submitted, show waiting state
+  if (status === 'pending' || status === 'submitted') {
+    return (
+      <Card className={cn('border-blue-500/20 bg-blue-500/5', className)}>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>KYC Verification</CardTitle>
+            <div className="flex items-center gap-2">
+              {renderStatusBadge()}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRefreshStatus}
+                disabled={isLoading}
+              >
+                <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Clock className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-pulse" />
+            <h3 className="text-xl font-semibold text-blue-500 mb-2">
+              {status === 'submitted' ? 'Documents Submitted' : 'Under Review'}
+            </h3>
+            <p className="text-muted-foreground">
+              {status === 'submitted'
+                ? 'Your documents have been submitted and are being processed.'
+                : 'Your verification is being reviewed. This usually takes a few minutes.'}
             </p>
           </div>
         </CardContent>
