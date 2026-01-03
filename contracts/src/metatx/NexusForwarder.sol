@@ -54,13 +54,13 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
 
     /// @notice Structure for a forward request
     struct ForwardRequest {
-        address from;      // Original signer
-        address to;        // Target contract
-        uint256 value;     // ETH value to send
-        uint256 gas;       // Gas limit for the call
-        uint256 nonce;     // Unique nonce for replay protection
-        uint48 deadline;   // Request expiration timestamp
-        bytes data;        // Calldata to execute
+        address from; // Original signer
+        address to; // Target contract
+        uint256 value; // ETH value to send
+        uint256 gas; // Gas limit for the call
+        uint256 nonce; // Unique nonce for replay protection
+        uint48 deadline; // Request expiration timestamp
+        bytes data; // Calldata to execute
     }
 
     /// @notice Structure for batch execution results
@@ -86,20 +86,10 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
     // ============ Events ============
 
     /// @notice Emitted when a request is executed
-    event RequestExecuted(
-        address indexed from,
-        address indexed to,
-        uint256 nonce,
-        bool success,
-        bytes returnData
-    );
+    event RequestExecuted(address indexed from, address indexed to, uint256 nonce, bool success, bytes returnData);
 
     /// @notice Emitted when a batch of requests is executed
-    event BatchExecuted(
-        uint256 indexed batchId,
-        uint256 successCount,
-        uint256 failureCount
-    );
+    event BatchExecuted(uint256 indexed batchId, uint256 successCount, uint256 failureCount);
 
     /// @notice Emitted when a target is added/removed from whitelist
     event TargetWhitelistUpdated(address indexed target, bool allowed);
@@ -149,10 +139,7 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
      * @param admin The initial admin address
      * @param relayer The initial relayer address
      */
-    constructor(
-        address admin,
-        address relayer
-    ) EIP712("NexusForwarder", "1") {
+    constructor(address admin, address relayer) EIP712("NexusForwarder", "1") {
         require(admin != address(0), "Invalid admin");
         require(relayer != address(0), "Invalid relayer");
 
@@ -231,24 +218,26 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
                 results[i] = ExecutionResult(success, returnData);
 
                 if (success) {
-                    unchecked { ++successCount; }
+                    unchecked {
+                        ++successCount;
+                    }
                 } else {
-                    unchecked { ++failureCount; }
+                    unchecked {
+                        ++failureCount;
+                    }
                 }
 
-                emit RequestExecuted(
-                    requests[i].from,
-                    requests[i].to,
-                    requests[i].nonce,
-                    success,
-                    returnData
-                );
+                emit RequestExecuted(requests[i].from, requests[i].to, requests[i].nonce, success, returnData);
             } else {
                 results[i] = ExecutionResult(false, "");
-                unchecked { ++failureCount; }
+                unchecked {
+                    ++failureCount;
+                }
             }
 
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
 
         unchecked {
@@ -264,10 +253,7 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
      * @param signature The signature to verify
      * @return valid Whether the request is valid
      */
-    function verify(
-        ForwardRequest calldata request,
-        bytes calldata signature
-    ) external view returns (bool valid) {
+    function verify(ForwardRequest calldata request, bytes calldata signature) external view returns (bool valid) {
         return _tryVerifyRequest(request, signature);
     }
 
@@ -292,7 +278,9 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
         for (uint256 i = 0; i < targets.length;) {
             allowedTargets[targets[i]] = allowed;
             emit TargetWhitelistUpdated(targets[i], allowed);
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -326,7 +314,7 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
     function withdrawTips(address payable to) external onlyRole(ADMIN_ROLE) {
         uint256 balance = address(this).balance;
         if (balance > 0) {
-            (bool success, ) = to.call{value: balance}("");
+            (bool success,) = to.call{ value: balance }("");
             if (!success) revert ValueTransferFailed();
         }
     }
@@ -377,16 +365,18 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
      * @return The struct hash
      */
     function _hashRequest(ForwardRequest calldata request) internal pure returns (bytes32) {
-        return keccak256(abi.encode(
-            FORWARD_REQUEST_TYPEHASH,
-            request.from,
-            request.to,
-            request.value,
-            request.gas,
-            request.nonce,
-            request.deadline,
-            keccak256(request.data)
-        ));
+        return keccak256(
+            abi.encode(
+                FORWARD_REQUEST_TYPEHASH,
+                request.from,
+                request.to,
+                request.value,
+                request.gas,
+                request.nonce,
+                request.deadline,
+                keccak256(request.data)
+            )
+        );
     }
 
     /**
@@ -394,10 +384,7 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
      * @param request The request to verify
      * @param signature The signature to verify
      */
-    function _verifyRequest(
-        ForwardRequest calldata request,
-        bytes calldata signature
-    ) internal {
+    function _verifyRequest(ForwardRequest calldata request, bytes calldata signature) internal {
         // Check deadline
         if (block.timestamp > request.deadline) {
             revert RequestExpired(request.deadline, block.timestamp);
@@ -437,7 +424,11 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
     function _tryVerifyRequest(
         ForwardRequest calldata request,
         bytes calldata signature
-    ) internal view returns (bool valid) {
+    )
+        internal
+        view
+        returns (bool valid)
+    {
         // Check deadline
         if (block.timestamp > request.deadline) {
             return false;
@@ -465,17 +456,12 @@ contract NexusForwarder is EIP712, Nonces, AccessControl, Pausable, ReentrancyGu
      * @return success Whether the call succeeded
      * @return returnData The return data from the call
      */
-    function _executeCall(
-        ForwardRequest calldata request
-    ) internal returns (bool success, bytes memory returnData) {
+    function _executeCall(ForwardRequest calldata request) internal returns (bool success, bytes memory returnData) {
         // Prepare calldata with ERC-2771 suffix (original sender appended)
         bytes memory callData = abi.encodePacked(request.data, request.from);
 
         // Execute the call
-        (success, returnData) = request.to.call{
-            gas: request.gas,
-            value: request.value
-        }(callData);
+        (success, returnData) = request.to.call{ gas: request.gas, value: request.value }(callData);
 
         // Track gas sponsored
         unchecked {

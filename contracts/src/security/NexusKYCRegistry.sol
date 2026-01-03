@@ -132,10 +132,10 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     /// @notice Payment methods for KYC fee
     enum PaymentMethod {
         None,
-        Native,   // ETH/MATIC
-        Nexus,    // NEXUS token
-        Stripe,   // Fiat via Stripe (recorded by backend)
-        Free      // Fee waived by admin
+        Native, // ETH/MATIC
+        Nexus, // NEXUS token
+        Stripe, // Fiat via Stripe (recorded by backend)
+        Free // Fee waived by admin
     }
 
     // ============ Events ============
@@ -225,7 +225,9 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     /// @param method The payment method (Stripe)
     /// @param externalId External payment reference
     /// @param recordedBy The compliance officer who recorded it
-    event OffChainPaymentRecorded(address indexed account, PaymentMethod indexed method, string externalId, address indexed recordedBy);
+    event OffChainPaymentRecorded(
+        address indexed account, PaymentMethod indexed method, string externalId, address indexed recordedBy
+    );
 
     // ============ Errors ============
 
@@ -664,7 +666,11 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     function recordOffChainPayment(
         address account,
         string calldata externalId
-    ) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
+    )
+        external
+        onlyRole(COMPLIANCE_ROLE)
+        whenNotPaused
+    {
         if (account == address(0)) revert ZeroAddress();
         if (hasPaidKYCFee[account]) revert FeeAlreadyPaid();
 
@@ -696,7 +702,11 @@ contract NexusKYCRegistry is AccessControl, Pausable {
     function batchRecordOffChainPayments(
         address[] calldata accounts,
         string[] calldata externalIds
-    ) external onlyRole(COMPLIANCE_ROLE) whenNotPaused {
+    )
+        external
+        onlyRole(COMPLIANCE_ROLE)
+        whenNotPaused
+    {
         if (accounts.length == 0) revert EmptyArray();
         if (accounts.length != externalIds.length) revert ArrayLengthMismatch();
 
@@ -707,7 +717,9 @@ contract NexusKYCRegistry is AccessControl, Pausable {
                 paymentMethodUsed[account] = PaymentMethod.Stripe;
                 emit OffChainPaymentRecorded(account, PaymentMethod.Stripe, externalIds[i], msg.sender);
             }
-            unchecked { ++i; }
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -720,12 +732,10 @@ contract NexusKYCRegistry is AccessControl, Pausable {
         if (feeTreasury == address(0)) revert TreasuryNotSet();
 
         uint256 nativeBalance = address(this).balance;
-        uint256 nexusBalance = address(nexusToken) != address(0)
-            ? nexusToken.balanceOf(address(this))
-            : 0;
+        uint256 nexusBalance = address(nexusToken) != address(0) ? nexusToken.balanceOf(address(this)) : 0;
 
         if (nativeBalance > 0) {
-            (bool success, ) = feeTreasury.call{value: nativeBalance}("");
+            (bool success,) = feeTreasury.call{ value: nativeBalance }("");
             if (!success) revert FeeTransferFailed();
         }
 
@@ -746,7 +756,7 @@ contract NexusKYCRegistry is AccessControl, Pausable {
 
         if (nativeAmount > 0) {
             if (nativeAmount > address(this).balance) revert InsufficientFee(address(this).balance, nativeAmount);
-            (bool success, ) = feeTreasury.call{value: nativeAmount}("");
+            (bool success,) = feeTreasury.call{ value: nativeAmount }("");
             if (!success) revert FeeTransferFailed();
         }
 
