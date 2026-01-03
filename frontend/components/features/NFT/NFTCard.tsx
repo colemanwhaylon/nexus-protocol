@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,10 +73,12 @@ export function NFTCard({
     >
       <div className="relative aspect-square bg-muted">
         {image ? (
-          <img
+          <Image
             src={image}
             alt={displayName}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            unoptimized
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground">

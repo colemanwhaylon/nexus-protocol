@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -131,12 +132,14 @@ export function NFTDetail({
       <div className="grid md:grid-cols-2 gap-6">
         {/* Image */}
         <Card className="overflow-hidden">
-          <div className="aspect-square bg-muted">
+          <div className="relative aspect-square bg-muted">
             {image ? (
-              <img
+              <Image
                 src={image}
                 alt={displayName}
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                unoptimized
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">

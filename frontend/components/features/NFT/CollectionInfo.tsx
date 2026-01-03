@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Image, Users, Coins, Percent } from 'lucide-react';
+import { ImageIcon, Users, Coins, Percent } from 'lucide-react';
 import { formatEther } from 'viem';
 
 interface CollectionInfoProps {
@@ -36,7 +36,7 @@ export function CollectionInfo({
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Image className="h-5 w-5" />
+            <ImageIcon className="h-5 w-5" />
             Collection Info
           </div>
           <Badge variant="outline">{symbol}</Badge>
