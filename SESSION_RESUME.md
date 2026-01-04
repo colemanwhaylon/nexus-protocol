@@ -68,7 +68,7 @@ These are set in `frontend/lib/contracts/addresses.ts`
 
 ### What's Being Tested
 - Staking page: **TESTED - WORKING**
-- NFT minting page: **READY FOR TESTING**
+- NFT minting page: **TESTED - WORKING**
 
 ---
 
@@ -223,8 +223,8 @@ Repository layer with PostgreSQL storage implementations.
 - [x] Delegate voting power works
 
 ### To Test
-- [ ] NFT minting flow
-- [ ] NFT gallery displays minted NFTs
+- [x] NFT minting flow
+- [x] NFT gallery displays minted NFTs
 - [ ] NFT transfer modal
 - [ ] Governance proposal creation
 - [ ] Governance voting
@@ -280,6 +280,17 @@ docker compose --profile dev down
 5. **Volume Mounts**: Frontend code is mounted, changes reflect after container restart
 
 ---
+
+## Session 13 Summary
+
+- **NFT minting tested and working!**
+- Fixed useNFT hook ABI mismatches:
+  - `isMintActive()` → `salePhase()` (computed isMintActive from salePhase)
+  - `mint()` → `publicMint()`
+  - `maxSupply()` → `MAX_SUPPLY()`
+- Fixed free mint bug in page.tsx (`!mintPrice` → `mintPrice === undefined`)
+- First NFT minted: Token #1
+- Gallery correctly displays minted NFTs
 
 ## Session 12 Summary
 

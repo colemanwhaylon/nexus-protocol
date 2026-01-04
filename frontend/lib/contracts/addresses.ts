@@ -17,9 +17,9 @@ const addresses: Record<number, ContractAddresses> = {
   // Localhost (Anvil) - Deployed via DeployLocal.s.sol
   // Last deployed: 2026-01-03 (run `forge script script/DeployLocal.s.sol --rpc-url http://localhost:8545 --broadcast` to redeploy)
   [CHAIN_IDS.LOCALHOST]: {
-    nexusToken: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-    nexusNFT: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
-    nexusStaking: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+    nexusToken: '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6',
+    nexusNFT: '0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0',
+    nexusStaking: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788',
     nexusGovernor: '0x0000000000000000000000000000000000000000', // Not deployed yet
     nexusTimelock: '0x0000000000000000000000000000000000000000', // Not deployed yet
     nexusAccessControl: '0x0000000000000000000000000000000000000000', // Not deployed yet
