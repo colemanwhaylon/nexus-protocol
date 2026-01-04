@@ -1,593 +1,291 @@
 # Nexus Protocol - Session Resume Document
 
-**Last Updated**: 2026-01-01 (Session 10 - Component Integration Started)
-**All branches pushed to origin**
+**Last Updated**: 2026-01-03 (Session 12 - Docker Testing & NFT Minting Ready)
+**Current Branch**: `feature/m1-frontend-integration`
 **Working Directory**: `/home/whaylon/Downloads/Blockchain/nexus-protocol`
 
 ---
 
-## Overall Progress: Backend 100% | Frontend 90%
+## PRIORITY: Test NFT Minting
 
-| Category | Complete | Total | Percentage |
-|----------|----------|-------|------------|
-| Smart Contracts | 19 | 19 | **100%** |
-| Go Backend | 13 | 13 | **100%** |
-| Documentation | 19 | 19 | **100%** |
-| Testing | 6 | 6 categories | **100%** |
-| Infrastructure | 10 | 10 | **100%** |
-| Security Tools | 4 | 4 | **100%** |
-| **Frontend** | 63 | 70 | **90%** |
+### Quick Start Command
+```bash
+# Start Docker stack (from infrastructure/docker directory)
+cd /home/whaylon/Downloads/Blockchain/nexus-protocol/infrastructure/docker
+docker compose --profile dev up -d
 
-> **Note**: All development was performed in parallel across 3 machines (M1, M2, M3) simultaneously. Future enhancements should continue this parallel development pattern for maximum efficiency.
+# Deploy contracts to fresh Anvil
+cd /home/whaylon/Downloads/Blockchain/nexus-protocol/contracts
+/home/whaylon/.foundry/bin/forge script script/DeployLocal.s.sol --rpc-url http://localhost:8545 --broadcast
+
+# Update addresses.ts with new contract addresses from deployment output
+# Then restart frontend to pick up changes
+docker compose restart frontend-dev
+
+# Access the app
+# Frontend: http://localhost:3000/nft/mint
+# Anvil RPC: http://localhost:8545
+# API: http://localhost:8080
+```
+
+### Before Minting
+1. **Clear MetaMask activity data** - Anvil was restarted, nonce cache is stale
+   - MetaMask → Settings → Advanced → Clear Activity Tab Data
+2. Connect wallet at http://localhost:3000
+3. Navigate to /nft/mint
+
+---
+
+## Current Docker Contract Addresses
+
+Updated after latest Anvil redeploy (2026-01-03):
+
+| Contract | Address |
+|----------|---------|
+| NexusToken | `0x5FbDB2315678afecb367f032d93F642f64180aa3` |
+| NexusNFT | `0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9` |
+| NexusStaking | `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0` |
+| NexusGovernor | Not deployed |
+| NexusTimelock | Not deployed |
+| NexusAccessControl | Not deployed |
+| NexusKYC | Not deployed |
+| NexusEmergency | Not deployed |
+
+These are set in `frontend/lib/contracts/addresses.ts`
+
+---
+
+## Overall Progress: Backend 100% | Frontend 95%
+
+### What's Complete
+- All backend handlers (pricing, payment, sumsub, relayer, KYC, governance, NFT)
+- All frontend hooks (useKYC, useGovernance, useNFT, useAdmin, usePricing, useAdminKYC)
+- Admin pages with real contract reads (compliance, emergency, roles, pricing)
+- Governance pages with real contract integration
+- KYC verification widget and flow
+- Notification system with all categories
+- Docker dev stack running
+
+### What's Being Tested
+- Staking page: **TESTED - WORKING**
+- NFT minting page: **READY FOR TESTING**
+
+---
+
+## Recent Commits
+
+| Commit | Description |
+|--------|-------------|
+| `3846165` | fix: Resolve lint and TypeScript errors after M2/M3 merge |
+| `b0d6e94` | Merge branch 'feature/m3-frontend-integration' into feature/m1-frontend-integration |
+| `0c8b8e6` | feat(frontend): Integrate Governance components into pages |
+| `29c5a2c` | feat(frontend): Integrate NFT and Admin components into pages |
+| `a6ef34e` | fix(frontend): Add staking error handling and update contract addresses |
+
+---
+
+## User Decisions (Already Confirmed)
+
+| Decision | Answer |
+|----------|--------|
+| Payment Methods | ALL 3: NEXUS + ETH + Stripe |
+| Stripe Account | Ready to use |
+| KYC Markup | 200% ($5 Sumsub cost → $15 charge = $10 profit) |
+| Meta-transactions | Implemented (NexusForwarder.sol + relayer.go) |
+| Sumsub API Keys | Already in `.env` file |
+| Pricing Storage | **DATABASE-DRIVEN** (PostgreSQL tables complete) |
+
+---
+
+## Docker Services Status
+
+Running with `docker compose --profile dev up -d`:
+
+| Service | Container | Port | Status |
+|---------|-----------|------|--------|
+| frontend-dev | nexus-frontend-dev | 3000 | Running |
+| api-dev | nexus-api-dev | 8080 | Running |
+| anvil | nexus-anvil | 8545 | Running |
+| postgres-dev | nexus-postgres-dev | 5432 | Running |
+
+---
+
+## Files Updated This Session
+
+| File | Change |
+|------|--------|
+| `frontend/lib/contracts/addresses.ts` | Updated with new Anvil contract addresses |
+| `frontend/app/staking/page.tsx` | Added error handling (previous session) |
+| `frontend/hooks/useStaking.ts` | Added error handling (previous session) |
+
+---
+
+## Plan Status
+
+**Plan file**: `/home/whaylon/.claude/plans/functional-stargazing-cat.md`
+
+All phases complete:
+- Phase 0: Database pricing tables ✅
+- Phase 1: Fee infrastructure ✅
+- Phase 2: Notification enhancements ✅
+- Phase 3: Admin pages (real data) ✅
+- Phase 4: Governance pages (real data) ✅
+- Phase 5: NFT transfer modal ✅
+- Phase 6: Hook enhancements ✅
+- Phase 7: Meta-transactions (NexusForwarder) ✅
+- Phase 8: Sumsub verification widget ✅
 
 ---
 
 ## Smart Contracts Status (19/19 = 100%)
 
 ### Core Contracts (14 contracts)
-| Contract | Path | Lines | Features |
-|----------|------|-------|----------|
-| NexusToken | `core/NexusToken.sol` | ~350 | ERC-20 + Snapshot/Permit/Votes/FlashMint |
-| NexusNFT | `core/NexusNFT.sol` | ~600 | ERC-721A + royalties/reveal/soulbound |
-| NexusSecurityToken | `core/NexusSecurityToken.sol` | ~800 | ERC-1400 compliant |
-| NexusStaking | `defi/NexusStaking.sol` | ~920 | Stake/unstake/slashing/delegation |
-| RewardsDistributor | `defi/RewardsDistributor.sol` | ~1100 | Streaming rewards, Merkle claims |
-| VestingContract | `defi/VestingContract.sol` | ~821 | Linear/cliff vesting |
-| NexusAirdrop | `defi/NexusAirdrop.sol` | ~583 | Merkle-based distribution with vesting |
-| NexusGovernor | `governance/NexusGovernor.sol` | ~500 | OpenZeppelin Governor pattern |
-| NexusTimelock | `governance/NexusTimelock.sol` | ~400 | 48-hour execution delay |
-| NexusMultiSig | `governance/NexusMultiSig.sol` | ~680 | N-of-M signature wallet |
-| NexusAccessControl | `security/NexusAccessControl.sol` | ~352 | RBAC (4 roles) |
-| NexusKYCRegistry | `security/NexusKYCRegistry.sol` | ~400 | Whitelist/blacklist |
-| NexusEmergency | `security/NexusEmergency.sol` | ~471 | Circuit breakers, pause |
-| NexusBridge | `bridge/NexusBridge.sol` | ~500 | Cross-chain lock/mint with rate limiting |
-
-### Upgradeable Contracts (3 contracts) - NEW in Session 8
 | Contract | Path | Features |
 |----------|------|----------|
-| NexusTokenUpgradeable | `upgradeable/NexusTokenUpgradeable.sol` | UUPS ERC-20 with full features |
-| NexusStakingUpgradeable | `upgradeable/NexusStakingUpgradeable.sol` | UUPS staking with delegation |
-| NexusBridgeUpgradeable | `upgradeable/NexusBridgeUpgradeable.sol` | UUPS bridge with multi-sig |
+| NexusToken | `core/NexusToken.sol` | ERC-20 + Snapshot/Permit/Votes/FlashMint |
+| NexusNFT | `core/NexusNFT.sol` | ERC-721A + royalties/reveal/soulbound |
+| NexusSecurityToken | `core/NexusSecurityToken.sol` | ERC-1400 compliant |
+| NexusStaking | `defi/NexusStaking.sol` | Stake/unstake/slashing/delegation |
+| RewardsDistributor | `defi/RewardsDistributor.sol` | Streaming rewards, Merkle claims |
+| VestingContract | `defi/VestingContract.sol` | Linear/cliff vesting |
+| NexusAirdrop | `defi/NexusAirdrop.sol` | Merkle-based distribution |
+| NexusGovernor | `governance/NexusGovernor.sol` | OpenZeppelin Governor |
+| NexusTimelock | `governance/NexusTimelock.sol` | 48-hour delay |
+| NexusMultiSig | `governance/NexusMultiSig.sol` | N-of-M signatures |
+| NexusAccessControl | `security/NexusAccessControl.sol` | RBAC (4 roles) |
+| NexusKYCRegistry | `security/NexusKYCRegistry.sol` | Whitelist/blacklist |
+| NexusEmergency | `security/NexusEmergency.sol` | Circuit breakers |
+| NexusBridge | `bridge/NexusBridge.sol` | Cross-chain |
 
-### Educational Examples (2 pairs) - NEW in Session 8
-| Contract | Path | Purpose |
-|----------|------|---------|
-| VulnerableVault | `examples/vulnerable/VulnerableVault.sol` | Reentrancy, access control flaws |
-| SecureVault | `examples/secure/SecureVault.sol` | Fixed with CEI, RBAC, guards |
-| VulnerableOracle | `examples/vulnerable/VulnerableOracle.sol` | Flash loan, oracle manipulation |
-| SecureOracle | `examples/secure/SecureOracle.sol` | TWAP, multi-source, bounds |
+### Meta-Transaction Support
+| Contract | Path | Features |
+|----------|------|----------|
+| NexusForwarder | `metatx/NexusForwarder.sol` | ERC-2771 gasless transactions |
 
----
-
-## Go Backend Status (13/13 = 100%)
-
-### Complete (13 files)
-| File | Path | Purpose | Lines |
-|------|------|---------|-------|
-| main.go | `cmd/server/main.go` | Server entry point | - |
-| config.go | `internal/config/config.go` | Configuration | - |
-| database.go | `internal/database/database.go` | SQLite/PostgreSQL | - |
-| health.go | `internal/handlers/health.go` | Health endpoints, K8s probes | 283 |
-| staking.go | `internal/handlers/staking.go` | Staking handlers | - |
-| token.go | `internal/handlers/token.go` | Token handlers | - |
-| **governance.go** | `internal/handlers/governance.go` | Proposals, voting, delegation | 948 |
-| **nft.go** | `internal/handlers/nft.go` | ERC-721A + royalties | 1,094 |
-| **kyc.go** | `internal/handlers/kyc.go` | Compliance, whitelist/blacklist | 1,199 |
-| cors.go | `internal/middleware/cors.go` | CORS middleware | - |
-| ratelimit.go | `internal/middleware/ratelimit.go` | Rate limiting | - |
-| stake.go | `internal/models/stake.go` | Stake model | - |
-| token.go | `internal/models/token.go` | Token model | - |
+### Upgradeable Contracts (3 UUPS)
+- NexusTokenUpgradeable, NexusStakingUpgradeable, NexusBridgeUpgradeable
 
 ---
 
-## Documentation Status (18/18 = 100%)
+## Go Backend Status (100%)
 
-All documentation complete in `/documentation/`:
-- ARCHITECTURE.md, SECURITY_AUDIT.md, TOKENOMICS.md
-- KEY_MANAGEMENT.md, INCIDENT_RESPONSE.md, GAS_OPTIMIZATION.md
-- COMPLIANCE.md, API.md, THREAT_MODEL.md, SKILL_GAP_ANALYSIS.md
-- SECURITY_REVIEW_BEFORE.md, SECURITY_REVIEW_AFTER.md
-- SECURITY_CHECKLIST.md, DEPLOYMENT_RUNBOOK.md, UPGRADE_SAFETY.md
-- BUG_BOUNTY_SCOPE.md, DEPENDENCY_AUDIT.md, MONITORING_PLAYBOOK.md
+All handlers complete:
+- `pricing.go` - Pricing API endpoints
+- `payment.go` - Stripe integration
+- `sumsub.go` - KYC verification API
+- `relayer.go` - Meta-transaction relay
+- `kyc.go` - Whitelist/blacklist management
+- `governance.go` - Proposals, voting
+- `nft.go` - ERC-721A operations
+- `health.go` - Health checks
 
----
-
-## Testing Status (100% - 685 Tests Passing)
-
-| Category | Directory | Status | Tests |
-|----------|-----------|--------|-------|
-| Unit Tests | `test/unit/` | **COMPLETE** | 611 tests |
-| Fuzz Tests | `test/fuzz/` | **COMPLETE** | 47 tests |
-| Invariant Tests | `test/invariant/` | **COMPLETE** | 10 tests |
-| Upgradeable Tests | `test/unit/` | **COMPLETE** | 17 tests |
-| Integration Tests | `test/integration/` | N/A | - |
-| Fork Tests | `test/fork/` | N/A | - |
-
-### Unit Tests Detail (611 total)
-| File | Contract | Tests | Coverage |
-|------|----------|-------|----------|
-| `NexusToken.t.sol` | NexusToken | 28 | ERC20, delegation, minting, burning, pause, flash loans, permit |
-| `NexusStaking.t.sol` | NexusStaking | 27 | Stake, unbond, slash, delegate, rate limit, admin config |
-| `NexusNFT.t.sol` | NexusNFT | 87 | Minting, royalties, soulbound, phases, whitelist |
-| `NexusBridge.t.sol` | NexusBridge | 25 | Lock/unlock, rate limiting, chain management |
-| `NexusAccessControl.t.sol` | NexusAccessControl | 70 | RBAC, guardian, admin transfer, roles |
-| `NexusKYCRegistry.t.sol` | NexusKYCRegistry | 56 | KYC levels, whitelist, blacklist, compliance |
-| `NexusEmergency.t.sol` | NexusEmergency | 58 | Pause, recovery mode, drain, rescue |
-| `NexusGovernor.t.sol` | NexusGovernor | 35 | Propose, vote, queue, execute |
-| `NexusMultiSig.t.sol` | NexusMultiSig | 57 | Submit, confirm, execute, owner management |
-| `RewardsDistributor.t.sol` | RewardsDistributor | 50 | Streaming, Merkle claims, campaigns |
-| `VestingContract.t.sol` | VestingContract | 60 | Grants, schedules, claims, revocation |
-| `NexusAirdrop.t.sol` | NexusAirdrop | 56 | Campaigns, claims, vesting, merkle proofs |
-| `NexusUpgradeable.t.sol` | UUPS Contracts | 17 | Initialize, upgrade, authorization |
-| `Counter.t.sol` | Counter | 2 | Example tests |
-
-### Fuzz Tests (47 tests) - NEW in Session 8
-| File | Contract | Tests | Coverage |
-|------|----------|-------|----------|
-| `NexusStaking.fuzz.t.sol` | NexusStaking | 16 | Staking, delegation, slashing, rate limits |
-| `NexusToken.fuzz.t.sol` | NexusToken | 17 | Minting, burning, transfers, snapshots |
-| `NexusBridge.fuzz.t.sol` | NexusBridge | 14 | Lock/unlock, signatures, rate limits |
-
-### Invariant Tests (10 tests) - NEW in Session 8
-| File | Contract | Tests | Invariants |
-|------|----------|-------|------------|
-| `NexusStaking.invariant.t.sol` | NexusStaking | 5 | Balance consistency, epoch monotonicity |
-| `NexusToken.invariant.t.sol` | NexusToken | 5 | Supply bounds, balance accounting |
+Repository layer with PostgreSQL storage implementations.
 
 ---
 
-## Infrastructure Status (100%)
+## Frontend Status (95%)
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Docker | **COMPLETE** | Dockerfile, docker-compose.yml, init-db.sql, prometheus.yml |
-| Kubernetes | **COMPLETE** | 13 config files (namespace, deployment, HPA, ingress, etc.) |
-| Terraform AWS | **COMPLETE** | EKS, RDS, ElastiCache, S3, KMS, IAM |
-| Terraform Azure | **COMPLETE** | AKS, PostgreSQL, Redis, Key Vault, Storage |
-| Monitoring | **COMPLETE** | Prometheus + Grafana + Jaeger configs in docker-compose |
-| GitHub Actions | **COMPLETE** | `test.yml` - full CI/CD pipeline (fixed in Session 8) |
+### Hooks Complete
+| Hook | Purpose |
+|------|---------|
+| useStaking | Stake/unstake/delegate |
+| useGovernance | Proposals, voting |
+| useNFT | Minting, transfers |
+| useAdmin | Role management |
+| useKYC | KYC verification flow |
+| usePricing | Admin pricing management |
+| useAdminKYC | Admin KYC operations |
+| useNotifications | Toast notifications |
 
-### Kubernetes Files (13 total)
-| File | Description |
-|------|-------------|
-| `namespace.yaml` | Isolated namespace for all resources |
-| `configmap.yaml` | Non-sensitive configuration |
-| `secrets.yaml` | Template for sensitive credentials |
-| `serviceaccount.yaml` | RBAC service account |
-| `deployment.yaml` | API server (3 replicas, rolling updates) |
-| `service.yaml` | ClusterIP and LoadBalancer services |
-| `ingress.yaml` | NGINX ingress with TLS, rate limiting |
-| `hpa.yaml` | Horizontal Pod Autoscaler (3-10 replicas) |
-| `postgres-statefulset.yaml` | PostgreSQL with PVC storage |
-| `redis-deployment.yaml` | Redis cache deployment |
-| `networkpolicy.yaml` | Network security policies |
-| `kustomization.yaml` | Kustomize orchestration |
+### Admin Pages (Real Contract Data)
+- `/admin/compliance` - KYC registry reads/writes
+- `/admin/emergency` - Circuit breaker controls
+- `/admin/roles` - RBAC management
+- `/admin/pricing` - Database-driven pricing
 
-### CI/CD Pipeline (`test.yml`)
-- **Solidity Tests**: Forge build, test, coverage, gas report
-- **Static Analysis**: Slither with dependency filtering
-- **Go Tests**: `go test -race`, `go vet`, staticcheck
-- **Linting**: `forge fmt`, golangci-lint
-- **Security**: Trivy vulnerability scanner
-- **Summary Job**: Aggregates all test results
+### User Pages
+- `/staking` - **TESTED WORKING**
+- `/nft/mint` - Ready for testing
+- `/nft/gallery` - NFT collection view
+- `/governance` - Proposal list
+- `/governance/create` - Create proposals
+- `/governance/[proposalId]` - Vote on proposals
 
 ---
 
-## Security Tools Status (100%)
+## Testing Checklist
 
-| Tool | Status | Purpose |
-|------|--------|---------|
-| Echidna | **COMPLETE** | Fuzzing configs + test contracts |
-| Slither | **COMPLETE** | Config + custom detectors (reentrancy, bridge, access) |
-| Foundry Fuzz | **COMPLETE** | 47 fuzz tests |
-| Foundry Invariant | **COMPLETE** | 10 invariant tests |
+### Completed
+- [x] Staking page loads
+- [x] Connect wallet works
+- [x] Stake tokens works
+- [x] Unstake button visible and styled correctly
+- [x] Delegate voting power works
 
-### Echidna Configuration - NEW in Session 8
-- `echidna/echidna.yaml` - 50,000 test sequences, coverage-guided
-- `echidna/NexusTokenEchidna.sol` - Token property tests
-- `echidna/NexusStakingEchidna.sol` - Staking invariant tests
-
-### Slither Configuration - NEW in Session 8
-- `security/slither/slither.config.json` - Detector exclusions, remappings
-- `security/slither/run-slither.sh` - Multi-format analysis script
-- `security/slither/detectors/reentrancy_check.py` - Custom detectors:
-  - `nexus-reentrancy` - DeFi-specific reentrancy patterns
-  - `nexus-bridge` - Bridge security (replay, rate limits)
-  - `nexus-access-control` - Missing access controls
+### To Test
+- [ ] NFT minting flow
+- [ ] NFT gallery displays minted NFTs
+- [ ] NFT transfer modal
+- [ ] Governance proposal creation
+- [ ] Governance voting
+- [ ] Admin pages (requires admin role)
 
 ---
 
-## Git Status
+## Quick Commands
 
-| Machine | Branch | Latest Commit |
-|---------|--------|---------------|
-| M1 | main | `1714ff0` feat: Add NexusAirdrop tests, K8s configs, and backend handlers |
-| M2 | feature/m2-backend | `19fb2e6` feat(backend): Add handlers |
-| M3 | feature/m3-defi | `7ad05fb` feat(governance): Add contracts |
+```bash
+# Start Docker dev stack
+cd /home/whaylon/Downloads/Blockchain/nexus-protocol/infrastructure/docker
+docker compose --profile dev up -d
+
+# Check container status
+docker ps
+
+# View frontend logs
+docker logs -f nexus-frontend-dev
+
+# View API logs
+docker logs -f nexus-api-dev
+
+# Deploy contracts to Anvil
+cd /home/whaylon/Downloads/Blockchain/nexus-protocol/contracts
+/home/whaylon/.foundry/bin/forge script script/DeployLocal.s.sol --rpc-url http://localhost:8545 --broadcast
+
+# Run contract tests
+/home/whaylon/.foundry/bin/forge test --root contracts
+
+# Stop all containers
+docker compose --profile dev down
+```
 
 ---
 
 ## Multi-Machine Setup
 
-| Machine | IP | User | Branch | Role |
-|---------|-----|------|--------|------|
-| M1 (Controller) | 192.168.1.41 | whaylon | main | Core contracts, CI/CD |
-| M2 (Worker) | 192.168.1.109 | aiagent | feature/m2-backend | Go API, Docker |
-| M3 (Worker) | 192.168.1.224 | aiagent | feature/m3-defi | DeFi, Tests |
-
----
-
-## Priority Work Remaining
-
-### Frontend Integration (~10% remaining)
-
-| # | Task | Status | Description |
-|---|------|--------|-------------|
-| 1 | Page Integration | ⏳ PENDING | Wire all 38 components into their respective pages |
-| 2 | E2E Testing | ⏳ PENDING | Test with deployed contracts on Sepolia testnet |
-| 3 | Error Handling | ⏳ PENDING | Add error boundaries, improve loading states |
-| 4 | CI/CD for Frontend | ⏳ PENDING | Vercel deployment, preview environments |
-
-### All Components Complete
-
-| # | Task | Status |
-|---|------|--------|
-| 1 | NexusBridge - Cross-chain contract | ✅ DONE |
-| 2 | Foundry Tests - Unit tests (611) | ✅ DONE |
-| 3 | CI/CD Pipeline - GitHub Actions | ✅ DONE (fixed Session 8) |
-| 4 | NexusAirdrop - Merkle distribution | ✅ DONE |
-| 5 | Docker/K8s configs | ✅ DONE |
-| 6 | Backend handlers | ✅ DONE |
-| 7 | Fuzz/Invariant Tests (57 tests) | ✅ DONE (Session 8) |
-| 8 | Terraform configs (AWS + Azure) | ✅ DONE (Session 8) |
-| 9 | Upgradeable Proxies (3 UUPS) | ✅ DONE (Session 8) |
-| 10 | Vulnerable/Secure Examples | ✅ DONE (Session 8) |
-| 11 | Security Tool Configs | ✅ DONE (Session 8) |
-
----
-
-## Quick Actions
-
-```bash
-# Sync all machines
-git pull origin main
-ssh aiagent@192.168.1.109 "cd ~/nexus-protocol && git pull origin main"
-ssh aiagent@192.168.1.224 "cd ~/nexus-protocol && git pull origin main"
-
-# Compile contracts
-/home/whaylon/.foundry/bin/forge build --root contracts
-
-# Run tests
-/home/whaylon/.foundry/bin/forge test --root contracts
-
-# Deploy with Docker
-docker-compose --profile production up -d
-
-# Deploy with Kubernetes
-kubectl apply -k infrastructure/kubernetes/
-```
+| Machine | IP | User | Role |
+|---------|-----|------|------|
+| M1 (Controller) | 192.168.1.41 | whaylon | Frontend, Orchestration |
+| M2 (Worker) | 192.168.1.109 | aiagent | Go Backend, Docker, DB |
+| M3 (Worker) | 192.168.1.224 | aiagent | Contracts, Tests |
 
 ---
 
 ## Notes
 
-1. **Foundry Path**: `/home/whaylon/.foundry/bin/forge`
-2. **Push from M1**: M2/M3 can't push to GitHub, use M1 as relay
-3. **File Transfer**: Use `scp` for large files (heredocs fail over SSH)
-4. **OpenZeppelin v5.x**: Latest patterns (AccessControl, not Ownable)
-5. **Solidity 0.8.24**: Strict version for all contracts
-6. **Configurable Parameters**: NexusStaking daily withdrawal limit (1%-50%) can be changed via `setDailyWithdrawalLimit(bps)` by admin
-7. **NexusAirdrop Design Note**: Vesting starts at first claim time; first claim with cliff/vesting may revert with NothingToClaim
-
-## Frontend Status (63/70 = 90%)
-
-> **Parallel Development**: All 63 frontend files were implemented by working across M1, M2, and M3 machines simultaneously. This parallel approach reduced implementation time by ~60%. Future enhancements should continue this pattern.
-
-### Feature Components (38 files, ~5,000 lines)
-
-| Category | Component | Lines | Status |
-|----------|-----------|-------|--------|
-| **Admin** | AuditLog.tsx | 156 | ✅ Implemented |
-| | EmergencyControls.tsx | 150 | ✅ Implemented |
-| | KYCTable.tsx | 167 | ✅ Implemented |
-| | ProtocolStatus.tsx | 118 | ✅ Implemented |
-| | RoleManager.tsx | 153 | ✅ Implemented |
-| | RoleTable.tsx | 189 | ✅ Implemented |
-| **Governance** | CreateProposalForm.tsx | 198 | ✅ Implemented |
-| | DelegateVoting.tsx | 154 | ✅ Implemented |
-| | ProposalActions.tsx | 150 | ✅ Implemented |
-| | ProposalCard.tsx | 112 | ✅ Implemented |
-| | ProposalDetail.tsx | 192 | ✅ Implemented |
-| | ProposalList.tsx | 135 | ✅ Implemented |
-| | ProposalTimeline.tsx | 124 | ✅ Implemented |
-| | VoteResults.tsx | 97 | ✅ Implemented |
-| | VotingPanel.tsx | 127 | ✅ Implemented |
-| | VotingPowerCard.tsx | 98 | ✅ Implemented |
-| **NFT** | CollectionInfo.tsx | 108 | ✅ Implemented |
-| | MintCard.tsx | 150 | ✅ Implemented |
-| | NFTAttributes.tsx | 125 | ✅ Implemented |
-| | NFTCard.tsx | 141 | ✅ Implemented |
-| | NFTDetail.tsx | 241 | ✅ Implemented |
-| | NFTGrid.tsx | 90 | ✅ Implemented |
-| **Notifications** | NotificationBell.tsx | 36 | ✅ Implemented |
-| | NotificationCenter.tsx | 241 | ✅ Implemented |
-| **Staking** | DelegationForm.tsx | 149 | ✅ Implemented |
-| | RewardsCard.tsx | 109 | ✅ Implemented |
-| | StakeForm.tsx | 125 | ✅ Implemented |
-| | StakingOverview.tsx | 73 | ✅ Implemented |
-| | StakingPosition.tsx | 118 | ✅ Implemented |
-| | UnbondingQueue.tsx | 93 | ✅ Implemented |
-| | UnstakeForm.tsx | 130 | ✅ Implemented |
-| **Token** | ApproveForm.tsx | 153 | ✅ Implemented |
-| | TokenBalance.tsx | 75 | ✅ Implemented |
-| | TokenInfo.tsx | 129 | ✅ Implemented |
-| | TransferForm.tsx | 133 | ✅ Implemented |
-| **Wallet** | AccountModal.tsx | 103 | ✅ Implemented |
-| | ConnectButton.tsx | 85 | ✅ Implemented |
-| | NetworkSwitcher.tsx | 66 | ✅ Implemented |
-
-### Hooks (12 files, ~1,080 lines)
-
-| Hook | Lines | Status |
-|------|-------|--------|
-| useAdmin.ts | 160 | ✅ Implemented |
-| useGovernance.ts | 138 | ✅ Implemented |
-| useNFT.ts | 141 | ✅ Implemented |
-| useNotifications.ts | 130 | ✅ Implemented |
-| useStaking.ts | 140 | ✅ Implemented |
-| useTokenApproval.ts | 68 | ✅ Implemented |
-| useTokenBalance.ts | 37 | ✅ Implemented |
-| useTokenInfo.ts | 58 | ✅ Implemented |
-| useTokenTransfer.ts | 49 | ✅ Implemented |
-| useTransactionToast.ts | 104 | ✅ Implemented |
-| useWallet.ts | 45 | ✅ Implemented |
-
-### Pages (13 files)
-
-| Page | Route | Status |
-|------|-------|--------|
-| Home | `/` | ✅ Implemented |
-| Staking | `/staking` | ✅ Implemented |
-| NFT Landing | `/nft` | ✅ Implemented |
-| NFT Mint | `/nft/mint` | ✅ Implemented |
-| NFT Gallery | `/nft/gallery` | ✅ Implemented |
-| NFT Detail | `/nft/[tokenId]` | ✅ Implemented |
-| Governance | `/governance` | ✅ Implemented |
-| Create Proposal | `/governance/create` | ✅ Implemented |
-| Proposal Detail | `/governance/[proposalId]` | ✅ Implemented |
-| Admin Dashboard | `/admin` | ✅ Implemented |
-| Admin Compliance | `/admin/compliance` | ✅ Implemented |
-| Admin Emergency | `/admin/emergency` | ✅ Implemented |
-| Admin Roles | `/admin/roles` | ✅ Implemented |
-
-### Frontend Summary
-
-| Category | Files | Lines | Status |
-|----------|-------|-------|--------|
-| Feature Components | 38 | ~5,000 | ✅ Complete |
-| Hooks | 12 | ~1,080 | ✅ Complete |
-| Pages | 13 | ~2,000 | ✅ Complete |
-| UI Components (shadcn) | 15+ | - | ✅ Complete |
-| Stores | 2 | ~250 | ✅ Complete |
-| **Total** | **80+** | **~8,300** | **90%** |
-
-### Remaining Work (~10%)
-
-| Task | Description | Priority |
-|------|-------------|----------|
-| Page Integration | Wire all components into pages (some pages may not use all available components) | Medium |
-| E2E Testing | Test with deployed contracts on Sepolia | High |
-| Error Handling | Error boundaries, loading states polish | Medium |
-| CI/CD | Vercel deployment, preview environments | Low |
+1. **Anvil Resets**: When Anvil restarts, contracts must be redeployed and addresses.ts updated
+2. **MetaMask Cache**: Clear activity data after Anvil restart
+3. **Foundry Path**: `/home/whaylon/.foundry/bin/forge`
+4. **Docker Directory**: Run compose commands from `infrastructure/docker/`
+5. **Volume Mounts**: Frontend code is mounted, changes reflect after container restart
 
 ---
 
-## Session 10 Changes (Component Integration & Testing)
+## Session 12 Summary
 
-### Bug Fix: Unstake Button Styling
-- **Issue**: Unstake button was grey (`variant="secondary"`) and indistinguishable from disabled state
-- **Root Cause**: `/app/staking/page.tsx` has inline button implementation (not using UnstakeForm component)
-- **Fix**: Removed `variant="secondary"` from line 338 in page.tsx to use default primary (blue) styling
-
-### Playwright E2E Testing Setup
-Created testing infrastructure for frontend:
-- `playwright.config.ts` - Configuration with Chrome, dev server auto-start
-- `e2e/staking.spec.ts` - Tests for staking page button styling
-- Added `@playwright/test` dependency and test scripts to package.json
-
-### Discovery: Component to Page Integration Gap
-Analysis revealed that **34 of 38 feature components are NOT integrated into pages** - pages use inline implementations instead.
-
----
-
-## Component to Page Integration Matrix
-
-### Legend
-- ✅ = Component is used in the page
-- ❌ = Component exists but page uses inline implementation
-- ➖ = Not applicable to this page
-
-| Component | `/staking` | `/nft/mint` | `/nft/gallery` | `/nft/[id]` | `/governance` | `/governance/create` | `/governance/[id]` | `/admin` | `/admin/compliance` | `/admin/emergency` | `/admin/roles` |
-|-----------|------------|-------------|----------------|-------------|---------------|---------------------|-------------------|----------|--------------------|--------------------|---------------|
-| **Staking (7)** |
-| DelegationForm | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| StakeForm | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| UnstakeForm | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| StakingOverview | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| StakingPosition | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| RewardsCard | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| UnbondingQueue | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| **NFT (6)** |
-| MintCard | ➖ | ✅ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| CollectionInfo | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| NFTGrid | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| NFTCard | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| NFTDetail | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| NFTAttributes | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| **Governance (10)** |
-| ProposalList | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| ProposalCard | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| VotingPowerCard | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| DelegateVoting | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| CreateProposalForm | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| ProposalDetail | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ |
-| ProposalTimeline | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ |
-| ProposalActions | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ |
-| VotingPanel | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ |
-| VoteResults | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ | ➖ |
-| **Admin (6)** |
-| ProtocolStatus | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ |
-| AuditLog | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ | ➖ |
-| KYCTable | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ | ➖ |
-| EmergencyControls | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ | ➖ |
-| RoleManager | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ |
-| RoleTable | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ❌ |
-| **Token (4)** |
-| TokenBalance | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| TokenInfo | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| TransferForm | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| ApproveForm | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ | ➖ |
-| **Wallet (3)** |
-| ConnectButton | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout |
-| AccountModal | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout |
-| NetworkSwitcher | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout |
-| **Notifications (2)** |
-| NotificationBell | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout |
-| NotificationCenter | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout | ✅ layout |
-
-### Summary
-- **Total Components**: 38
-- **Integrated in Pages**: 4 (DelegationForm, MintCard, NotificationBell, NotificationCenter)
-- **Layout Components**: 5 (ConnectButton, AccountModal, NetworkSwitcher + 2 Notification)
-- **NOT Integrated**: 29 (pages have inline implementations)
-
----
-
-## Staking Page Refactoring Plan (Priority #1)
-
-### Current State: `/app/staking/page.tsx`
-The staking page has **~370 lines of inline implementation** instead of using the 7 available staking components.
-
-### Gap Analysis: What Page Has That Components Need
-
-| Component | Missing from Component | Add From Page |
-|-----------|----------------------|---------------|
-| **StakeForm** | Approval flow | `needsApproval`, `handleApprove`, `isApprovePending` logic |
-| | Approval success alert | `showApprovalSuccess` state and green success Alert |
-| | Connect wallet message | Conditional rendering when `!isConnected` |
-| **UnstakeForm** | Connect wallet message | Conditional rendering when `!isConnected` |
-| | Already correct styling | Button fix applied |
-| **StakingOverview** | Your Stake card | `stakedBalance` display |
-| | Voting Power card | `votingPower` display with delegation note |
-| | Only has 2 cards | Page has 4 cards (Total Staked, APY, Your Stake, Voting Power) |
-| **StakingPosition** | Not used | Could show stake details |
-| **RewardsCard** | Not used | Page shows APY only, no rewards claiming yet |
-| **UnbondingQueue** | Not used | Page mentions 7-day unbonding but doesn't show queue |
-
-### Refactoring Steps (Next Session)
-1. Update `StakeForm.tsx` with approval flow from page
-2. Update `UnstakeForm.tsx` with wallet check from page
-3. Expand `StakingOverview.tsx` to include all 4 stat cards
-4. Integrate `StakingPosition` component
-5. Integrate `RewardsCard` component
-6. Integrate `UnbondingQueue` component
-7. Refactor page to use all components (reduce from ~370 lines to ~50 lines)
-
----
-
-## Session 9 Changes (Frontend Notification System)
-
-### Notification System (5 new files)
-- `frontend/stores/notificationStore.ts` - Zustand store with localStorage persistence
-- `frontend/components/features/Notifications/NotificationCenter.tsx` - Slide-out panel
-- `frontend/components/features/Notifications/NotificationBell.tsx` - Header bell icon
-- `frontend/hooks/useNotifications.ts` - Convenience hook
-- `frontend/components/ui/scroll-area.tsx` - Radix UI ScrollArea
-
-### Claude AI Integration Features
-- **Console Logging**: Structured JSON logs with `[Nexus Protocol]` prefix
-- **Copy for Claude**: Markdown formatter for clipboard
-- **Bulk Export**: Copy all notifications at once
-
-### Page Integrations
-- Staking page: approval, stake, unstake, delegate notifications
-- NFT mint page: mint transaction notifications
-
-### Dependencies Added
-- `@radix-ui/react-scroll-area@1.2.10`
-
-### Docker Fix
-- Resolved anonymous volume caching issue with `docker compose up -V --force-recreate`
-
----
-
-## Session 8 Changes (FINAL - 100% Complete)
-
-### Fuzz Tests (47 tests)
-- `NexusStaking.fuzz.t.sol` - 16 tests for staking operations
-- `NexusToken.fuzz.t.sol` - 17 tests for token operations
-- `NexusBridge.fuzz.t.sol` - 14 tests for bridge operations
-
-### Invariant Tests (10 tests)
-- `NexusStaking.invariant.t.sol` - 5 invariants with StakingHandler
-- `NexusToken.invariant.t.sol` - 5 invariants with TokenHandler
-
-### UUPS Upgradeable Contracts (17 tests)
-- `NexusTokenUpgradeable.sol` - Full ERC-20 with governance features
-- `NexusStakingUpgradeable.sol` - Staking with delegation
-- `NexusBridgeUpgradeable.sol` - Cross-chain bridge
-- `DeployUpgradeable.s.sol` - Deployment and upgrade scripts
-- `NexusUpgradeable.t.sol` - Unit tests for all upgradeable contracts
-
-### Terraform Infrastructure
-- AWS: EKS, RDS PostgreSQL, ElastiCache Redis, S3, KMS, IAM
-- Azure: AKS, PostgreSQL Flex, Redis Cache, Key Vault, Storage
-- Environment configs for dev and production
-
-### Security Tools
-- Echidna: Property-based fuzzing configs and test contracts
-- Slither: Config, run script, and 3 custom detectors
-- Educational examples: VulnerableVault/SecureVault, VulnerableOracle/SecureOracle
-
-### CI/CD Fixes
-- Fixed `forge fmt` by adding `ignore = ["lib/"]` to foundry.toml
-- Added Go module (go.mod, go.sum) for backend
-- Updated workflow permissions for security scanning
-- Simplified backend and lint jobs
-
-### Final Stats
-- **19 contracts** (14 core + 3 UUPS + 2 example pairs)
-- **685 tests** (611 unit + 47 fuzz + 10 invariant + 17 upgradeable)
-- **100% complete** - All planned features implemented
-
----
-
-## Session 7 Changes
-
-- Added NexusAirdrop.t.sol with 56 unit tests for merkle airdrop
-- Fixed VestingContract.t.sol fuzz test edge case (timeElapsed=0)
-- Created 13 Kubernetes config files (full production-ready setup)
-- Added Docker configs (Dockerfile, docker-compose.yml, init-db.sql, prometheus.yml)
-- Completed all backend handlers (governance.go, nft.go, kyc.go, health.go)
-- All 611 tests passing across 14 contracts
-- Multi-machine parallel development completed successfully
-
-## Session 6 Changes
-
-- Fixed all unit test failures across 12 test files
-- All 555 tests now passing (was 57 in Session 5)
-- Key fixes:
-  - `vm.prank` consumption by view functions - use `vm.startPrank/vm.stopPrank` pattern
-  - NexusBridge constructor signature (5 args with relayer array)
-  - Event emission tests with dynamic hashes
-  - OpenZeppelin Governor voting behavior (0 weight votes allowed)
-  - VestingContract grant status transitions
-  - RewardsDistributor tuple destructuring order
-
-## Session 5 Changes
-
-- Added `NexusBridge.sol` - cross-chain lock/mint with rate limiting
-- Added `test.yml` - comprehensive CI/CD pipeline (Solidity + Go + Security)
-- Added `NexusToken.t.sol` - 28 unit tests for token contract
-- Added `NexusStaking.t.sol` - 27 unit tests for staking contract
-- Made daily withdrawal limit configurable (SEC-002 enhancement)
+- Confirmed all plan phases are complete
+- Docker stack running successfully
+- Staking page tested and working
+- Contract addresses updated after fresh Anvil deploy
+- Ready to test NFT minting at http://localhost:3000/nft/mint
+- Explained NFT minting mechanics (totalSupply counter, token IDs, blockchain state)
