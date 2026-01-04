@@ -8,20 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAccount, useChainId, useReadContract } from 'wagmi';
 import { getContractAddresses } from '@/lib/contracts/addresses';
-import { useNFT } from '@/hooks/useNFT';
+import { useNFT, useTokenMetadata } from '@/hooks/useNFT';
 import { NFTGrid, NFTCard } from '@/components/features/NFT';
 import { ExternalLink, Image as ImageIcon } from 'lucide-react';
 
 const nftAbi = [
   {
-    name: 'tokenOfOwnerByIndex',
+    name: 'ownerOf',
     type: 'function',
     stateMutability: 'view',
-    inputs: [
-      { name: 'owner', type: 'address' },
-      { name: 'index', type: 'uint256' },
-    ],
-    outputs: [{ type: 'uint256' }],
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ type: 'address' }],
   },
 ] as const;
 
@@ -35,6 +32,19 @@ export default function GalleryPage() {
   const { balance, totalSupply, maxSupply } = useNFT(chainId);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [favoriteTokenIds, setFavoriteTokenIds] = useState<string[]>([]);
+
+  // Page-level debug logging
+  console.log('GalleryPage Debug:', {
+    isConnected,
+    address,
+    chainId,
+    nftAddress,
+    balance: balance?.toString(),
+    balanceType: typeof balance,
+    isLoadingTokens,
+    totalSupply: totalSupply?.toString(),
+    willRenderCards: isConnected && !isLoadingTokens && balance && balance > 0n,
+  });
 
   // Handle NFT selection (navigate to detail page)
   const handleSelectNFT = (tokenId: string) => {
@@ -130,11 +140,12 @@ export default function GalleryPage() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {Array.from({ length: Number(balance) }, (_, i) => (
+              {/* Iterate through all token IDs and filter by ownership */}
+              {Array.from({ length: Number(totalSupply || 0) }, (_, i) => (
                 <NFTTokenCard
-                  key={i}
+                  key={i + 1}
+                  tokenId={BigInt(i + 1)}
                   ownerAddress={address!}
-                  index={BigInt(i)}
                   nftAddress={nftAddress}
                   onSelect={handleSelectNFT}
                   onFavorite={handleFavorite}
@@ -149,41 +160,84 @@ export default function GalleryPage() {
   );
 }
 
-// Separate component to fetch individual token ID and use NFTCard
+// Separate component to check ownership and display NFTCard
 function NFTTokenCard({
+  tokenId,
   ownerAddress,
-  index,
   nftAddress,
   onSelect,
   onFavorite,
   isFavorite,
 }: {
+  tokenId: bigint;
   ownerAddress: `0x${string}`;
-  index: bigint;
   nftAddress: `0x${string}`;
   onSelect: (tokenId: string) => void;
   onFavorite: (tokenId: string) => void;
   isFavorite: string[];
 }) {
-  const { data: tokenId, isLoading } = useReadContract({
+  const chainId = useChainId();
+
+  // Check if the current user owns this token
+  const { data: owner, isLoading: isLoadingOwner } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
-    functionName: 'tokenOfOwnerByIndex',
-    args: [ownerAddress, index],
+    functionName: 'ownerOf',
+    args: [tokenId],
   });
+
+  // Fetch metadata for this token
+  const { metadata, tokenURI, isLoading: isLoadingMetadata, error: metadataError } = useTokenMetadata(
+    chainId,
+    tokenId
+  );
+
+  // Debug logging
+  console.log('NFTTokenCard Debug:', {
+    tokenId: tokenId.toString(),
+    owner,
+    ownerAddress,
+    isOwned: owner?.toLowerCase() === ownerAddress.toLowerCase(),
+    tokenURI,
+    metadata,
+    metadataError: metadataError?.message,
+    isLoadingOwner,
+    isLoadingMetadata,
+  });
+
+  const isLoading = isLoadingOwner || isLoadingMetadata;
 
   if (isLoading) {
     return <NFTCard tokenId="" isLoading={true} />;
   }
 
-  if (!tokenId) return null;
+  // Only show if owned by the current user
+  if (!owner || owner.toLowerCase() !== ownerAddress.toLowerCase()) {
+    return null;
+  }
 
   const tokenIdStr = tokenId.toString();
+
+  // Get rarity from attributes if available
+  const rarityAttr = metadata?.attributes?.find(
+    (attr) => attr.trait_type === 'Rarity'
+  );
+  const rarityValue = rarityAttr?.value as string | undefined;
+  const rarityMap: Record<string, number> = {
+    Legendary: 0.5,
+    Epic: 3,
+    Rare: 10,
+    Uncommon: 25,
+    Common: 50,
+  };
 
   return (
     <NFTCard
       tokenId={tokenIdStr}
-      name={`Nexus NFT #${tokenIdStr}`}
+      name={metadata?.name || `Nexus NFT #${tokenIdStr}`}
+      image={metadata?.image}
+      attributes={metadata?.attributes}
+      rarity={rarityValue ? rarityMap[rarityValue] : undefined}
       isOwned={true}
       isFavorite={isFavorite.includes(tokenIdStr)}
       onClick={() => onSelect(tokenIdStr)}

@@ -7,6 +7,7 @@ import { isAddress } from 'viem';
 import { getContractAddresses } from '@/lib/contracts/addresses';
 import { NFTDetail } from '@/components/features/NFT';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useTokenMetadata } from '@/hooks/useNFT';
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,12 @@ export default function NFTDetailPage() {
     functionName: 'ownerOf',
     args: [BigInt(tokenId)],
   });
+
+  // Fetch token metadata
+  const { metadata, isLoading: isLoadingMetadata } = useTokenMetadata(
+    chainId,
+    BigInt(tokenId)
+  );
 
   // Write contract for transfer
   const { writeContract, data: transferHash, isPending: isTransferPending, error: transferError, reset: resetTransfer } = useWriteContract();
@@ -151,29 +158,41 @@ export default function NFTDetailPage() {
 
   const isTransferLoading = isTransferPending || isConfirming;
 
-  // Mock attributes for demo
-  const attributes = [
-    { trait_type: 'Tier', value: 'Genesis', rarity: 2.5 },
-    { trait_type: 'Power', value: 85, rarity: 12 },
-    { trait_type: 'Element', value: 'Cosmic', rarity: 5 },
-    { trait_type: 'Rarity', value: 'Epic', rarity: 4.2 },
-    { trait_type: 'Staking Boost', value: '10%', rarity: 25 },
-    { trait_type: 'Governance Weight', value: '1.5x', rarity: 15 },
-  ];
+  // Use metadata attributes or fallback to defaults
+  const attributes = metadata?.attributes?.map((attr) => ({
+    trait_type: attr.trait_type,
+    value: attr.value,
+    rarity: attr.trait_type === 'Rarity'
+      ? { Legendary: 0.5, Epic: 3, Rare: 10, Uncommon: 25, Common: 50 }[attr.value as string]
+      : undefined,
+  })) || [];
+
+  // Get rarity from attributes for the detail component
+  const rarityAttr = metadata?.attributes?.find((attr) => attr.trait_type === 'Rarity');
+  const rarityValue = rarityAttr?.value as string | undefined;
+  const rarityMap: Record<string, number> = {
+    Legendary: 0.5,
+    Epic: 3,
+    Rare: 10,
+    Uncommon: 25,
+    Common: 50,
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <NFTDetail
         tokenId={tokenId}
-        name={`Nexus NFT #${tokenId}`}
-        description="A Nexus Genesis NFT providing exclusive benefits including staking boosts, enhanced governance voting power, and access to exclusive platform features."
+        name={metadata?.name || `Nexus NFT #${tokenId}`}
+        description={metadata?.description || "A Nexus Genesis NFT providing exclusive benefits including staking boosts, enhanced governance voting power, and access to exclusive platform features."}
+        image={metadata?.image}
         owner={owner}
         contractAddress={nftAddress}
         attributes={attributes}
+        rarity={rarityValue ? rarityMap[rarityValue] : undefined}
         chainId={chainId}
         onBack={handleBack}
         onTransfer={handleTransfer}
-        isLoading={isLoadingOwner}
+        isLoading={isLoadingOwner || isLoadingMetadata}
       />
 
       {/* Transfer Modal */}

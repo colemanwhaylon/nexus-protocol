@@ -1,0 +1,33 @@
+{
+  "name": "Nexus Genesis #7",
+  "description": "Nexus Genesis NFT #7 - A unique digital collectible from the Nexus Protocol Genesis Collection. Holders receive 10% staking boost, 1.5x governance voting power, and exclusive access to protocol features.",
+  "image": "http://localhost:3000/metadata/images/7.svg",
+  "external_url": "https://nexusprotocol.io/nft/7",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Obsidian"
+    },
+    {
+      "trait_type": "Symbol",
+      "value": "Classic N"
+    },
+    {
+      "trait_type": "Accent",
+      "value": "Ember"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Common"
+    },
+    {
+      "trait_type": "Generation",
+      "value": "Genesis"
+    },
+    {
+      "display_type": "number",
+      "trait_type": "Edition",
+      "value": 7
+    }
+  ]
+}

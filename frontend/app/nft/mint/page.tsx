@@ -43,7 +43,8 @@ export default function MintPage() {
   }, [isSuccess, hash, refetchBalance]);
 
   const handleMint = async (quantity: number) => {
-    if (!mintPrice) return;
+    // mintPrice can be 0n for free mints, so check for undefined specifically
+    if (mintPrice === undefined) return;
     setMintQuantity(quantity);
     const totalCost = mintPrice * BigInt(quantity);
     mint(quantity, totalCost);

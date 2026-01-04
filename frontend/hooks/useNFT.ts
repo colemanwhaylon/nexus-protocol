@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 const nftAbi = [
   {
-    name: 'mint',
+    name: 'publicMint',
     type: 'function',
     stateMutability: 'payable',
     inputs: [{ name: 'quantity', type: 'uint256' }],
@@ -22,7 +22,7 @@ const nftAbi = [
     outputs: [{ type: 'uint256' }],
   },
   {
-    name: 'maxSupply',
+    name: 'MAX_SUPPLY',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
@@ -67,11 +67,11 @@ const nftAbi = [
     outputs: [{ type: 'address' }],
   },
   {
-    name: 'isMintActive',
+    name: 'salePhase',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ type: 'bool' }],
+    outputs: [{ type: 'uint8' }],
   },
   {
     name: 'safeTransferFrom',
@@ -249,7 +249,7 @@ export function useNFT(chainId?: number) {
   const { data: maxSupply } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
-    functionName: 'maxSupply',
+    functionName: 'MAX_SUPPLY',
   });
 
   const { data: mintPrice } = useReadContract({
@@ -258,11 +258,15 @@ export function useNFT(chainId?: number) {
     functionName: 'mintPrice',
   });
 
-  const { data: isMintActive } = useReadContract({
+  // salePhase: 0 = Closed, 1 = Whitelist, 2 = Public
+  const { data: salePhase } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
-    functionName: 'isMintActive',
+    functionName: 'salePhase',
   });
+
+  // Minting is active when salePhase is Public (2) or Whitelist (1)
+  const isMintActive = salePhase !== undefined && (salePhase === 2 || salePhase === 1);
 
   const { data: balance, refetch: refetchBalance } = useReadContract({
     address: nftAddress,
@@ -282,7 +286,7 @@ export function useNFT(chainId?: number) {
     writeContract({
       address: nftAddress,
       abi: nftAbi,
-      functionName: 'mint',
+      functionName: 'publicMint',
       args: [BigInt(quantity)],
       value,
     });
@@ -368,7 +372,8 @@ export function useNFT(chainId?: number) {
     totalSupply: totalSupply as bigint | undefined,
     maxSupply: maxSupply as bigint | undefined,
     mintPrice: mintPrice as bigint | undefined,
-    isMintActive: isMintActive as boolean | undefined,
+    isMintActive,
+    salePhase: salePhase as number | undefined,
     balance: balance as bigint | undefined,
     hash,
     isPending,

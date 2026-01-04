@@ -1,0 +1,33 @@
+{
+  "name": "Nexus Genesis #16",
+  "description": "Nexus Genesis NFT #16 - A unique digital collectible from the Nexus Protocol Genesis Collection. Holders receive 10% staking boost, 1.5x governance voting power, and exclusive access to protocol features.",
+  "image": "http://localhost:3000/metadata/images/16.svg",
+  "external_url": "https://nexusprotocol.io/nft/16",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Obsidian"
+    },
+    {
+      "trait_type": "Symbol",
+      "value": "Hexagon"
+    },
+    {
+      "trait_type": "Accent",
+      "value": "Flame"
+    },
+    {
+      "trait_type": "Rarity",
+      "value": "Common"
+    },
+    {
+      "trait_type": "Generation",
+      "value": "Genesis"
+    },
+    {
+      "display_type": "number",
+      "trait_type": "Edition",
+      "value": 16
+    }
+  ]
+}
