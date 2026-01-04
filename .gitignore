@@ -202,3 +202,4 @@ frontend/.pnpm-store/
 
 # Claude plans (auto-generated)
 .claude/plans/
+frontend/tsconfig.tsbuildinfo
