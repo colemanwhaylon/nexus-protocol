@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { ConnectButton as RainbowConnectButton } from '@rainbow-me/rainbowkit';
 import { Button } from '@/components/ui/button';
 import { Wallet, ChevronDown } from 'lucide-react';
@@ -56,10 +57,13 @@ export function ConnectButton() {
                     className="hidden sm:flex"
                   >
                     {chain.hasIcon && chain.iconUrl && (
-                      <img
+                      <Image
                         alt={chain.name ?? 'Chain icon'}
                         src={chain.iconUrl}
-                        className="mr-2 h-4 w-4"
+                        width={16}
+                        height={16}
+                        className="mr-2"
+                        unoptimized
                       />
                     )}
                     {chain.name}

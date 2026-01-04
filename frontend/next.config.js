@@ -13,6 +13,12 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.ipfs.dweb.link',
       },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '3000',
+        pathname: '/metadata/**',
+      },
     ],
   },
   webpack: (config) => {

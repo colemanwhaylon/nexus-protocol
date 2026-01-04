@@ -131,12 +131,13 @@ export function NFTDetail({
       <div className="grid md:grid-cols-2 gap-6">
         {/* Image */}
         <Card className="overflow-hidden">
-          <div className="aspect-square bg-muted">
+          <div className="relative aspect-square bg-muted">
             {image ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={image}
                 alt={displayName}
-                className="w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-cover"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-muted-foreground">

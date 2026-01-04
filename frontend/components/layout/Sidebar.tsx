@@ -11,6 +11,7 @@ import {
   Settings,
   Users,
   AlertTriangle,
+  DollarSign,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ const defaultNavItems: NavItem[] = [
 const adminNavItems: NavItem[] = [
   { name: 'Overview', href: '/admin', icon: LayoutDashboard },
   { name: 'Compliance', href: '/admin/compliance', icon: Shield },
+  { name: 'Pricing', href: '/admin/pricing', icon: DollarSign },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Emergency', href: '/admin/emergency', icon: AlertTriangle },
   { name: 'Roles', href: '/admin/roles', icon: Settings },

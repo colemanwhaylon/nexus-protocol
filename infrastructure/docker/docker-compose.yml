@@ -141,6 +141,34 @@ services:
       start_period: 30s
 
   # ------------------------------------------
+  # PostgreSQL Database - Development
+  # ------------------------------------------
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: nexus-postgres-dev
+    profiles:
+      - dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=nexus
+      - POSTGRES_USER=nexus
+      - POSTGRES_PASSWORD=nexus
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - nexus-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexus -d nexus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ------------------------------------------
   # API Server - Development
   # ------------------------------------------
   api-dev:
@@ -159,24 +187,26 @@ services:
       - PORT=8080
       - LOG_LEVEL=debug
       - LOG_FORMAT=console
-      - DB_DRIVER=sqlite
-      - DB_PATH=/app/data/nexus.db
-      - CACHE_DRIVER=memory
+      - DATABASE_URL=postgres://nexus:nexus@postgres-dev:5432/nexus?sslmode=disable
       - CORS_ORIGINS=*
       - API_KEY=dev-api-key-not-for-production
+      - RPC_URL=http://anvil:8545
+      - CHAIN_ID=31337
     volumes:
       - ../../backend:/app:cached
-      - sqlite-data:/app/data
       - api-logs:/app/logs
     networks:
       - nexus-network
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 5s
+      start_period: 30s
 
   # ------------------------------------------
   # API Server - Demo

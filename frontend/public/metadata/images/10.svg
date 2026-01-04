@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <defs>
+    <linearGradient id="bg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3d3d3d"/>
+      <stop offset="100%" style="stop-color:#4a4a4a"/>
+    </linearGradient>
+    <linearGradient id="orange1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F7931E"/>
+      <stop offset="100%" style="stop-color:#FF6B00"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="500" height="500" fill="url(#bg1)"/>
+
+  <!-- Decorative triangles (AnIT inspired) -->
+    <polygon points="312,28 355,71 291,71"
+             fill="url(#orange1)" opacity="0.59"
+             transform="rotate(7 312 49)"/>
+    <polygon points="125,138 181,194 97,194"
+             fill="url(#orange1)" opacity="0.60"
+             transform="rotate(142 125 166)"/>
+    <polygon points="354,61 385,92 339,92"
+             fill="url(#orange1)" opacity="0.61"
+             transform="rotate(167 354 76)"/>
+    <polygon points="58,83 118,143 28,143"
+             fill="url(#orange1)" opacity="0.78"
+             transform="rotate(184 58 113)"/>
+    <polygon points="42,127 99,184 14,184"
+             fill="url(#orange1)" opacity="0.46"
+             transform="rotate(181 42 155)"/>
+
+    <!-- Main Nexus Symbol - Diamond -->
+    <g transform="translate(150, 100)" filter="url(#glow)">
+      <polygon points="100,0 200,100 100,200 0,100"
+               fill="none" stroke="#F7931E" stroke-width="5"/>
+      <polygon points="100,30 170,100 100,170 30,100"
+               fill="url(#orange1)" opacity="0.4"/>
+      <circle cx="100" cy="100" r="40" fill="#FFFFFF"/>
+      <text x="100" y="115" font-family="Arial" font-size="50" font-weight="bold"
+            fill="#4a4a4a" text-anchor="middle">N</text>
+    </g>
+
+  <!-- Swoosh element (AnIT inspired) -->
+    <path d="M 50,338 Q 150,280 250,338 T 450,338"
+          fill="none" stroke="#FFFFFF" stroke-width="9" opacity="0.9"/>
+    <path d="M 50,358 Q 150,300 250,358 T 450,358"
+          fill="none" stroke="url(#orange1)" stroke-width="6" opacity="0.7"/>
+
+  <!-- Bottom accent triangles -->
+    <polygon points="413,414 434,456 392,456"
+             fill="url(#orange1)" opacity="0.66"/>
+    <polygon points="455,390 477,434 433,434"
+             fill="url(#orange1)" opacity="0.67"/>
+    <polygon points="402,386 435,452 369,452"
+             fill="url(#orange1)" opacity="0.79"/>
+
+  <!-- Token ID badge -->
+  <rect x="380" y="20" width="100" height="40" rx="20" fill="url(#orange1)"/>
+  <text x="430" y="48" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#FFFFFF" text-anchor="middle">#10</text>
+
+  <!-- Nexus text -->
+  <text x="250" y="460" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#FFFFFF" text-anchor="middle">NEXUS</text>
+  <text x="250" y="485" font-family="Arial, sans-serif" font-size="14" fill="#F7931E" text-anchor="middle">GENESIS COLLECTION</text>
+</svg>

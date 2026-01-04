@@ -107,7 +107,6 @@ export function UnstakeForm({
         )}
 
         <Button
-          variant="outline"
           className="w-full"
           disabled={!isValidAmount || disabled || isSubmitting}
           onClick={handleUnstake}
