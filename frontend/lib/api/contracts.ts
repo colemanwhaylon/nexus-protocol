@@ -1,30 +1,21 @@
 /**
  * Contract Address API Client
  *
- * Fetches contract addresses from the backend API.
- * NO hardcoded contract names in types - all data comes from database.
+ * Fetches contract addresses from the backend PostgreSQL database via API.
+ *
+ * IMPORTANT: NO HARDCODED FALLBACK ADDRESSES
+ * All contract addresses MUST come from the database. This ensures:
+ * - Single source of truth for contract addresses
+ * - OCP (Open-Closed Principle) compliance - new deployments only require DB updates
+ * - No risk of stale hardcoded addresses causing bugs
+ *
+ * If the API is unavailable, the error should propagate and be handled by the UI
+ * with appropriate error states rather than silently using potentially outdated addresses.
  */
 
 import { type Address } from 'viem';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-
-// ============================================================================
-// Sepolia Testnet Fallback Addresses
-// Used when backend API is not available for Sepolia
-// ============================================================================
-const SEPOLIA_CHAIN_ID = 11155111;
-const SEPOLIA_FALLBACK_ADDRESSES: ContractAddresses = {
-  nexusToken: '0xc495a8ecd63daa5282a4ff3ba58a177b34a36e9e' as Address,
-  nexusStaking: '0xe0bca60673b3a0e03beb7750b8bb8d085513a4e3' as Address,
-  nexusNFT: '0x03957B6B52c1b6BF9F3dAB81ca55448fFD5632ac' as Address,
-  nexusAccessControl: '0xb2afde15a49b715d6ad5f13e994562d499c2c1cd' as Address,
-  nexusKYCRegistry: '0xc351675376a65cdeba593ff802beeaebb85ff68f' as Address,
-  nexusEmergency: '0x6009e5e04a07acf8acdb003b671c7cad34355057' as Address,
-  nexusTimelock: '0xbc6ebc67c6facde8977f64211b7f9bd2e5907375' as Address,
-  nexusGovernor: '0x4fda98c98f9bfcd524e337ede8f2dd90ed409fec' as Address,
-  nexusForwarder: '0x88b8bb0f0f712b49b274025e9ac4657bc4db036d' as Address,
-};
 
 // ============================================================================
 // Response Types from API
@@ -195,30 +186,23 @@ export async function fetchContractsList(
 }
 
 /**
- * Fetch contract addresses from API.
+ * Fetch contract addresses from the PostgreSQL database via API.
  * Returns a dynamic Record<string, Address> built from database data.
- * Falls back to hardcoded addresses for Sepolia testnet when API unavailable.
+ *
+ * NO FALLBACKS - All addresses come from the database.
+ * If the API fails, the error propagates to be handled by the UI.
  */
 export async function fetchContractAddresses(chainId: number): Promise<ContractAddresses> {
-  try {
-    const contracts = await fetchContractsList(chainId);
+  const contracts = await fetchContractsList(chainId);
 
-    // Build dynamic object from API response
-    return contracts.reduce(
-      (acc: ContractAddresses, c: ContractAddressResponse) => ({
-        ...acc,
-        [c.db_name]: c.address as Address,
-      }),
-      {} as ContractAddresses
-    );
-  } catch (error) {
-    // Fallback to Sepolia addresses when API unavailable
-    if (chainId === SEPOLIA_CHAIN_ID) {
-      console.warn('Using Sepolia fallback addresses (API unavailable)');
-      return SEPOLIA_FALLBACK_ADDRESSES;
-    }
-    throw error;
-  }
+  // Build dynamic object from API response
+  return contracts.reduce(
+    (acc: ContractAddresses, c: ContractAddressResponse) => ({
+      ...acc,
+      [c.db_name]: c.address as Address,
+    }),
+    {} as ContractAddresses
+  );
 }
 
 /**

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { MintCard } from '@/components/features/NFT/MintCard';
 import { useNotifications } from '@/hooks/useNotifications';
 
 export default function MintPage() {
+  const router = useRouter();
   const { isConnected } = useAccount();
   const [mintQuantity, setMintQuantity] = useState(1);
   const processedHashRef = useRef<string | null>(null);
@@ -30,16 +32,20 @@ export default function MintPage() {
     refetchBalance,
   } = useNFT();
 
-  // Refetch after successful mint and send notification
+  // Refetch after successful mint, send notification, and navigate to gallery
   useEffect(() => {
     if (isSuccess && hash && hash !== processedHashRef.current) {
       processedHashRef.current = hash;
       refetchBalance();
       // Notification with quantity info
       notifyMint(`${mintQuantity}`, hash);
+      // Navigate to gallery after a brief delay to show success state
+      setTimeout(() => {
+        router.push('/nft/gallery');
+      }, 1500);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuccess, hash, refetchBalance]);
+  }, [isSuccess, hash, refetchBalance, router]);
 
   const handleMint = async (quantity: number) => {
     // mintPrice can be 0n for free mints, so check for undefined specifically
