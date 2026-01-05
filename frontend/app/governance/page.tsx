@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import {
   ProposalList,
   VotingPowerCard,
@@ -123,6 +123,7 @@ export default function GovernancePage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [isLoadingProposals, setIsLoadingProposals] = useState(true);
   const [isDelegating, setIsDelegating] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const governorAddress = addresses.nexusGovernor;
   const tokenAddress = addresses.nexusToken;
@@ -256,6 +257,13 @@ export default function GovernancePage() {
     fetchProposals();
   }, [fetchProposals]);
 
+  // Manual refresh function with visual feedback
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await fetchProposals();
+    setIsRefreshing(false);
+  }, [fetchProposals]);
+
   // Handle delegation
   const handleDelegate = async (delegatee: Address) => {
     if (!isTokenDeployed) return;
@@ -287,12 +295,23 @@ export default function GovernancePage() {
             Participate in protocol governance through proposals and voting
           </p>
         </div>
-        <Link href="/governance/create">
-          <Button disabled={!isGovernorDeployed}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Proposal
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isRefreshing || isLoadingProposals}
+            title="Refresh proposals"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
-        </Link>
+          <Link href="/governance/create">
+            <Button disabled={!isGovernorDeployed}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Proposal
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Governor not deployed warning */}
