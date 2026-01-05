@@ -1,6 +1,6 @@
 # Nexus Protocol - Session Resume Document
 
-**Last Updated**: 2026-01-03 (Session 12 - Docker Testing & NFT Minting Ready)
+**Last Updated**: 2026-01-04 (Session 15 - Database-Driven Contract Addresses)
 **Current Branch**: `feature/m1-frontend-integration`
 **Working Directory**: `/home/whaylon/Downloads/Blockchain/nexus-protocol`
 
@@ -18,11 +18,10 @@ docker compose --profile dev up -d
 cd /home/whaylon/Downloads/Blockchain/nexus-protocol/contracts
 /home/whaylon/.foundry/bin/forge script script/DeployLocal.s.sol --rpc-url http://localhost:8545 --broadcast
 
-# Update addresses.ts with new contract addresses from deployment output
-# Then restart frontend to pick up changes
-docker compose restart frontend-dev
+# Register contracts in database (NO CODE CHANGES NEEDED!)
+python3 script/post_deploy.py --chain-id 31337
 
-# Access the app
+# Access the app (frontend auto-loads addresses from API)
 # Frontend: http://localhost:3000/nft/mint
 # Anvil RPC: http://localhost:8545
 # API: http://localhost:8080
@@ -36,22 +35,29 @@ docker compose restart frontend-dev
 
 ---
 
-## Current Docker Contract Addresses
+## Contract Address Management
 
-Updated after latest Anvil redeploy (2026-01-03):
+**Contract addresses are now DATABASE-DRIVEN!**
 
-| Contract | Address |
-|----------|---------|
-| NexusToken | `0x5FbDB2315678afecb367f032d93F642f64180aa3` |
-| NexusNFT | `0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9` |
-| NexusStaking | `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0` |
-| NexusGovernor | Not deployed |
-| NexusTimelock | Not deployed |
-| NexusAccessControl | Not deployed |
-| NexusKYC | Not deployed |
-| NexusEmergency | Not deployed |
+No more editing `addresses.ts` - just run the Python script after deployment:
+```bash
+python3 script/post_deploy.py --chain-id 31337
+```
 
-These are set in `frontend/lib/contracts/addresses.ts`
+### API Endpoints
+- `GET /api/v1/contracts/:chainId` - Get all contracts for a chain
+- `GET /api/v1/contracts/config/:chainId` - Get full deployment config
+- `POST /api/v1/contracts` - Register/update a contract
+
+### Frontend Hook
+```typescript
+const { addresses, hasContract, isLoading } = useContractAddresses();
+if (hasContract('nexusStaking')) {
+  // Contract is deployed and ready
+}
+```
+
+**Note**: Timelock has 24-hour minimum delay (ABSOLUTE_MIN_DELAY)
 
 ---
 
@@ -280,6 +286,36 @@ docker compose --profile dev down
 5. **Volume Mounts**: Frontend code is mounted, changes reflect after container restart
 
 ---
+
+## Session 15 Summary
+
+- **Database-driven contract addresses (OCP compliant)!**
+- Implemented full system to eliminate hardcoded addresses:
+  - PostgreSQL tables: network_config, contract_mappings, contract_addresses
+  - Go backend: ContractRepository + ContractHandler with REST API
+  - Python script: post_deploy.py auto-registers from Foundry broadcast
+  - Frontend: useContractAddresses hook with React Query caching
+- Deleted all hardcoded files:
+  - `frontend/lib/contracts/addresses.ts`
+  - `frontend/lib/contracts/nexus*.ts` helpers
+- Updated all hooks to use `hasContract()` for deployment checks
+- Updated CLAUDE.md documentation with new patterns
+- **New deployment workflow**: forge deploy → python3 post_deploy.py → done!
+
+## Session 14 Summary
+
+- **Full contract deployment complete!**
+- Updated DeployLocal.s.sol to deploy ALL contracts:
+  - Core: NexusToken, NexusStaking, NexusNFT
+  - Security: NexusAccessControl, NexusKYCRegistry, NexusEmergency
+  - Governance: NexusTimelock (24h delay), NexusGovernor
+  - Meta-tx: NexusForwarder
+- Fixed stack-too-deep error using `--via-ir` flag
+- Fixed timelock minimum delay (must be >= 24 hours)
+- Governor has PROPOSER_ROLE on Timelock
+- All contracts verified via cast calls
+- Frontend addresses.ts updated with all 9 contract addresses
+- Ready to test governance features!
 
 ## Session 13 Summary
 
