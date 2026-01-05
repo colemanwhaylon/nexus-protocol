@@ -14,17 +14,15 @@ interface RoleGuardProps {
   children: ReactNode;
   requiredRole: RoleType | RoleType[];
   fallback?: ReactNode;
-  chainId?: number;
 }
 
 export function RoleGuard({
   children,
   requiredRole,
   fallback,
-  chainId,
 }: RoleGuardProps) {
   const { address, isConnected } = useAccount();
-  const { isAdmin, isOperator, isPauser } = useAdmin(chainId);
+  const { isAdmin, isOperator, isPauser } = useAdmin();
 
   // Not connected
   if (!isConnected || !address) {

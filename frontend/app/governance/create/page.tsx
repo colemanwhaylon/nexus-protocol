@@ -10,7 +10,6 @@ import { ArrowLeft, Info, AlertTriangle } from "lucide-react";
 import { CreateProposalForm } from "@/components/features/Governance";
 import {
   useAccount,
-  useChainId,
   useReadContract,
 } from "wagmi";
 import { useContractAddresses } from "@/hooks/useContractAddresses";
@@ -38,7 +37,6 @@ interface ProposalAction {
 export default function CreateProposalPage() {
   const router = useRouter();
   const { address: userAddress, isConnected } = useAccount();
-  const chainId = useChainId();
   const { addresses, hasContract } = useContractAddresses();
 
   const tokenAddress = addresses.nexusToken;
@@ -53,7 +51,7 @@ export default function CreateProposalPage() {
     isSuccess,
     error: writeError,
     reset,
-  } = useGovernance(chainId);
+  } = useGovernance();
 
   // Read user's voting power from token contract
   const { data: votingPower, isLoading: isLoadingVotingPower } = useReadContract({

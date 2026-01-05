@@ -82,15 +82,15 @@ export default function RolesPage() {
     isPending,
     canManageRoles,
     accessControlAddress,
-  } = useAdmin(chainId);
+  } = useAdmin();
 
   const {
-    isContractDeployed,
+    isReady: isContractDeployed,
     roleCounts,
     refetchAllCounts,
-  } = useRoleMembers(chainId);
+  } = useRoleMembers();
 
-  const { roleAdmins } = useAllRoleAdmins(chainId);
+  const { roleAdmins } = useAllRoleAdmins();
 
   const { notifyRoleGranted, notifyRoleRevoked, notifyError } = useNotifications();
 

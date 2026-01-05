@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmergencyControls, ProtocolStatus } from '@/components/features/Admin';
 import {
-  useChainId,
   useReadContract,
   useWriteContract,
   useWaitForTransactionReceipt,
@@ -144,13 +143,12 @@ interface CircuitBreaker {
 }
 
 export default function EmergencyPage() {
-  const chainId = useChainId();
   const { addresses, hasContract } = useContractAddresses();
   const publicClient = usePublicClient();
   const { notifyEmergencyPause, notifyEmergencyUnpause, notifyError } = useNotifications();
 
   // Use the useAdmin hook for role checks
-  const { isAdmin, isPauser, isDefaultAdmin } = useAdmin(chainId);
+  const { isAdmin, isPauser, isDefaultAdmin } = useAdmin();
 
   // Track the last action for proper notifications
   const lastActionRef = useRef<EmergencyAction>(null);

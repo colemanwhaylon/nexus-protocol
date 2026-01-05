@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useAccount, useChainId } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { formatEther } from 'viem';
 import { useNFT } from '@/hooks/useNFT';
 import { MintCard } from '@/components/features/NFT/MintCard';
@@ -12,7 +12,6 @@ import { useNotifications } from '@/hooks/useNotifications';
 
 export default function MintPage() {
   const { isConnected } = useAccount();
-  const chainId = useChainId();
   const [mintQuantity, setMintQuantity] = useState(1);
   const processedHashRef = useRef<string | null>(null);
 
@@ -29,7 +28,7 @@ export default function MintPage() {
     isSuccess,
     hash,
     refetchBalance,
-  } = useNFT(chainId);
+  } = useNFT();
 
   // Refetch after successful mint and send notification
   useEffect(() => {

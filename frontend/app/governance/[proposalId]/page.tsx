@@ -197,7 +197,7 @@ export default function ProposalDetailPage({ params }: Props) {
     isSuccess,
     error: writeError,
     reset,
-  } = useGovernance(chainId);
+  } = useGovernance();
 
   // Read user's voting power
   const { data: votingPower } = useReadContract({

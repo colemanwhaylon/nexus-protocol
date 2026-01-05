@@ -39,7 +39,7 @@ export default function CompliancePage() {
     isProcessing,
     error,
     clearError,
-    isContractDeployed,
+    isReady,
   } = useAdminKYC({
     autoRefresh: true,
     refreshInterval: 30000,
@@ -133,7 +133,7 @@ export default function CompliancePage() {
   }));
 
   // Contract not deployed warning
-  if (!isContractDeployed) {
+  if (!isReady) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">

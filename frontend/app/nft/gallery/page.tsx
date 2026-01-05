@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAccount, useChainId, useReadContract } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
 import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { useNFT, useTokenMetadata } from '@/hooks/useNFT';
 import { NFTGrid, NFTCard } from '@/components/features/NFT';
@@ -25,11 +25,10 @@ const nftAbi = [
 export default function GalleryPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
-  const chainId = useChainId();
   const { addresses } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as `0x${string}`;
 
-  const { balance, totalSupply, maxSupply } = useNFT(chainId);
+  const { balance, totalSupply, maxSupply } = useNFT();
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [favoriteTokenIds, setFavoriteTokenIds] = useState<string[]>([]);
 
@@ -37,7 +36,6 @@ export default function GalleryPage() {
   console.log('GalleryPage Debug:', {
     isConnected,
     address,
-    chainId,
     nftAddress,
     balance: balance?.toString(),
     balanceType: typeof balance,
@@ -176,8 +174,6 @@ function NFTTokenCard({
   onFavorite: (tokenId: string) => void;
   isFavorite: string[];
 }) {
-  const chainId = useChainId();
-
   // Check if the current user owns this token
   const { data: owner, isLoading: isLoadingOwner } = useReadContract({
     address: nftAddress,
@@ -187,10 +183,7 @@ function NFTTokenCard({
   });
 
   // Fetch metadata for this token
-  const { metadata, tokenURI, isLoading: isLoadingMetadata, error: metadataError } = useTokenMetadata(
-    chainId,
-    tokenId
-  );
+  const { metadata, tokenURI, isLoading: isLoadingMetadata, error: metadataError } = useTokenMetadata(tokenId);
 
   // Debug logging
   console.log('NFTTokenCard Debug:', {

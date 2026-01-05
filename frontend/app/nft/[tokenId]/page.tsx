@@ -64,10 +64,7 @@ export default function NFTDetailPage() {
   });
 
   // Fetch token metadata
-  const { metadata, isLoading: isLoadingMetadata } = useTokenMetadata(
-    chainId,
-    BigInt(tokenId)
-  );
+  const { metadata, isLoading: isLoadingMetadata } = useTokenMetadata(BigInt(tokenId));
 
   // Write contract for transfer
   const { writeContract, data: transferHash, isPending: isTransferPending, error: transferError, reset: resetTransfer } = useWriteContract();
