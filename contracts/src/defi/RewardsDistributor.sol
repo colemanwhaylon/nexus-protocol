@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { MerkleProof } from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title RewardsDistributor
@@ -56,7 +56,7 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
     uint256 public constant MAX_STREAMING_DURATION = 365 days;
 
     /// @notice Basis points denominator
-    uint256 public constant BPS_DENOMINATOR = 10_000;
+    uint256 public constant BPS_DENOMINATOR = 10000;
 
     /// @notice Precision multiplier for reward calculations
     uint256 public constant PRECISION = 1e18;
@@ -65,16 +65,16 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Campaign status enum
     enum CampaignStatus {
-        Active, // Campaign is active and rewards can be claimed
-        Paused, // Campaign is temporarily paused
-        Expired, // Campaign has expired
-        Cancelled // Campaign was cancelled and funds returned
+        Active,     // Campaign is active and rewards can be claimed
+        Paused,     // Campaign is temporarily paused
+        Expired,    // Campaign has expired
+        Cancelled   // Campaign was cancelled and funds returned
     }
 
     /// @notice Campaign type enum
     enum CampaignType {
-        Streaming, // Linear distribution over time
-        Merkle // One-time claim with Merkle proof
+        Streaming,  // Linear distribution over time
+        Merkle      // One-time claim with Merkle proof
     }
 
     // ============ Structs ============
@@ -220,35 +220,74 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Emitted when rewards are claimed from streaming campaign
     event StreamingRewardsClaimed(
-        uint256 indexed campaignId, address indexed user, uint256 amount, uint256 totalClaimed
+        uint256 indexed campaignId,
+        address indexed user,
+        uint256 amount,
+        uint256 totalClaimed
     );
 
     /// @notice Emitted when rewards are claimed from Merkle campaign - SEC-012
-    event MerkleRewardsClaimed(uint256 indexed campaignId, address indexed user, uint256 amount, uint256 leafIndex);
+    event MerkleRewardsClaimed(
+        uint256 indexed campaignId,
+        address indexed user,
+        uint256 amount,
+        uint256 leafIndex
+    );
 
     /// @notice Emitted when campaign status changes
-    event CampaignStatusChanged(uint256 indexed campaignId, CampaignStatus oldStatus, CampaignStatus newStatus);
+    event CampaignStatusChanged(
+        uint256 indexed campaignId,
+        CampaignStatus oldStatus,
+        CampaignStatus newStatus
+    );
 
     /// @notice Emitted when campaign is funded
-    event CampaignFunded(uint256 indexed campaignId, address indexed funder, uint256 amount, uint256 newTotal);
+    event CampaignFunded(
+        uint256 indexed campaignId,
+        address indexed funder,
+        uint256 amount,
+        uint256 newTotal
+    );
 
     /// @notice Emitted when funds are reclaimed from expired/cancelled campaign
-    event FundsReclaimed(uint256 indexed campaignId, address indexed recipient, uint256 amount);
+    event FundsReclaimed(
+        uint256 indexed campaignId,
+        address indexed recipient,
+        uint256 amount
+    );
 
     /// @notice Emitted when user allocation is set
-    event AllocationSet(uint256 indexed campaignId, address indexed user, uint256 allocation);
+    event AllocationSet(
+        uint256 indexed campaignId,
+        address indexed user,
+        uint256 allocation
+    );
 
     /// @notice Emitted when treasury is updated
-    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
+    event TreasuryUpdated(
+        address indexed oldTreasury,
+        address indexed newTreasury
+    );
 
     /// @notice Emitted when dust is collected - SEC-007
-    event DustCollected(uint256 indexed campaignId, uint256 amount);
+    event DustCollected(
+        uint256 indexed campaignId,
+        uint256 amount
+    );
 
     /// @notice Emitted when rate limit is exceeded - SEC-011
-    event RateLimitExceeded(address indexed user, uint256 windowStart, uint256 claimCount);
+    event RateLimitExceeded(
+        address indexed user,
+        uint256 windowStart,
+        uint256 claimCount
+    );
 
     /// @notice Emitted when Merkle root is updated
-    event MerkleRootUpdated(uint256 indexed campaignId, bytes32 oldRoot, bytes32 newRoot);
+    event MerkleRootUpdated(
+        uint256 indexed campaignId,
+        bytes32 oldRoot,
+        bytes32 newRoot
+    );
 
     // ============ Errors ============
 
@@ -342,12 +381,7 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
         uint256 duration,
         string calldata name,
         string calldata description
-    )
-        external
-        nonReentrant
-        onlyRole(CAMPAIGN_MANAGER_ROLE)
-        returns (uint256 campaignId)
-    {
+    ) external nonReentrant onlyRole(CAMPAIGN_MANAGER_ROLE) returns (uint256 campaignId) {
         if (rewardToken == address(0)) revert ZeroAddress();
         if (totalRewards == 0) revert ZeroAmount();
         if (startTime < block.timestamp) revert InvalidStartTime();
@@ -379,7 +413,15 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
         // Transfer tokens to this contract
         IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), totalRewards);
 
-        emit StreamingCampaignCreated(campaignId, rewardToken, totalRewards, startTime, endTime, rewardRate, name);
+        emit StreamingCampaignCreated(
+            campaignId,
+            rewardToken,
+            totalRewards,
+            startTime,
+            endTime,
+            rewardRate,
+            name
+        );
     }
 
     /**
@@ -392,10 +434,7 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
         uint256 campaignId,
         address user,
         uint256 allocation
-    )
-        external
-        onlyRole(CAMPAIGN_MANAGER_ROLE)
-    {
+    ) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
         StreamingCampaign storage campaign = streamingCampaigns[campaignId];
         if (campaign.totalRewards == 0) revert CampaignNotFound();
         if (campaign.campaignType != CampaignType.Streaming) revert InvalidCampaignType();
@@ -427,10 +466,7 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
         uint256 campaignId,
         address[] calldata users,
         uint256[] calldata allocations
-    )
-        external
-        onlyRole(CAMPAIGN_MANAGER_ROLE)
-    {
+    ) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
         if (users.length != allocations.length) revert ZeroAmount();
 
         StreamingCampaign storage campaign = streamingCampaigns[campaignId];
@@ -452,7 +488,9 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @param campaignId Campaign ID to claim from
      * @return claimed Amount of rewards claimed
      */
-    function claimStreamingRewards(uint256 campaignId) external nonReentrant whenNotPaused returns (uint256 claimed) {
+    function claimStreamingRewards(
+        uint256 campaignId
+    ) external nonReentrant whenNotPaused returns (uint256 claimed) {
         // Check rate limit - SEC-011
         _checkAndUpdateRateLimit(msg.sender);
 
@@ -510,12 +548,7 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
         uint256 expirationTime,
         string calldata name,
         string calldata description
-    )
-        external
-        nonReentrant
-        onlyRole(CAMPAIGN_MANAGER_ROLE)
-        returns (uint256 campaignId)
-    {
+    ) external nonReentrant onlyRole(CAMPAIGN_MANAGER_ROLE) returns (uint256 campaignId) {
         if (rewardToken == address(0)) revert ZeroAddress();
         if (totalRewards == 0) revert ZeroAmount();
         if (merkleRoot == bytes32(0)) revert InvalidMerkleRoot();
@@ -542,7 +575,15 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
         // Transfer tokens to this contract
         IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), totalRewards);
 
-        emit MerkleCampaignCreated(campaignId, rewardToken, totalRewards, merkleRoot, startTime, expirationTime, name);
+        emit MerkleCampaignCreated(
+            campaignId,
+            rewardToken,
+            totalRewards,
+            merkleRoot,
+            startTime,
+            expirationTime,
+            name
+        );
     }
 
     /**
@@ -558,11 +599,7 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
         uint256 amount,
         uint256 leafIndex,
         bytes32[] calldata merkleProof
-    )
-        external
-        nonReentrant
-        whenNotPaused
-    {
+    ) external nonReentrant whenNotPaused {
         // Check rate limit - SEC-011
         _checkAndUpdateRateLimit(msg.sender);
 
@@ -605,7 +642,10 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @param newMerkleRoot New Merkle root
      * @dev Can only be done before any claims
      */
-    function updateMerkleRoot(uint256 campaignId, bytes32 newMerkleRoot) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
+    function updateMerkleRoot(
+        uint256 campaignId,
+        bytes32 newMerkleRoot
+    ) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
         MerkleCampaign storage campaign = merkleCampaigns[campaignId];
         if (campaign.totalRewards == 0) revert CampaignNotFound();
         if (newMerkleRoot == bytes32(0)) revert InvalidMerkleRoot();
@@ -626,7 +666,10 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @param campaignId Campaign ID
      * @param isMerkle True for Merkle campaign, false for streaming
      */
-    function pauseCampaign(uint256 campaignId, bool isMerkle) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
+    function pauseCampaign(
+        uint256 campaignId,
+        bool isMerkle
+    ) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
         CampaignStatus oldStatus;
 
         if (isMerkle) {
@@ -649,7 +692,10 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @param campaignId Campaign ID
      * @param isMerkle True for Merkle campaign, false for streaming
      */
-    function resumeCampaign(uint256 campaignId, bool isMerkle) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
+    function resumeCampaign(
+        uint256 campaignId,
+        bool isMerkle
+    ) external onlyRole(CAMPAIGN_MANAGER_ROLE) {
         CampaignStatus oldStatus;
 
         if (isMerkle) {
@@ -672,7 +718,10 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @param campaignId Campaign ID
      * @param isMerkle True for Merkle campaign, false for streaming
      */
-    function cancelCampaign(uint256 campaignId, bool isMerkle) external nonReentrant onlyRole(ADMIN_ROLE) {
+    function cancelCampaign(
+        uint256 campaignId,
+        bool isMerkle
+    ) external nonReentrant onlyRole(ADMIN_ROLE) {
         CampaignStatus oldStatus;
         uint256 remaining;
         IERC20 token;
@@ -705,7 +754,9 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @notice Reclaim funds from expired Merkle campaign
      * @param campaignId Campaign ID
      */
-    function reclaimExpiredFunds(uint256 campaignId) external nonReentrant onlyRole(ADMIN_ROLE) {
+    function reclaimExpiredFunds(
+        uint256 campaignId
+    ) external nonReentrant onlyRole(ADMIN_ROLE) {
         MerkleCampaign storage campaign = merkleCampaigns[campaignId];
         if (campaign.totalRewards == 0) revert CampaignNotFound();
         if (block.timestamp <= campaign.expirationTime) revert CampaignNotActive();
@@ -725,7 +776,9 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @notice Collect accumulated dust from campaign - SEC-007
      * @param campaignId Campaign ID
      */
-    function collectDust(uint256 campaignId) external nonReentrant onlyRole(ADMIN_ROLE) {
+    function collectDust(
+        uint256 campaignId
+    ) external nonReentrant onlyRole(ADMIN_ROLE) {
         uint256 dust = campaignDust[campaignId];
         if (dust == 0) revert NothingToClaim();
 
@@ -776,7 +829,10 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @param user User address
      * @return claimable Amount of rewards claimable
      */
-    function getClaimableStreaming(uint256 campaignId, address user) external view returns (uint256 claimable) {
+    function getClaimableStreaming(
+        uint256 campaignId,
+        address user
+    ) external view returns (uint256 claimable) {
         return _calculateStreamingClaimable(campaignId, user);
     }
 
@@ -790,20 +846,25 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @return endTime End time
      * @return status Campaign status
      */
-    function getStreamingCampaign(uint256 campaignId)
-        external
-        view
-        returns (
-            address rewardToken,
-            uint256 totalRewards,
-            uint256 claimedRewards,
-            uint256 startTime,
-            uint256 endTime,
-            CampaignStatus status
-        )
-    {
+    function getStreamingCampaign(
+        uint256 campaignId
+    ) external view returns (
+        address rewardToken,
+        uint256 totalRewards,
+        uint256 claimedRewards,
+        uint256 startTime,
+        uint256 endTime,
+        CampaignStatus status
+    ) {
         StreamingCampaign storage c = streamingCampaigns[campaignId];
-        return (address(c.rewardToken), c.totalRewards, c.claimedRewards, c.startTime, c.endTime, c.status);
+        return (
+            address(c.rewardToken),
+            c.totalRewards,
+            c.claimedRewards,
+            c.startTime,
+            c.endTime,
+            c.status
+        );
     }
 
     /**
@@ -817,19 +878,17 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @return expirationTime Expiration time
      * @return status Campaign status
      */
-    function getMerkleCampaign(uint256 campaignId)
-        external
-        view
-        returns (
-            address rewardToken,
-            uint256 totalRewards,
-            uint256 claimedRewards,
-            bytes32 merkleRoot,
-            uint256 startTime,
-            uint256 expirationTime,
-            CampaignStatus status
-        )
-    {
+    function getMerkleCampaign(
+        uint256 campaignId
+    ) external view returns (
+        address rewardToken,
+        uint256 totalRewards,
+        uint256 claimedRewards,
+        bytes32 merkleRoot,
+        uint256 startTime,
+        uint256 expirationTime,
+        CampaignStatus status
+    ) {
         MerkleCampaign storage c = merkleCampaigns[campaignId];
         return (
             address(c.rewardToken),
@@ -853,11 +912,11 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
     function getUserStreamingPosition(
         uint256 campaignId,
         address user
-    )
-        external
-        view
-        returns (uint256 lastClaimTime, uint256 totalClaimed, uint256 allocation)
-    {
+    ) external view returns (
+        uint256 lastClaimTime,
+        uint256 totalClaimed,
+        uint256 allocation
+    ) {
         UserStreamingPosition storage p = userStreamingPositions[campaignId][user];
         return (p.lastClaimTime, p.totalClaimed, p.allocation);
     }
@@ -868,7 +927,9 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @return canClaim Whether user can claim
      * @return remainingClaims Remaining claims in window
      */
-    function canUserClaim(address user) external view returns (bool canClaim, uint256 remainingClaims) {
+    function canUserClaim(
+        address user
+    ) external view returns (bool canClaim, uint256 remainingClaims) {
         RateLimitInfo storage info = rateLimits[user];
 
         if (block.timestamp >= info.windowStart + RATE_LIMIT_WINDOW) {
@@ -897,11 +958,7 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
         uint256 amount,
         uint256 leafIndex,
         bytes32[] calldata merkleProof
-    )
-        external
-        view
-        returns (bool valid)
-    {
+    ) external view returns (bool valid) {
         MerkleCampaign storage campaign = merkleCampaigns[campaignId];
         if (campaign.totalRewards == 0) return false;
 
@@ -934,7 +991,10 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @param user User address
      * @return claimable Amount claimable
      */
-    function _calculateStreamingClaimable(uint256 campaignId, address user) internal view returns (uint256 claimable) {
+    function _calculateStreamingClaimable(
+        uint256 campaignId,
+        address user
+    ) internal view returns (uint256 claimable) {
         StreamingCampaign storage campaign = streamingCampaigns[campaignId];
         UserStreamingPosition storage position = userStreamingPositions[campaignId][user];
 
@@ -946,7 +1006,9 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
             lastClaim = campaign.startTime;
         }
 
-        uint256 currentTime = block.timestamp > campaign.endTime ? campaign.endTime : block.timestamp;
+        uint256 currentTime = block.timestamp > campaign.endTime
+            ? campaign.endTime
+            : block.timestamp;
 
         if (currentTime <= lastClaim) return 0;
 
@@ -971,7 +1033,10 @@ contract RewardsDistributor is AccessControl, Pausable, ReentrancyGuard {
      * @param user User address
      * @return expected Expected total
      */
-    function _calculateExpectedTotal(uint256 campaignId, address user) internal view returns (uint256 expected) {
+    function _calculateExpectedTotal(
+        uint256 campaignId,
+        address user
+    ) internal view returns (uint256 expected) {
         StreamingCampaign storage campaign = streamingCampaigns[campaignId];
         UserStreamingPosition storage position = userStreamingPositions[campaignId][user];
 
