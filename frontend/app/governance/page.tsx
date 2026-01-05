@@ -116,7 +116,7 @@ const stateMap: Record<number, ProposalState> = {
 
 export default function GovernancePage() {
   const { address: userAddress } = useAccount();
-  const chainId = useChainId();
+  useChainId(); // Required for wagmi context
   const publicClient = usePublicClient();
   const { addresses, hasContract } = useContractAddresses();
 

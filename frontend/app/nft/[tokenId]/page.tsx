@@ -45,9 +45,8 @@ export default function NFTDetailPage() {
   const router = useRouter();
   const tokenId = params.tokenId as string;
   const chainId = useChainId();
-  const { addresses, hasContract } = useContractAddresses();
+  const { addresses } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as `0x${string}`;
-  const isReady = hasContract('nexusNFT');
   const { address: userAddress } = useAccount();
   const { notifyNFTTransfer, notifyPending } = useNotifications();
 

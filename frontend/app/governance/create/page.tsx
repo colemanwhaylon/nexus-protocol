@@ -41,7 +41,6 @@ export default function CreateProposalPage() {
   const chainId = useChainId();
   const { addresses, hasContract } = useContractAddresses();
 
-  const governorAddress = addresses.nexusGovernor;
   const tokenAddress = addresses.nexusToken;
   const isGovernorDeployed = hasContract('nexusGovernor');
   const isTokenDeployed = hasContract('nexusToken');

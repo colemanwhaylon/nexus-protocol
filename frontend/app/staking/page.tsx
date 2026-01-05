@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAccount, useChainId } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { formatUnits, parseUnits } from 'viem';
 import { CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -31,10 +31,9 @@ export default function StakingPage() {
   const { notifyApproval, notifyStake, notifyUnstake, notifyDelegate, notifyError } = useNotifications();
 
   // Get contract addresses from database
-  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
+  const { addresses } = useContractAddresses();
   const tokenAddress = addresses.nexusToken;
   const stakingAddress = addresses.nexusStaking;
-  const isReady = hasContract('nexusToken') && hasContract('nexusStaking');
 
   // Hooks
   const { balance: tokenBalance, refetch: refetchBalance } = useTokenBalance({

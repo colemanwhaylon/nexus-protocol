@@ -26,9 +26,8 @@ export default function GalleryPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const { addresses, hasContract } = useContractAddresses();
+  const { addresses } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as `0x${string}`;
-  const isReady = hasContract('nexusNFT');
 
   const { balance, totalSupply, maxSupply } = useNFT(chainId);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
