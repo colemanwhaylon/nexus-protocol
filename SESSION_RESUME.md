@@ -1,6 +1,6 @@
 # Nexus Protocol - Session Resume Document
 
-**Last Updated**: 2026-01-04 (Session 16 - Comprehensive Dev Setup Script)
+**Last Updated**: 2026-01-05 (Session 17 - Governance Testing & Delegation)
 **Current Branch**: `feature/m1-frontend-integration`
 **Working Directory**: `/home/whaylon/Downloads/Blockchain/nexus-protocol`
 
@@ -70,7 +70,7 @@ if (hasContract('nexusStaking')) {
 
 ---
 
-## Overall Progress: Backend 100% | Frontend 95%
+## Overall Progress: Backend 100% | Frontend 98%
 
 ### What's Complete
 - All backend handlers (pricing, payment, sumsub, relayer, KYC, governance, NFT)
@@ -81,9 +81,18 @@ if (hasContract('nexusStaking')) {
 - Notification system with all categories
 - Docker dev stack running
 
-### What's Being Tested
+### What's Been Tested
 - Staking page: **TESTED - WORKING**
 - NFT minting page: **TESTED - WORKING**
+- NFT gallery: **TESTED - WORKING**
+- Governance full lifecycle: **TESTED - WORKING**
+  - Create proposal ✓
+  - Vote on proposal ✓
+  - Queue after voting succeeds ✓
+  - Execute after timelock delay ✓
+
+### What's In Progress
+- Governance delegation voting: **Automated test script created, needs Docker restart to complete**
 
 ---
 
@@ -236,13 +245,17 @@ Repository layer with PostgreSQL storage implementations.
 - [x] Stake tokens works
 - [x] Unstake button visible and styled correctly
 - [x] Delegate voting power works
-
-### To Test
 - [x] NFT minting flow
 - [x] NFT gallery displays minted NFTs
+- [x] Governance proposal creation
+- [x] Governance voting (direct voting with self-delegated power)
+- [x] Governance queue proposal
+- [x] Governance execute proposal
+- [x] Full governance lifecycle: Pending → Active → Succeeded → Queued → Executed
+
+### To Test
 - [ ] NFT transfer modal
-- [ ] Governance proposal creation
-- [ ] Governance voting
+- [ ] Governance voting with delegated power (automated test script created)
 - [ ] Admin pages (requires admin role)
 
 ---
@@ -294,6 +307,83 @@ docker compose --profile dev down
 4. **Docker Directory**: Run compose commands from `infrastructure/docker/`
 5. **Volume Mounts**: Frontend code is mounted, changes reflect after container restart
 6. **Contract Initialization**: `InitializeLocal.s.sol` activates NFT, governance, and KYC
+
+---
+
+## Session 17 Summary
+
+### Full Governance Lifecycle Tested & Working!
+
+Successfully tested complete governance flow through the UI:
+- **Pending** → **Active** → **Succeeded** → **Queued** → **Executed**
+
+### Code Fixes Made
+
+1. **Added eta fetching for Queued proposals** (`frontend/app/governance/[proposalId]/page.tsx`):
+   - Added `proposalEta` to Governor ABI
+   - Fetch eta when proposal state is Queued (state === 5)
+   - Pass eta to ProposalActions component
+
+2. **Fixed time comparison in ProposalActions** (`frontend/components/features/Governance/ProposalActions.tsx`):
+   - Added `blockTimestamp` prop for accurate timelock comparison
+   - Changed from `Date.now()` to blockchain timestamp
+   - Execute button now appears correctly when timelock expires
+
+3. **Added block timestamp fetching** (`frontend/app/governance/[proposalId]/page.tsx`):
+   - Fetch current block via `publicClient.getBlock()`
+   - Pass timestamp to ProposalActions for accurate countdown
+
+### Governance Delegation Test Script Created
+
+**File**: `scripts/test_governance_delegation.py`
+
+Automated test for the delegation voting path:
+
+| Step | Action | Status |
+|------|--------|--------|
+| 0 | Check initial account state | ✅ Verified |
+| 1 | Delegate voting power (Account0 → Account1) | ✅ Verified |
+| 2 | Account1 creates proposal with delegated power | ✅ Verified |
+| 3 | Advance to Active voting period | ⏳ Docker crashed |
+| 4 | Account1 votes with delegated 900K NEXUS | Pending |
+| 5 | Advance past voting end | Pending |
+| 6 | Queue proposal in Timelock | Pending |
+| 7 | Advance past 24hr timelock delay | Pending |
+| 8 | Execute proposal | Pending |
+| 9 | Restore delegation to self | Pending |
+
+**To run after reboot**:
+```bash
+# 1. Restart Docker
+sudo systemctl restart docker
+
+# 2. Start dev stack
+cd /home/whaylon/Downloads/Blockchain/nexus-protocol/infrastructure/docker
+docker compose --profile dev up -d
+
+# 3. Wait for services, deploy contracts
+cd /home/whaylon/Downloads/Blockchain/nexus-protocol
+./scripts/dev-setup.sh
+
+# 4. Run delegation test
+python3 scripts/test_governance_delegation.py
+```
+
+### Key Learnings from Governance Testing
+
+1. **Block mining**: Use `anvil_mine` with hex values (e.g., `cast rpc anvil_mine 0x2710`)
+2. **Time advancement**: Use `anvil_increaseTime` + mine 1 block to apply
+3. **Blockchain time vs real time**: Frontend must use blockchain timestamp for timelock comparison
+4. **Delegation removes proposer power**: When Account0 delegates to Account1, Account0 can no longer create proposals (0 voting power)
+5. **Proposal ID collision**: Use unique descriptions (timestamp) to avoid `GovernorUnexpectedProposalState` errors
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `frontend/app/governance/[proposalId]/page.tsx` | Added eta fetching, blockTimestamp state |
+| `frontend/components/features/Governance/ProposalActions.tsx` | Added blockTimestamp prop for accurate timelock |
+| `scripts/test_governance_delegation.py` | **NEW** - Automated delegation governance test |
 
 ---
 

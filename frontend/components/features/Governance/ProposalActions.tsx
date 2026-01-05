@@ -13,6 +13,7 @@ interface ProposalActionsProps {
   proposer: string;
   currentUser?: string;
   eta?: number;
+  blockTimestamp?: number; // Current blockchain timestamp for accurate time comparison
   isAdmin?: boolean;
   onQueue?: () => Promise<void>;
   onExecute?: () => Promise<void>;
@@ -25,6 +26,7 @@ export function ProposalActions({
   proposer,
   currentUser,
   eta,
+  blockTimestamp,
   isAdmin,
   onQueue,
   onExecute,
@@ -33,13 +35,16 @@ export function ProposalActions({
 }: ProposalActionsProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+  // Use blockchain timestamp if available, otherwise fall back to real-world time
+  const currentTime = blockTimestamp ?? Math.floor(Date.now() / 1000);
+
   const isProposer = currentUser?.toLowerCase() === proposer.toLowerCase();
   const canQueue = state === 'Succeeded' && onQueue;
-  const canExecute = state === 'Queued' && eta && Date.now() / 1000 >= eta && onExecute;
-  const canCancel = ['Pending', 'Active', 'Succeeded', 'Queued'].includes(state) && 
+  const canExecute = state === 'Queued' && eta && currentTime >= eta && onExecute;
+  const canCancel = ['Pending', 'Active', 'Succeeded', 'Queued'].includes(state) &&
     (isProposer || isAdmin) && onCancel;
 
-  const timeUntilExecution = eta ? Math.max(0, eta - Date.now() / 1000) : 0;
+  const timeUntilExecution = eta ? Math.max(0, eta - currentTime) : 0;
   const formattedTime = () => {
     const hours = Math.floor(timeUntilExecution / 3600);
     const minutes = Math.floor((timeUntilExecution % 3600) / 60);

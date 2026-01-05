@@ -668,9 +668,13 @@ CREATE TABLE IF NOT EXISTS contract_addresses (
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT contract_addresses_status_check CHECK (status IN ('active', 'deprecated', 'paused')),
-    CONSTRAINT contract_addresses_unique_active UNIQUE (chain_id, contract_mapping_id, is_primary) WHERE is_primary = TRUE
+    CONSTRAINT contract_addresses_status_check CHECK (status IN ('active', 'deprecated', 'paused'))
 );
+
+-- Partial unique index: only one primary address per chain+contract
+CREATE UNIQUE INDEX IF NOT EXISTS idx_contract_addresses_unique_active
+    ON contract_addresses(chain_id, contract_mapping_id)
+    WHERE is_primary = TRUE;
 
 CREATE INDEX idx_contract_addresses_chain ON contract_addresses(chain_id);
 CREATE INDEX idx_contract_addresses_mapping ON contract_addresses(contract_mapping_id);

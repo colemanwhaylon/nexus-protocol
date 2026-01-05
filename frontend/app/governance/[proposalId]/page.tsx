@@ -17,6 +17,7 @@ import {
   useChainId,
   usePublicClient,
   useReadContract,
+  useBlockNumber,
 } from "wagmi";
 import { useContractAddresses } from "@/hooks/useContractAddresses";
 import { useGovernance, VoteSupport } from "@/hooks/useGovernance";
@@ -87,6 +88,13 @@ const governorAbi = [
     inputs: [{ name: "blockNumber", type: "uint256" }],
     outputs: [{ type: "uint256" }],
   },
+  {
+    name: "proposalEta",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "proposalId", type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
 ] as const;
 
 // Token ABI for reading voting power
@@ -114,6 +122,7 @@ interface ProposalData {
   createdAt: number;
   votingStartedAt: number;
   quorum: bigint;
+  eta?: number; // Execution timestamp for queued proposals
   actions: {
     target: string;
     value: bigint;
@@ -149,6 +158,27 @@ export default function ProposalDetailPage({ params }: Props) {
   const tokenAddress = addresses.nexusToken;
   const isGovernorDeployed = hasContract('nexusGovernor');
   const isTokenDeployed = hasContract('nexusToken');
+
+  // Get current block number for progress tracking
+  const { data: currentBlock } = useBlockNumber({ watch: true });
+
+  // Get current block timestamp for accurate timelock comparison
+  const [blockTimestamp, setBlockTimestamp] = useState<number | undefined>();
+
+  // Fetch block timestamp when block number changes
+  useEffect(() => {
+    async function fetchBlockTimestamp() {
+      if (publicClient && currentBlock) {
+        try {
+          const block = await publicClient.getBlock({ blockNumber: currentBlock });
+          setBlockTimestamp(Number(block.timestamp));
+        } catch (e) {
+          console.warn("Could not fetch block timestamp:", e);
+        }
+      }
+    }
+    fetchBlockTimestamp();
+  }, [publicClient, currentBlock]);
 
   const [proposal, setProposal] = useState<ProposalData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -247,6 +277,23 @@ export default function ProposalDetailPage({ params }: Props) {
         args: [proposalId],
       });
 
+      // Get proposal eta (execution timestamp) if queued
+      let eta: number | undefined;
+      const stateNum = Number(stateResult);
+      if (stateNum === 5) { // 5 = Queued
+        try {
+          const etaResult = await publicClient.readContract({
+            address: governorAddress,
+            abi: governorAbi,
+            functionName: "proposalEta",
+            args: [proposalId],
+          });
+          eta = Number(etaResult);
+        } catch (e) {
+          console.warn("Could not fetch proposal eta:", e);
+        }
+      }
+
       // Get proposal votes
       const votesResult = await publicClient.readContract({
         address: governorAddress,
@@ -302,6 +349,7 @@ export default function ProposalDetailPage({ params }: Props) {
         createdAt,
         votingStartedAt,
         quorum,
+        eta, // Execution timestamp for queued proposals
         actions,
         // Raw data for operations
         targets,
@@ -475,6 +523,44 @@ export default function ProposalDetailPage({ params }: Props) {
         </div>
       </div>
 
+      {/* Block Progress Indicator */}
+      {proposal && currentBlock !== undefined && (
+        <div className="mb-6 p-4 bg-muted rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Block Progress</span>
+            <span className="text-sm text-muted-foreground">
+              Current Block: <span className="font-mono font-bold">{currentBlock.toLocaleString()}</span>
+            </span>
+          </div>
+          <div className="w-full bg-secondary rounded-full h-2 mb-2">
+            <div
+              className={`h-2 rounded-full transition-all ${
+                proposal.state === "Active" ? "bg-blue-500" :
+                proposal.state === "Succeeded" ? "bg-green-500" :
+                proposal.state === "Defeated" ? "bg-red-500" :
+                "bg-primary"
+              }`}
+              style={{
+                width: `${Math.min(100, Math.max(0,
+                  proposal.state === "Pending"
+                    ? ((Number(currentBlock) - (proposal.startBlock - 7200)) / 7200) * 100
+                    : ((Number(currentBlock) - proposal.startBlock) / (proposal.endBlock - proposal.startBlock)) * 100
+                ))}%`
+              }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Start: {proposal.startBlock.toLocaleString()}</span>
+            <span>End: {proposal.endBlock.toLocaleString()}</span>
+          </div>
+          {proposal.state === "Active" && Number(currentBlock) < proposal.endBlock && (
+            <p className="text-xs text-muted-foreground mt-1">
+              ~{(proposal.endBlock - Number(currentBlock)).toLocaleString()} blocks remaining
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Transaction error */}
       {writeError && (
         <Alert variant="destructive" className="mb-6">
@@ -548,6 +634,8 @@ export default function ProposalDetailPage({ params }: Props) {
             state={proposal.state}
             proposer={proposal.proposer}
             currentUser={userAddress}
+            eta={proposal.eta}
+            blockTimestamp={blockTimestamp}
             isAdmin={false} // TODO: Check if user has admin role from AccessControl contract
             onQueue={handleQueue}
             onExecute={handleExecute}
