@@ -1,7 +1,7 @@
 {
   "name": "Nexus Genesis #10",
   "description": "Nexus Genesis NFT #10 - A unique digital collectible from the Nexus Protocol Genesis Collection. Holders receive 10% staking boost, 1.5x governance voting power, and exclusive access to protocol features.",
-  "image": "http://localhost:3000/metadata/images/10.svg",
+  "image": "https://nexus-protocol.vercel.app/metadata/images/10.svg",
   "external_url": "https://nexusprotocol.io/nft/10",
   "attributes": [
     {
