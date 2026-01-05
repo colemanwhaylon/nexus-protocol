@@ -2,7 +2,7 @@
 
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi';
 import type { Address } from 'viem';
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 
 const stakingAbi = [
   {
@@ -56,10 +56,11 @@ const stakingAbi = [
   },
 ] as const;
 
-export function useStaking(chainId?: number) {
+export function useStaking() {
   const { address } = useAccount();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const stakingAddress = addresses.nexusStaking as Address;
+  const isReady = hasContract('nexusStaking');
 
   const { writeContract, data: hash, isPending, error: writeError, reset } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -71,7 +72,7 @@ export function useStaking(chainId?: number) {
     functionName: 'getStakeInfo',
     args: address ? [address] : undefined,
     query: {
-      enabled: !!address,
+      enabled: isReady && !!address,
       staleTime: 0, // Always refetch
       gcTime: 0, // Don't cache
     },
@@ -82,6 +83,7 @@ export function useStaking(chainId?: number) {
     abi: stakingAbi,
     functionName: 'totalStaked',
     query: {
+      enabled: isReady,
       staleTime: 0,
       gcTime: 0,
     },
@@ -93,7 +95,7 @@ export function useStaking(chainId?: number) {
     functionName: 'getVotingPower',
     args: address ? [address] : undefined,
     query: {
-      enabled: !!address,
+      enabled: isReady && !!address,
       staleTime: 0,
       gcTime: 0,
     },
@@ -131,13 +133,19 @@ export function useStaking(chainId?: number) {
   const currentDelegatee = stakeInfo ? (stakeInfo as readonly [bigint, bigint, string, bigint, bigint, bigint])[2] : undefined;
 
   return {
+    // Loading state from contract addresses
+    isAddressesLoading: addressesLoading,
+    isReady,
+    // Actions
     stake,
     unstake,
     delegate,
+    // Data
     stakedBalance,
     currentDelegatee: currentDelegatee as Address | undefined,
     votingPower: votingPower as bigint | undefined,
     totalStaked: totalStaked as bigint | undefined,
+    // Transaction state
     hash,
     isPending,
     isConfirming,

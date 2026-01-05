@@ -18,7 +18,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { getContractAddresses } from "@/lib/contracts/addresses";
+import { useContractAddresses } from "@/hooks/useContractAddresses";
 import type { Address } from "viem";
 import { parseAbiItem } from "viem";
 
@@ -114,13 +114,11 @@ const stateMap: Record<number, ProposalState> = {
   7: "executed",
 };
 
-const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000";
-
 export default function GovernancePage() {
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, hasContract } = useContractAddresses();
 
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [isLoadingProposals, setIsLoadingProposals] = useState(true);
@@ -128,8 +126,8 @@ export default function GovernancePage() {
 
   const governorAddress = addresses.nexusGovernor;
   const tokenAddress = addresses.nexusToken;
-  const isGovernorDeployed = governorAddress !== ZERO_ADDRESS;
-  const isTokenDeployed = tokenAddress !== ZERO_ADDRESS;
+  const isGovernorDeployed = hasContract('nexusGovernor');
+  const isTokenDeployed = hasContract('nexusToken');
 
   // Read user's voting power
   const { data: votingPower, isLoading: isLoadingVotingPower } = useReadContract({

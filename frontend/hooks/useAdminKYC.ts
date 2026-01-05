@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, usePublicClient } from 'wagmi';
 import type { Address, Log } from 'viem';
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { useNotifications } from './useNotifications';
 
 // ============ Types ============
@@ -249,10 +249,10 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
   const { autoRefresh = true, refreshInterval = 30000, pageSize = 100 } = options;
 
   const { address: userAddress } = useAccount();
-  const chainId = useChainId();
   const publicClient = usePublicClient();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const kycRegistryAddress = addresses.nexusKYC as Address;
+  const isReady = hasContract('nexusKYC');
 
   const { notifySuccess, notifyError, notifyAdminAction } = useNotifications();
 
@@ -266,23 +266,20 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
 
-  // Contract deployed check
-  const isContractDeployed = kycRegistryAddress !== '0x0000000000000000000000000000000000000000';
-
   // ============ Read Contract Calls ============
 
   const { data: whitelistCount, refetch: refetchWhitelistCount } = useReadContract({
     address: kycRegistryAddress,
     abi: kycRegistryAbi,
     functionName: 'getWhitelistCount',
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const { data: blacklistCount, refetch: refetchBlacklistCount } = useReadContract({
     address: kycRegistryAddress,
     abi: kycRegistryAbi,
     functionName: 'getBlacklistCount',
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   // ============ Write Contract Setup ============
@@ -302,7 +299,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
   // ============ Fetch Functions ============
 
   const fetchWhitelistedAddresses = useCallback(async () => {
-    if (!isContractDeployed || !publicClient) return [];
+    if (!isReady || !publicClient) return [];
 
     try {
       const count = whitelistCount as bigint | undefined;
@@ -329,10 +326,10 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
       console.error('Error fetching whitelisted addresses:', err);
       return [];
     }
-  }, [isContractDeployed, publicClient, kycRegistryAddress, whitelistCount, pageSize]);
+  }, [isReady, publicClient, kycRegistryAddress, whitelistCount, pageSize]);
 
   const fetchBlacklistedAddresses = useCallback(async () => {
-    if (!isContractDeployed || !publicClient) return [];
+    if (!isReady || !publicClient) return [];
 
     try {
       const count = blacklistCount as bigint | undefined;
@@ -359,11 +356,11 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
       console.error('Error fetching blacklisted addresses:', err);
       return [];
     }
-  }, [isContractDeployed, publicClient, kycRegistryAddress, blacklistCount, pageSize]);
+  }, [isReady, publicClient, kycRegistryAddress, blacklistCount, pageSize]);
 
   const fetchKYCInfo = useCallback(
     async (address: string): Promise<FormattedKYCRequest | null> => {
-      if (!isContractDeployed || !publicClient) return null;
+      if (!isReady || !publicClient) return null;
 
       try {
         const info = await publicClient.readContract({
@@ -379,11 +376,11 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return null;
       }
     },
-    [isContractDeployed, publicClient, kycRegistryAddress]
+    [isReady, publicClient, kycRegistryAddress]
   );
 
   const fetchAllKYCInfo = useCallback(async () => {
-    if (!isContractDeployed) return;
+    if (!isReady) return;
 
     setIsLoading(true);
     setError(null);
@@ -427,7 +424,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
       setIsLoading(false);
     }
   }, [
-    isContractDeployed,
+    isReady,
     refetchWhitelistCount,
     refetchBlacklistCount,
     fetchWhitelistedAddresses,
@@ -446,7 +443,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
 
   const isWhitelisted = useCallback(
     async (address: string): Promise<boolean> => {
-      if (!isContractDeployed || !publicClient) return false;
+      if (!isReady || !publicClient) return false;
 
       try {
         return await publicClient.readContract({
@@ -459,12 +456,12 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [isContractDeployed, publicClient, kycRegistryAddress]
+    [isReady, publicClient, kycRegistryAddress]
   );
 
   const isBlacklisted = useCallback(
     async (address: string): Promise<boolean> => {
-      if (!isContractDeployed || !publicClient) return false;
+      if (!isReady || !publicClient) return false;
 
       try {
         return await publicClient.readContract({
@@ -477,7 +474,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [isContractDeployed, publicClient, kycRegistryAddress]
+    [isReady, publicClient, kycRegistryAddress]
   );
 
   // ============ Write Functions ============
@@ -489,7 +486,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
 
-      if (!isContractDeployed) {
+      if (!isReady) {
         notifyError('Approval Failed', 'KYC Registry contract not deployed');
         return false;
       }
@@ -519,7 +516,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, notifySuccess, notifyError, fetchAllKYCInfo]
+    [userAddress, isReady, kycRegistryAddress, writeContractAsync, notifySuccess, notifyError, fetchAllKYCInfo]
   );
 
   const rejectKYC = useCallback(
@@ -529,7 +526,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
 
-      if (!isContractDeployed) {
+      if (!isReady) {
         notifyError('Rejection Failed', 'KYC Registry contract not deployed');
         return false;
       }
@@ -561,7 +558,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, isWhitelisted, notifySuccess, notifyError, fetchAllKYCInfo]
+    [userAddress, isReady, kycRegistryAddress, writeContractAsync, isWhitelisted, notifySuccess, notifyError, fetchAllKYCInfo]
   );
 
   const addToWhitelist = useCallback(
@@ -571,7 +568,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
 
-      if (!isContractDeployed) {
+      if (!isReady) {
         notifyError('Operation Failed', 'KYC Registry contract not deployed');
         return false;
       }
@@ -595,7 +592,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+    [userAddress, isReady, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
   );
 
   const removeFromWhitelist = useCallback(
@@ -605,7 +602,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
 
-      if (!isContractDeployed) {
+      if (!isReady) {
         notifyError('Operation Failed', 'KYC Registry contract not deployed');
         return false;
       }
@@ -629,7 +626,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+    [userAddress, isReady, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
   );
 
   const addToBlacklist = useCallback(
@@ -639,7 +636,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
 
-      if (!isContractDeployed) {
+      if (!isReady) {
         notifyError('Operation Failed', 'KYC Registry contract not deployed');
         return false;
       }
@@ -663,7 +660,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+    [userAddress, isReady, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
   );
 
   const removeFromBlacklist = useCallback(
@@ -673,7 +670,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
 
-      if (!isContractDeployed) {
+      if (!isReady) {
         notifyError('Operation Failed', 'KYC Registry contract not deployed');
         return false;
       }
@@ -697,7 +694,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+    [userAddress, isReady, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
   );
 
   const setVerificationLevel = useCallback(
@@ -714,7 +711,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
 
-      if (!isContractDeployed) {
+      if (!isReady) {
         notifyError('Operation Failed', 'KYC Registry contract not deployed');
         return false;
       }
@@ -739,7 +736,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+    [userAddress, isReady, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
   );
 
   const revokeKYC = useCallback(
@@ -749,7 +746,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
 
-      if (!isContractDeployed) {
+      if (!isReady) {
         notifyError('Operation Failed', 'KYC Registry contract not deployed');
         return false;
       }
@@ -773,7 +770,7 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
         return false;
       }
     },
-    [userAddress, isContractDeployed, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
+    [userAddress, isReady, kycRegistryAddress, writeContractAsync, txHash, notifyAdminAction, notifyError, fetchAllKYCInfo]
   );
 
   // ============ Computed Values ============
@@ -802,23 +799,23 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
 
   // Initial fetch
   useEffect(() => {
-    if (isContractDeployed) {
+    if (isReady) {
       fetchAllKYCInfo();
     } else {
       setIsLoading(false);
     }
-  }, [isContractDeployed, fetchAllKYCInfo]);
+  }, [isReady, fetchAllKYCInfo]);
 
   // Auto-refresh
   useEffect(() => {
-    if (!autoRefresh || !isContractDeployed) return;
+    if (!autoRefresh || !isReady) return;
 
     const interval = setInterval(() => {
       fetchAllKYCInfo();
     }, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, isContractDeployed, fetchAllKYCInfo]);
+  }, [autoRefresh, refreshInterval, isReady, fetchAllKYCInfo]);
 
   // ============ Return ============
 
@@ -865,7 +862,8 @@ export function useAdminKYC(options: UseAdminKYCOptions = {}) {
     resetWrite,
 
     // Contract info
-    isContractDeployed,
+    isAddressesLoading: addressesLoading,
+    isReady,
     kycRegistryAddress,
 
     // Pagination

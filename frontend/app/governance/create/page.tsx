@@ -13,7 +13,7 @@ import {
   useChainId,
   useReadContract,
 } from "wagmi";
-import { getContractAddresses } from "@/lib/contracts/addresses";
+import { useContractAddresses } from "@/hooks/useContractAddresses";
 import { useGovernance } from "@/hooks/useGovernance";
 import { parseEther } from "viem";
 import type { Address } from "viem";
@@ -35,18 +35,16 @@ interface ProposalAction {
   calldata: string;
 }
 
-const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000";
-
 export default function CreateProposalPage() {
   const router = useRouter();
   const { address: userAddress, isConnected } = useAccount();
   const chainId = useChainId();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, hasContract } = useContractAddresses();
 
   const governorAddress = addresses.nexusGovernor;
   const tokenAddress = addresses.nexusToken;
-  const isGovernorDeployed = governorAddress !== ZERO_ADDRESS;
-  const isTokenDeployed = tokenAddress !== ZERO_ADDRESS;
+  const isGovernorDeployed = hasContract('nexusGovernor');
+  const isTokenDeployed = hasContract('nexusToken');
 
   const {
     createProposal,

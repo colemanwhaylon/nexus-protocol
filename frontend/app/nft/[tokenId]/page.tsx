@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useChainId, useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { isAddress } from 'viem';
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { NFTDetail } from '@/components/features/NFT';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useTokenMetadata } from '@/hooks/useNFT';
@@ -45,8 +45,9 @@ export default function NFTDetailPage() {
   const router = useRouter();
   const tokenId = params.tokenId as string;
   const chainId = useChainId();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, hasContract } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as `0x${string}`;
+  const isReady = hasContract('nexusNFT');
   const { address: userAddress } = useAccount();
   const { notifyNFTTransfer, notifyPending } = useNotifications();
 

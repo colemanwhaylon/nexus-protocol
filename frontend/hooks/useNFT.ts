@@ -2,7 +2,7 @@
 
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi';
 import type { Address } from 'viem';
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { useNotifications } from './useNotifications';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -155,10 +155,11 @@ export interface NFTMetadata {
   }>;
 }
 
-export function useNFT(chainId?: number) {
+export function useNFT() {
   const { address } = useAccount();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as Address;
+  const isReady = hasContract('nexusNFT');
   const { notifyNFTTransfer, notifyNFTReveal, notifyPending, notifyError, notifySuccess } = useNotifications();
 
   // Track pending operation for notifications
@@ -244,18 +245,21 @@ export function useNFT(chainId?: number) {
     address: nftAddress,
     abi: nftAbi,
     functionName: 'totalSupply',
+    query: { enabled: isReady },
   });
 
   const { data: maxSupply } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
     functionName: 'MAX_SUPPLY',
+    query: { enabled: isReady },
   });
 
   const { data: mintPrice } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
     functionName: 'mintPrice',
+    query: { enabled: isReady },
   });
 
   // salePhase: 0 = Closed, 1 = Whitelist, 2 = Public
@@ -263,6 +267,7 @@ export function useNFT(chainId?: number) {
     address: nftAddress,
     abi: nftAbi,
     functionName: 'salePhase',
+    query: { enabled: isReady },
   });
 
   // Minting is active when salePhase is Public (2) or Whitelist (1)
@@ -273,13 +278,14 @@ export function useNFT(chainId?: number) {
     abi: nftAbi,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: isReady && !!address },
   });
 
   const { data: revealed } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
     functionName: 'revealed',
+    query: { enabled: isReady },
   });
 
   const mint = (quantity: number, value: bigint) => {
@@ -367,6 +373,10 @@ export function useNFT(chainId?: number) {
   }, [nftAddress, writeContract, notifyPending]);
 
   return {
+    // Loading state from contract addresses
+    isAddressesLoading: addressesLoading,
+    isReady,
+
     // Existing methods
     mint,
     totalSupply: totalSupply as bigint | undefined,
@@ -426,12 +436,12 @@ export async function fetchTokenMetadata(tokenURI: string): Promise<NFTMetadata 
 
 /**
  * Hook to get token metadata for a specific token
- * @param chainId - Optional chain ID
  * @param tokenId - The token ID to fetch metadata for
  */
-export function useTokenMetadata(chainId?: number, tokenId?: bigint) {
-  const addresses = getContractAddresses(chainId);
+export function useTokenMetadata(tokenId?: bigint) {
+  const { addresses, hasContract } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as Address;
+  const isReady = hasContract('nexusNFT');
   const [metadata, setMetadata] = useState<NFTMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -441,7 +451,7 @@ export function useTokenMetadata(chainId?: number, tokenId?: bigint) {
     abi: nftAbi,
     functionName: 'tokenURI',
     args: tokenId !== undefined ? [tokenId] : undefined,
-    query: { enabled: tokenId !== undefined },
+    query: { enabled: isReady && tokenId !== undefined },
   });
 
   useEffect(() => {
@@ -475,20 +485,20 @@ export function useTokenMetadata(chainId?: number, tokenId?: bigint) {
 
 /**
  * Hook to check if an operator is approved for all NFTs
- * @param chainId - Optional chain ID
  * @param owner - The owner address
  * @param operator - The operator address to check
  */
-export function useIsApprovedForAll(chainId?: number, owner?: Address, operator?: Address) {
-  const addresses = getContractAddresses(chainId);
+export function useIsApprovedForAll(owner?: Address, operator?: Address) {
+  const { addresses, hasContract } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as Address;
+  const isReady = hasContract('nexusNFT');
 
   const { data, isLoading, refetch } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
     functionName: 'isApprovedForAll',
     args: owner && operator ? [owner, operator] : undefined,
-    query: { enabled: !!owner && !!operator },
+    query: { enabled: isReady && !!owner && !!operator },
   });
 
   return {
@@ -500,19 +510,19 @@ export function useIsApprovedForAll(chainId?: number, owner?: Address, operator?
 
 /**
  * Hook to get the approved address for a specific token
- * @param chainId - Optional chain ID
  * @param tokenId - The token ID to check
  */
-export function useGetApproved(chainId?: number, tokenId?: bigint) {
-  const addresses = getContractAddresses(chainId);
+export function useGetApproved(tokenId?: bigint) {
+  const { addresses, hasContract } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as Address;
+  const isReady = hasContract('nexusNFT');
 
   const { data, isLoading, refetch } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
     functionName: 'getApproved',
     args: tokenId !== undefined ? [tokenId] : undefined,
-    query: { enabled: tokenId !== undefined },
+    query: { enabled: isReady && tokenId !== undefined },
   });
 
   return {
@@ -524,19 +534,19 @@ export function useGetApproved(chainId?: number, tokenId?: bigint) {
 
 /**
  * Hook to check if a token is soulbound (non-transferable)
- * @param chainId - Optional chain ID
  * @param tokenId - The token ID to check
  */
-export function useIsTokenSoulbound(chainId?: number, tokenId?: bigint) {
-  const addresses = getContractAddresses(chainId);
+export function useIsTokenSoulbound(tokenId?: bigint) {
+  const { addresses, hasContract } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as Address;
+  const isReady = hasContract('nexusNFT');
 
   const { data, isLoading, refetch } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
     functionName: 'isTokenSoulbound',
     args: tokenId !== undefined ? [tokenId] : undefined,
-    query: { enabled: tokenId !== undefined },
+    query: { enabled: isReady && tokenId !== undefined },
   });
 
   return {
@@ -548,19 +558,19 @@ export function useIsTokenSoulbound(chainId?: number, tokenId?: bigint) {
 
 /**
  * Hook to get the owner of a specific token
- * @param chainId - Optional chain ID
  * @param tokenId - The token ID to check
  */
-export function useOwnerOf(chainId?: number, tokenId?: bigint) {
-  const addresses = getContractAddresses(chainId);
+export function useOwnerOf(tokenId?: bigint) {
+  const { addresses, hasContract } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as Address;
+  const isReady = hasContract('nexusNFT');
 
   const { data, isLoading, refetch } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
     functionName: 'ownerOf',
     args: tokenId !== undefined ? [tokenId] : undefined,
-    query: { enabled: tokenId !== undefined },
+    query: { enabled: isReady && tokenId !== undefined },
   });
 
   return {
@@ -572,19 +582,19 @@ export function useOwnerOf(chainId?: number, tokenId?: bigint) {
 
 /**
  * Hook to get the token URI for a specific token
- * @param chainId - Optional chain ID
  * @param tokenId - The token ID
  */
-export function useTokenURI(chainId?: number, tokenId?: bigint) {
-  const addresses = getContractAddresses(chainId);
+export function useTokenURI(tokenId?: bigint) {
+  const { addresses, hasContract } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as Address;
+  const isReady = hasContract('nexusNFT');
 
   const { data, isLoading, refetch } = useReadContract({
     address: nftAddress,
     abi: nftAbi,
     functionName: 'tokenURI',
     args: tokenId !== undefined ? [tokenId] : undefined,
-    query: { enabled: tokenId !== undefined },
+    query: { enabled: isReady && tokenId !== undefined },
   });
 
   return {

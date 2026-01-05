@@ -36,6 +36,14 @@ var (
 	ErrMetaTxInvalidSig     = errors.New("invalid meta-transaction signature")
 	ErrMetaTxAlreadyRelayed = errors.New("meta-transaction already relayed")
 
+	// Contract address errors
+	ErrNetworkNotFound          = errors.New("network configuration not found")
+	ErrNetworkNotActive         = errors.New("network is not active")
+	ErrContractMappingNotFound  = errors.New("contract mapping not found")
+	ErrContractAddressNotFound  = errors.New("contract address not found")
+	ErrContractAlreadyDeployed  = errors.New("contract already deployed on this chain")
+	ErrInvalidChainID           = errors.New("invalid chain ID")
+
 	// General errors
 	ErrInvalidAddress      = errors.New("invalid ethereum address")
 	ErrUnauthorized        = errors.New("unauthorized operation")

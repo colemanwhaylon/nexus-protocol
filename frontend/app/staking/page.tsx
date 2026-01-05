@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useStaking } from '@/hooks/useStaking';
 import { useTokenBalance } from '@/hooks/useTokenBalance';
 import { useTokenApproval } from '@/hooks/useTokenApproval';
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { DelegationForm } from '@/components/features/Staking/DelegationForm';
 import { useNotifications } from '@/hooks/useNotifications';
 import type { Address } from 'viem';
@@ -22,7 +22,6 @@ type StakingAction = 'stake' | 'unstake' | 'delegate';
 
 export default function StakingPage() {
   const { address, isConnected } = useAccount();
-  const chainId = useChainId();
   const [stakeAmount, setStakeAmount] = useState('');
   const [unstakeAmount, setUnstakeAmount] = useState('');
   const [showApprovalSuccess, setShowApprovalSuccess] = useState(false);
@@ -31,10 +30,11 @@ export default function StakingPage() {
   // Notifications
   const { notifyApproval, notifyStake, notifyUnstake, notifyDelegate, notifyError } = useNotifications();
 
-  // Get contract addresses
-  const addresses = getContractAddresses(chainId);
+  // Get contract addresses from database
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const tokenAddress = addresses.nexusToken;
   const stakingAddress = addresses.nexusStaking;
+  const isReady = hasContract('nexusToken') && hasContract('nexusStaking');
 
   // Hooks
   const { balance: tokenBalance, refetch: refetchBalance } = useTokenBalance({
@@ -67,7 +67,7 @@ export default function StakingPage() {
     error: stakingError,
     reset: resetStaking,
     refetch: refetchStaking,
-  } = useStaking(chainId);
+  } = useStaking();
 
   // Track processed transaction hashes to avoid duplicate refetches
   const processedHashRef = useRef<string | null>(null);

@@ -109,8 +109,8 @@ function StakeButton() {
 
 // Hook encapsulates all contract details
 function useStaking() {
-  const chainId = useChainId()
-  const addresses = getContractAddresses(chainId)
+  const { addresses, hasContract } = useContractAddresses()
+  // Contract addresses loaded from database API
   // All contract logic here
 }
 ```
@@ -160,9 +160,8 @@ frontend/
 │   ├── notificationStore.ts
 │   └── uiStore.ts
 ├── lib/
-│   ├── contracts/                # Contract ABIs and addresses
-│   │   ├── abis/
-│   │   └── addresses.ts
+│   ├── api/                      # API clients
+│   │   └── contracts.ts          # Contract addresses API (database-driven)
 │   ├── utils/                    # Utility functions
 │   │   ├── format.ts             # Number/date formatting
 │   │   └── validation.ts         # Zod schemas
@@ -266,16 +265,17 @@ Each contract domain has ONE hook:
 
 ```typescript
 // hooks/useStaking.ts
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { useChainId, useAccount } from 'wagmi'
+import { useReadContract, useWriteContract } from 'wagmi'
+import { useAccount } from 'wagmi'
 import { parseEther, formatEther } from 'viem'
-import { getContractAddresses } from '@/lib/contracts/addresses'
-import { nexusStakingAbi } from '@/lib/contracts/abis/nexusStaking'
+import { useContractAddresses } from '@/hooks/useContractAddresses'
+import { nexusStakingAbi } from '@/lib/abis/nexusStaking'
 
 export function useStaking() {
-  const chainId = useChainId()
   const { address: userAddress } = useAccount()
-  const addresses = getContractAddresses(chainId)
+  // Contract addresses fetched from database API via React Query
+  const { addresses, hasContract, isLoading: addressesLoading } = useContractAddresses()
+  const isReady = hasContract('nexusStaking')
 
   // Read: User's staked balance
   const { data: stakedBalance, refetch: refetchBalance } = useReadContract({
@@ -283,7 +283,7 @@ export function useStaking() {
     abi: nexusStakingAbi,
     functionName: 'balanceOf',
     args: userAddress ? [userAddress] : undefined,
-    enabled: !!userAddress,
+    query: { enabled: isReady && !!userAddress },  // Only query when contract is deployed
   })
 
   // Read: Total staked
@@ -328,6 +328,8 @@ export function useStaking() {
     unstake,
 
     // Loading states
+    isLoading: addressesLoading,  // Include addresses loading state
+    isReady,                       // Contract is deployed and ready
     isStaking,
 
     // Refetch

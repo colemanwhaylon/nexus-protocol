@@ -13,7 +13,7 @@ import {
   usePublicClient
 } from 'wagmi';
 import { type Address, parseAbiItem } from 'viem';
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useAdmin } from '@/hooks/useAdmin';
 import { AlertTriangle, Shield, Activity, Clock, History, Zap } from 'lucide-react';
@@ -145,7 +145,7 @@ interface CircuitBreaker {
 
 export default function EmergencyPage() {
   const chainId = useChainId();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, hasContract } = useContractAddresses();
   const publicClient = usePublicClient();
   const { notifyEmergencyPause, notifyEmergencyUnpause, notifyError } = useNotifications();
 
@@ -161,7 +161,7 @@ export default function EmergencyPage() {
   const [eventsError, setEventsError] = useState<string | null>(null);
 
   // Check if emergency contract is deployed
-  const isEmergencyDeployed = addresses.nexusEmergency !== '0x0000000000000000000000000000000000000000';
+  const isEmergencyDeployed = hasContract('nexusEmergency');
 
   // Read global pause status from contract
   const { data: isPausedData, refetch: refetchPaused, isLoading: isPausedLoading } = useReadContract({
@@ -209,7 +209,7 @@ export default function EmergencyPage() {
     abi: nexusEmergencyAbi,
     functionName: 'contractPaused',
     args: [addresses.nexusStaking],
-    query: { enabled: isEmergencyDeployed && addresses.nexusStaking !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: isEmergencyDeployed && hasContract('nexusStaking') },
   });
 
   const { data: nftPausedData, refetch: refetchNFTPaused } = useReadContract({
@@ -217,7 +217,7 @@ export default function EmergencyPage() {
     abi: nexusEmergencyAbi,
     functionName: 'contractPaused',
     args: [addresses.nexusNFT],
-    query: { enabled: isEmergencyDeployed && addresses.nexusNFT !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: isEmergencyDeployed && hasContract('nexusNFT') },
   });
 
   const { data: tokenPausedData, refetch: refetchTokenPaused } = useReadContract({
@@ -225,7 +225,7 @@ export default function EmergencyPage() {
     abi: nexusEmergencyAbi,
     functionName: 'contractPaused',
     args: [addresses.nexusToken],
-    query: { enabled: isEmergencyDeployed && addresses.nexusToken !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: isEmergencyDeployed && hasContract('nexusToken') },
   });
 
   const { data: governorPausedData, refetch: refetchGovernorPaused } = useReadContract({
@@ -233,7 +233,7 @@ export default function EmergencyPage() {
     abi: nexusEmergencyAbi,
     functionName: 'contractPaused',
     args: [addresses.nexusGovernor],
-    query: { enabled: isEmergencyDeployed && addresses.nexusGovernor !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: isEmergencyDeployed && hasContract('nexusGovernor') },
   });
 
   // Coerce to booleans for consistent handling

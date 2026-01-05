@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAccount, useChainId, useReadContract } from 'wagmi';
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { useNFT, useTokenMetadata } from '@/hooks/useNFT';
 import { NFTGrid, NFTCard } from '@/components/features/NFT';
 import { ExternalLink, Image as ImageIcon } from 'lucide-react';
@@ -26,8 +26,9 @@ export default function GalleryPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, hasContract } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as `0x${string}`;
+  const isReady = hasContract('nexusNFT');
 
   const { balance, totalSupply, maxSupply } = useNFT(chainId);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);

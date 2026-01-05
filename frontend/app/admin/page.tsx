@@ -2,12 +2,12 @@
 
 import { useChainId } from 'wagmi';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { ProtocolStatus, AuditLog } from '@/components/features/Admin';
 
 export default function AdminDashboard() {
   const chainId = useChainId();
-  const addresses = getContractAddresses(chainId);
+  const { addresses } = useContractAddresses();
 
   // Contract status data
   const contracts = [

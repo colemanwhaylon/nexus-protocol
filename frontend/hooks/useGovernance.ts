@@ -3,7 +3,7 @@
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi';
 import type { Address } from 'viem';
 import { keccak256, toBytes } from 'viem';
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { useNotifications } from '@/hooks/useNotifications';
 
 /**
@@ -235,12 +235,12 @@ export function getVoteSupportLabel(support: VoteSupport): 'for' | 'against' | '
 
 /**
  * Hook for interacting with the NexusGovernor contract
- * @param chainId - Optional chain ID to use specific contract addresses
  */
-export function useGovernance(chainId?: number) {
+export function useGovernance() {
   const { address } = useAccount();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const governorAddress = addresses.nexusGovernor as Address;
+  const isReady = hasContract('nexusGovernor');
   const { notifyProposalCreated, notifyVoteCast, notifySuccess, notifyError } = useNotifications();
 
   const { writeContract, data: hash, isPending, error: writeError, reset } = useWriteContract();
@@ -252,18 +252,21 @@ export function useGovernance(chainId?: number) {
     address: governorAddress,
     abi: governorAbi,
     functionName: 'proposalThreshold',
+    query: { enabled: isReady },
   });
 
   const { data: votingDelay } = useReadContract({
     address: governorAddress,
     abi: governorAbi,
     functionName: 'votingDelay',
+    query: { enabled: isReady },
   });
 
   const { data: votingPeriod } = useReadContract({
     address: governorAddress,
     abi: governorAbi,
     functionName: 'votingPeriod',
+    query: { enabled: isReady },
   });
 
   // ============ Write Functions ============
@@ -396,7 +399,7 @@ export function useGovernance(chainId?: number) {
       abi: governorAbi,
       functionName: 'state',
       args: proposalId !== undefined ? [proposalId] : undefined,
-      query: { enabled: proposalId !== undefined },
+      query: { enabled: isReady && proposalId !== undefined },
     });
 
     return {
@@ -417,7 +420,7 @@ export function useGovernance(chainId?: number) {
       abi: governorAbi,
       functionName: 'proposalVotes',
       args: proposalId !== undefined ? [proposalId] : undefined,
-      query: { enabled: proposalId !== undefined },
+      query: { enabled: isReady && proposalId !== undefined },
     });
 
     const votes = data as readonly [bigint, bigint, bigint] | undefined;
@@ -444,7 +447,7 @@ export function useGovernance(chainId?: number) {
       abi: governorAbi,
       functionName: 'hasVoted',
       args: proposalId !== undefined && targetAccount ? [proposalId, targetAccount] : undefined,
-      query: { enabled: proposalId !== undefined && !!targetAccount },
+      query: { enabled: isReady && proposalId !== undefined && !!targetAccount },
     });
 
     return {
@@ -467,7 +470,7 @@ export function useGovernance(chainId?: number) {
       abi: governorAbi,
       functionName: 'getVotes',
       args: targetAccount && timepoint !== undefined ? [targetAccount, timepoint] : undefined,
-      query: { enabled: !!targetAccount && timepoint !== undefined },
+      query: { enabled: isReady && !!targetAccount && timepoint !== undefined },
     });
 
     return {
@@ -487,7 +490,7 @@ export function useGovernance(chainId?: number) {
       abi: governorAbi,
       functionName: 'proposalSnapshot',
       args: proposalId !== undefined ? [proposalId] : undefined,
-      query: { enabled: proposalId !== undefined },
+      query: { enabled: isReady && proposalId !== undefined },
     });
 
     const { data: deadline } = useReadContract({
@@ -495,7 +498,7 @@ export function useGovernance(chainId?: number) {
       abi: governorAbi,
       functionName: 'proposalDeadline',
       args: proposalId !== undefined ? [proposalId] : undefined,
-      query: { enabled: proposalId !== undefined },
+      query: { enabled: isReady && proposalId !== undefined },
     });
 
     return {
@@ -526,6 +529,10 @@ export function useGovernance(chainId?: number) {
   // ============ Return Values ============
 
   return {
+    // Loading state from contract addresses
+    isAddressesLoading: addressesLoading,
+    isReady,
+
     // Write functions
     createProposal,
     propose,

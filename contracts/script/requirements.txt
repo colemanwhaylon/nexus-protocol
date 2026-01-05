@@ -1,0 +1,2 @@
+# Requirements for post-deployment scripts
+requests>=2.28.0

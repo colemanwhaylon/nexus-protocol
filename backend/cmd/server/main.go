@@ -87,6 +87,7 @@ func main() {
 	pricingRepo := postgres.NewPostgresPricingRepo(db)
 	paymentRepo := postgres.NewPostgresPaymentRepo(db)
 	relayerRepo := postgres.NewPostgresRelayerRepo(db)
+	contractRepo := postgres.NewPostgresContractRepo(db)
 
 	// Create handlers with injected dependencies
 	healthHandler := handlers.NewHealthHandler(logger, version, commit, buildDate)
@@ -99,6 +100,7 @@ func main() {
 		logger.Warn("relayer handler disabled", zap.Error(err))
 		relayerHandler = nil
 	}
+	contractHandler := handlers.NewContractHandler(contractRepo, logger)
 
 	// Setup router
 	router := gin.New()
@@ -169,6 +171,24 @@ func main() {
 				relay.GET("/info/relayer", relayerHandler.GetRelayerAddress)
 				relay.GET("/info/forwarder", relayerHandler.GetForwarderAddress)
 			}
+		}
+
+		// Network configuration routes (public read)
+		networks := api.Group("/networks")
+		{
+			networks.GET("", contractHandler.ListNetworks)
+			networks.GET("/:chainId", contractHandler.GetNetwork)
+		}
+
+		// Contract address routes (public read, POST for deploy scripts)
+		contracts := api.Group("/contracts")
+		{
+			contracts.GET("/mappings", contractHandler.ListMappings)
+			contracts.GET("/config/:chainId", contractHandler.GetDeploymentConfig)
+			contracts.GET("/:chainId", contractHandler.ListContracts)
+			contracts.GET("/:chainId/:name", contractHandler.GetContract)
+			contracts.POST("", contractHandler.UpsertContract)
+			contracts.GET("/history/:id", contractHandler.GetContractHistory)
 		}
 	}
 

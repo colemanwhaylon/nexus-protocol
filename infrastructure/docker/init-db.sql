@@ -610,6 +610,161 @@ CREATE TRIGGER update_meta_transactions_updated_at
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO nexus_readonly;
 
 -- ============================================
+-- Contract Address Management (Database-Driven)
+-- ============================================
+
+-- Network configurations
+-- Stores per-network settings (deployer address, RPC URL, etc.)
+CREATE TABLE IF NOT EXISTS network_config (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    chain_id BIGINT NOT NULL UNIQUE,
+    network_name VARCHAR(50) NOT NULL UNIQUE,     -- 'localhost', 'sepolia', 'mainnet'
+    display_name VARCHAR(100) NOT NULL,           -- 'Local Development', 'Sepolia Testnet'
+    rpc_url VARCHAR(255),
+    explorer_url VARCHAR(255),
+    default_deployer VARCHAR(42),                 -- Default deployer address for this network
+    is_testnet BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_network_config_chain ON network_config(chain_id);
+CREATE INDEX idx_network_config_name ON network_config(network_name);
+CREATE INDEX idx_network_config_active ON network_config(is_active);
+
+-- Contract name mappings
+-- Maps Solidity contract names to database keys
+-- Allows adding new contracts without code changes
+CREATE TABLE IF NOT EXISTS contract_mappings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    solidity_name VARCHAR(100) NOT NULL UNIQUE,   -- 'NexusToken', 'NexusStaking'
+    db_name VARCHAR(50) NOT NULL UNIQUE,          -- 'nexusToken', 'nexusStaking'
+    display_name VARCHAR(100) NOT NULL,           -- 'Nexus Token', 'Nexus Staking'
+    category VARCHAR(50) NOT NULL,                -- 'core', 'defi', 'governance', 'security', 'metatx'
+    description TEXT,
+    is_required BOOLEAN NOT NULL DEFAULT TRUE,    -- Must be deployed for app to work
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_contract_mappings_solidity ON contract_mappings(solidity_name);
+CREATE INDEX idx_contract_mappings_db ON contract_mappings(db_name);
+CREATE INDEX idx_contract_mappings_category ON contract_mappings(category);
+
+-- Contract addresses
+-- Stores deployed contract addresses per network
+CREATE TABLE IF NOT EXISTS contract_addresses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    chain_id BIGINT NOT NULL REFERENCES network_config(chain_id),
+    contract_mapping_id UUID NOT NULL REFERENCES contract_mappings(id),
+    address VARCHAR(42) NOT NULL,
+    deployment_tx_hash VARCHAR(66),
+    deployment_block BIGINT,
+    abi_version VARCHAR(20) DEFAULT '1.0.0',
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    is_primary BOOLEAN NOT NULL DEFAULT TRUE,
+    deployed_by VARCHAR(42),
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT contract_addresses_status_check CHECK (status IN ('active', 'deprecated', 'paused')),
+    CONSTRAINT contract_addresses_unique_active UNIQUE (chain_id, contract_mapping_id, is_primary) WHERE is_primary = TRUE
+);
+
+CREATE INDEX idx_contract_addresses_chain ON contract_addresses(chain_id);
+CREATE INDEX idx_contract_addresses_mapping ON contract_addresses(contract_mapping_id);
+CREATE INDEX idx_contract_addresses_status ON contract_addresses(status);
+CREATE INDEX idx_contract_addresses_primary ON contract_addresses(is_primary);
+
+-- Contract addresses history
+-- Audit trail for address changes
+CREATE TABLE IF NOT EXISTS contract_addresses_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    contract_id UUID NOT NULL REFERENCES contract_addresses(id) ON DELETE CASCADE,
+    old_address VARCHAR(42),
+    new_address VARCHAR(42) NOT NULL,
+    change_reason VARCHAR(255),
+    changed_by VARCHAR(42) NOT NULL,
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_contract_history_contract ON contract_addresses_history(contract_id);
+CREATE INDEX idx_contract_history_changed_at ON contract_addresses_history(changed_at);
+
+-- Triggers for contract management tables
+CREATE TRIGGER update_network_config_updated_at
+    BEFORE UPDATE ON network_config
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_contract_addresses_updated_at
+    BEFORE UPDATE ON contract_addresses
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to log contract address changes
+CREATE OR REPLACE FUNCTION log_contract_address_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Log when address changes
+    IF OLD.address IS DISTINCT FROM NEW.address THEN
+        INSERT INTO contract_addresses_history (
+            contract_id,
+            old_address,
+            new_address,
+            change_reason,
+            changed_by
+        ) VALUES (
+            NEW.id,
+            OLD.address,
+            NEW.address,
+            'Address update',
+            COALESCE(NEW.deployed_by, 'system')
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER log_contract_address_changes
+    AFTER UPDATE ON contract_addresses
+    FOR EACH ROW
+    EXECUTE FUNCTION log_contract_address_change();
+
+-- ============================================
+-- Contract Management Seed Data
+-- ============================================
+
+-- Seed data: Network configurations
+INSERT INTO network_config (chain_id, network_name, display_name, rpc_url, explorer_url, default_deployer, is_testnet, is_active)
+VALUES
+    (31337, 'localhost', 'Local Development (Anvil)', 'http://localhost:8545', NULL, '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', TRUE, TRUE),
+    (11155111, 'sepolia', 'Sepolia Testnet', NULL, 'https://sepolia.etherscan.io', NULL, TRUE, TRUE),
+    (1, 'mainnet', 'Ethereum Mainnet', NULL, 'https://etherscan.io', NULL, FALSE, FALSE),
+    (137, 'polygon', 'Polygon Mainnet', 'https://polygon-rpc.com', 'https://polygonscan.com', NULL, FALSE, FALSE),
+    (80002, 'amoy', 'Polygon Amoy Testnet', 'https://rpc-amoy.polygon.technology', 'https://amoy.polygonscan.com', NULL, TRUE, FALSE),
+    (42161, 'arbitrum', 'Arbitrum One', 'https://arb1.arbitrum.io/rpc', 'https://arbiscan.io', NULL, FALSE, FALSE),
+    (421614, 'arbitrum-sepolia', 'Arbitrum Sepolia', 'https://sepolia-rollup.arbitrum.io/rpc', 'https://sepolia.arbiscan.io', NULL, TRUE, FALSE),
+    (10, 'optimism', 'Optimism', 'https://mainnet.optimism.io', 'https://optimistic.etherscan.io', NULL, FALSE, FALSE),
+    (11155420, 'optimism-sepolia', 'Optimism Sepolia', 'https://sepolia.optimism.io', 'https://sepolia-optimism.etherscan.io', NULL, TRUE, FALSE),
+    (8453, 'base', 'Base', 'https://mainnet.base.org', 'https://basescan.org', NULL, FALSE, FALSE)
+ON CONFLICT (chain_id) DO NOTHING;
+
+-- Seed data: Contract mappings
+INSERT INTO contract_mappings (solidity_name, db_name, display_name, category, description, is_required, sort_order)
+VALUES
+    ('NexusToken', 'nexusToken', 'Nexus Token', 'core', 'ERC-20 governance token with snapshot, permit, votes', TRUE, 1),
+    ('NexusStaking', 'nexusStaking', 'Nexus Staking', 'defi', 'Token staking with rewards and delegation', TRUE, 2),
+    ('NexusNFT', 'nexusNFT', 'Nexus NFT', 'core', 'ERC-721A NFT collection with royalties', TRUE, 3),
+    ('NexusAccessControl', 'nexusAccessControl', 'Access Control', 'security', 'Role-based access control (ADMIN, OPERATOR, COMPLIANCE, PAUSER)', TRUE, 4),
+    ('NexusKYCRegistry', 'nexusKYC', 'KYC Registry', 'security', 'Whitelist/blacklist management for compliance', TRUE, 5),
+    ('NexusEmergency', 'nexusEmergency', 'Emergency', 'security', 'Circuit breakers and global pause functionality', TRUE, 6),
+    ('NexusTimelock', 'nexusTimelock', 'Timelock', 'governance', 'Governance execution delay (24h minimum)', TRUE, 7),
+    ('NexusGovernor', 'nexusGovernor', 'Governor', 'governance', 'DAO governance with proposal/vote system', TRUE, 8),
+    ('NexusForwarder', 'nexusForwarder', 'Forwarder', 'metatx', 'ERC-2771 meta-transactions for gasless UX', FALSE, 9),
+    ('RewardsDistributor', 'rewardsDistributor', 'Rewards Distributor', 'defi', 'Merkle-based reward distribution', FALSE, 10)
+ON CONFLICT (solidity_name) DO NOTHING;
+
+-- ============================================
 -- Final Setup
 -- ============================================
 

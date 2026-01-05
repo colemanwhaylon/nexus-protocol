@@ -18,7 +18,7 @@ import {
   usePublicClient,
   useReadContract,
 } from "wagmi";
-import { getContractAddresses } from "@/lib/contracts/addresses";
+import { useContractAddresses } from "@/hooks/useContractAddresses";
 import { useGovernance, VoteSupport } from "@/hooks/useGovernance";
 import { parseAbiItem } from "viem";
 import type { Address } from "viem";
@@ -127,8 +127,6 @@ interface ProposalData {
   fullDescription: string;
 }
 
-const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000";
-
 // Map numeric state to display state
 const stateDisplayMap: Record<number, ProposalData["state"]> = {
   0: "Pending",
@@ -145,12 +143,12 @@ export default function ProposalDetailPage({ params }: Props) {
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
-  const addresses = getContractAddresses(chainId);
+  const { addresses, hasContract } = useContractAddresses();
 
   const governorAddress = addresses.nexusGovernor;
   const tokenAddress = addresses.nexusToken;
-  const isGovernorDeployed = governorAddress !== ZERO_ADDRESS;
-  const isTokenDeployed = tokenAddress !== ZERO_ADDRESS;
+  const isGovernorDeployed = hasContract('nexusGovernor');
+  const isTokenDeployed = hasContract('nexusToken');
 
   const [proposal, setProposal] = useState<ProposalData | null>(null);
   const [isLoading, setIsLoading] = useState(true);

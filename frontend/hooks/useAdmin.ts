@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount, useChainId } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi';
 import type { Address } from 'viem';
 import { keccak256, toBytes } from 'viem';
-import { getContractAddresses } from '@/lib/contracts/addresses';
+import { useContractAddresses } from '@/hooks/useContractAddresses';
 import { useNotifications } from '@/hooks/useNotifications';
 
 const accessControlAbi = [
@@ -196,13 +196,12 @@ export function getRoleName(roleHash: HexString): string {
   return metadata?.name || 'Unknown Role';
 }
 
-export function useAdmin(chainId?: number) {
+export function useAdmin() {
   const { address } = useAccount();
-  const connectedChainId = useChainId();
-  const effectiveChainId = chainId ?? connectedChainId;
-  const addresses = getContractAddresses(effectiveChainId);
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const accessControlAddress = addresses.nexusAccessControl as Address;
   const emergencyAddress = addresses.nexusEmergency as Address;
+  const isReady = hasContract('nexusAccessControl');
 
   // Notifications
   const { notifyRoleGranted, notifyRoleRevoked, notifyEmergencyPause, notifyEmergencyUnpause } =
@@ -288,7 +287,7 @@ export function useAdmin(chainId?: number) {
     address: accessControlAddress,
     abi: accessControlAbi,
     functionName: 'paused',
-    query: { enabled: accessControlAddress !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: isReady },
   });
 
   const { data: isDefaultAdmin } = useReadContract({
@@ -296,7 +295,7 @@ export function useAdmin(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'hasRole',
     args: address ? [ROLES.DEFAULT_ADMIN_ROLE, address] : undefined,
-    query: { enabled: !!address && accessControlAddress !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: isReady && !!address },
   });
 
   const { data: isAdmin } = useReadContract({
@@ -304,7 +303,7 @@ export function useAdmin(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'hasRole',
     args: address ? [ROLES.ADMIN_ROLE, address] : undefined,
-    query: { enabled: !!address && accessControlAddress !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: isReady && !!address },
   });
 
   const { data: isOperator } = useReadContract({
@@ -312,7 +311,7 @@ export function useAdmin(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'hasRole',
     args: address ? [ROLES.OPERATOR_ROLE, address] : undefined,
-    query: { enabled: !!address && accessControlAddress !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: isReady && !!address },
   });
 
   const { data: isPauser } = useReadContract({
@@ -320,7 +319,7 @@ export function useAdmin(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'hasRole',
     args: address ? [ROLES.PAUSER_ROLE, address] : undefined,
-    query: { enabled: !!address && accessControlAddress !== '0x0000000000000000000000000000000000000000' },
+    query: { enabled: isReady && !!address },
   });
 
   /**
@@ -422,6 +421,10 @@ export function useAdmin(chainId?: number) {
   );
 
   return {
+    // Loading state from contract addresses
+    isAddressesLoading: addressesLoading,
+    isReady,
+
     // Contract addresses
     accessControlAddress,
     emergencyAddress,
@@ -460,25 +463,24 @@ export function useAdmin(chainId?: number) {
 /**
  * Hook to check if an account has a specific role
  */
-export function useHasRole(role: HexString, account: Address | undefined, chainId?: number) {
-  const connectedChainId = useChainId();
-  const effectiveChainId = chainId ?? connectedChainId;
-  const addresses = getContractAddresses(effectiveChainId);
+export function useHasRole(role: HexString, account: Address | undefined) {
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const accessControlAddress = addresses.nexusAccessControl as Address;
-  const isContractDeployed = accessControlAddress !== '0x0000000000000000000000000000000000000000';
+  const isReady = hasContract('nexusAccessControl');
 
   const { data, refetch, isLoading, error } = useReadContract({
     address: accessControlAddress,
     abi: accessControlAbi,
     functionName: 'hasRole',
     args: account ? [role, account] : undefined,
-    query: { enabled: !!account && isContractDeployed },
+    query: { enabled: isReady && !!account },
   });
 
   return {
     hasRole: data as boolean | undefined,
     refetch,
-    isLoading,
+    isLoading: addressesLoading || isLoading,
+    isReady,
     error,
   };
 }
@@ -486,25 +488,24 @@ export function useHasRole(role: HexString, account: Address | undefined, chainI
 /**
  * Hook to get a specific member of a role by index
  */
-export function useRoleMember(role: HexString, index: number, chainId?: number) {
-  const connectedChainId = useChainId();
-  const effectiveChainId = chainId ?? connectedChainId;
-  const addresses = getContractAddresses(effectiveChainId);
+export function useRoleMember(role: HexString, index: number) {
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const accessControlAddress = addresses.nexusAccessControl as Address;
-  const isContractDeployed = accessControlAddress !== '0x0000000000000000000000000000000000000000';
+  const isReady = hasContract('nexusAccessControl');
 
   const { data, refetch, isLoading, error } = useReadContract({
     address: accessControlAddress,
     abi: accessControlAbi,
     functionName: 'getRoleMember',
     args: [role, BigInt(index)],
-    query: { enabled: isContractDeployed && index >= 0 },
+    query: { enabled: isReady && index >= 0 },
   });
 
   return {
     member: data as Address | undefined,
     refetch,
-    isLoading,
+    isLoading: addressesLoading || isLoading,
+    isReady,
     error,
   };
 }
@@ -512,25 +513,24 @@ export function useRoleMember(role: HexString, index: number, chainId?: number) 
 /**
  * Hook to check if a specific contract is paused via Emergency contract
  */
-export function useIsContractPaused(contractAddress: Address, chainId?: number) {
-  const connectedChainId = useChainId();
-  const effectiveChainId = chainId ?? connectedChainId;
-  const addresses = getContractAddresses(effectiveChainId);
+export function useIsContractPaused(contractAddress: Address) {
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const emergencyAddress = addresses.nexusEmergency as Address;
-  const isContractDeployed = emergencyAddress !== '0x0000000000000000000000000000000000000000';
+  const isReady = hasContract('nexusEmergency');
 
   const { data, refetch, isLoading, error } = useReadContract({
     address: emergencyAddress,
     abi: emergencyAbi,
     functionName: 'contractPaused',
     args: [contractAddress],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   return {
     isPaused: data as boolean | undefined,
     refetch,
-    isLoading,
+    isLoading: addressesLoading || isLoading,
+    isReady,
     error,
   };
 }
@@ -538,36 +538,32 @@ export function useIsContractPaused(contractAddress: Address, chainId?: number) 
 /**
  * Hook to get global pause status from Emergency contract
  */
-export function useGlobalPause(chainId?: number) {
-  const connectedChainId = useChainId();
-  const effectiveChainId = chainId ?? connectedChainId;
-  const addresses = getContractAddresses(effectiveChainId);
+export function useGlobalPause() {
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const emergencyAddress = addresses.nexusEmergency as Address;
-  const isContractDeployed = emergencyAddress !== '0x0000000000000000000000000000000000000000';
+  const isReady = hasContract('nexusEmergency');
 
   const { data, refetch, isLoading, error } = useReadContract({
     address: emergencyAddress,
     abi: emergencyAbi,
     functionName: 'globalPause',
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   return {
     isGlobalPause: data as boolean | undefined,
     refetch,
-    isLoading,
+    isLoading: addressesLoading || isLoading,
+    isReady,
     error,
   };
 }
 
 // Hook for fetching role members from the contract
-export function useRoleMembers(chainId?: number) {
-  const connectedChainId = useChainId();
-  const effectiveChainId = chainId ?? connectedChainId;
-  const addresses = getContractAddresses(effectiveChainId);
+export function useRoleMembers() {
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const accessControlAddress = addresses.nexusAccessControl as Address;
-
-  const isContractDeployed = accessControlAddress !== '0x0000000000000000000000000000000000000000';
+  const isReady = hasContract('nexusAccessControl');
 
   // Get member counts for each role
   const { data: defaultAdminCount, refetch: refetchDefaultAdminCount } = useReadContract({
@@ -575,7 +571,7 @@ export function useRoleMembers(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'getRoleMemberCount',
     args: [ROLES.DEFAULT_ADMIN_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const { data: adminCount, refetch: refetchAdminCount } = useReadContract({
@@ -583,7 +579,7 @@ export function useRoleMembers(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'getRoleMemberCount',
     args: [ROLES.ADMIN_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const { data: operatorCount, refetch: refetchOperatorCount } = useReadContract({
@@ -591,7 +587,7 @@ export function useRoleMembers(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'getRoleMemberCount',
     args: [ROLES.OPERATOR_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const { data: complianceCount, refetch: refetchComplianceCount } = useReadContract({
@@ -599,7 +595,7 @@ export function useRoleMembers(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'getRoleMemberCount',
     args: [ROLES.COMPLIANCE_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const { data: pauserCount, refetch: refetchPauserCount } = useReadContract({
@@ -607,7 +603,7 @@ export function useRoleMembers(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'getRoleMemberCount',
     args: [ROLES.PAUSER_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const refetchAllCounts = useCallback(() => {
@@ -619,7 +615,8 @@ export function useRoleMembers(chainId?: number) {
   }, [refetchDefaultAdminCount, refetchAdminCount, refetchOperatorCount, refetchComplianceCount, refetchPauserCount]);
 
   return {
-    isContractDeployed,
+    isAddressesLoading: addressesLoading,
+    isReady,
     accessControlAddress,
     roleCounts: {
       [ROLES.DEFAULT_ADMIN_ROLE]: defaultAdminCount as bigint | undefined,
@@ -635,26 +632,25 @@ export function useRoleMembers(chainId?: number) {
 /**
  * Hook to get the admin role for a specific role
  */
-export function useRoleAdmin(role: HexString, chainId?: number) {
-  const connectedChainId = useChainId();
-  const effectiveChainId = chainId ?? connectedChainId;
-  const addresses = getContractAddresses(effectiveChainId);
+export function useRoleAdmin(role: HexString) {
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const accessControlAddress = addresses.nexusAccessControl as Address;
-  const isContractDeployed = accessControlAddress !== '0x0000000000000000000000000000000000000000';
+  const isReady = hasContract('nexusAccessControl');
 
   const { data, refetch, isLoading, error } = useReadContract({
     address: accessControlAddress,
     abi: accessControlAbi,
     functionName: 'getRoleAdmin',
     args: [role],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   return {
     adminRole: data as HexString | undefined,
     adminRoleName: data ? getRoleName(data as HexString) : undefined,
     refetch,
-    isLoading,
+    isLoading: addressesLoading || isLoading,
+    isReady,
     error,
   };
 }
@@ -662,19 +658,17 @@ export function useRoleAdmin(role: HexString, chainId?: number) {
 /**
  * Hook to get all role admins for the standard roles
  */
-export function useAllRoleAdmins(chainId?: number) {
-  const connectedChainId = useChainId();
-  const effectiveChainId = chainId ?? connectedChainId;
-  const addresses = getContractAddresses(effectiveChainId);
+export function useAllRoleAdmins() {
+  const { addresses, isLoading: addressesLoading, hasContract } = useContractAddresses();
   const accessControlAddress = addresses.nexusAccessControl as Address;
-  const isContractDeployed = accessControlAddress !== '0x0000000000000000000000000000000000000000';
+  const isReady = hasContract('nexusAccessControl');
 
   const { data: defaultAdminAdmin } = useReadContract({
     address: accessControlAddress,
     abi: accessControlAbi,
     functionName: 'getRoleAdmin',
     args: [ROLES.DEFAULT_ADMIN_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const { data: adminAdmin } = useReadContract({
@@ -682,7 +676,7 @@ export function useAllRoleAdmins(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'getRoleAdmin',
     args: [ROLES.ADMIN_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const { data: operatorAdmin } = useReadContract({
@@ -690,7 +684,7 @@ export function useAllRoleAdmins(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'getRoleAdmin',
     args: [ROLES.OPERATOR_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const { data: complianceAdmin } = useReadContract({
@@ -698,7 +692,7 @@ export function useAllRoleAdmins(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'getRoleAdmin',
     args: [ROLES.COMPLIANCE_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   const { data: pauserAdmin } = useReadContract({
@@ -706,10 +700,12 @@ export function useAllRoleAdmins(chainId?: number) {
     abi: accessControlAbi,
     functionName: 'getRoleAdmin',
     args: [ROLES.PAUSER_ROLE],
-    query: { enabled: isContractDeployed },
+    query: { enabled: isReady },
   });
 
   return {
+    isAddressesLoading: addressesLoading,
+    isReady,
     roleAdmins: {
       [ROLES.DEFAULT_ADMIN_ROLE]: defaultAdminAdmin as HexString | undefined,
       [ROLES.ADMIN_ROLE]: adminAdmin as HexString | undefined,
