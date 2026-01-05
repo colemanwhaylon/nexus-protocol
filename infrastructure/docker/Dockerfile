@@ -3,6 +3,9 @@
 #
 # Build: docker build -t nexus-api -f infrastructure/docker/Dockerfile .
 # Run: docker run -p 8080:8080 nexus-api
+#
+# For development with hot reload:
+# docker build --target development -t nexus-api-dev -f infrastructure/docker/Dockerfile .
 
 # ============================================
 # Stage 1: Builder
@@ -53,7 +56,56 @@ RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
     ./cmd/server
 
 # ============================================
-# Stage 2: Runtime
+# Stage 2: Development (optional, use --target development)
+# ============================================
+FROM golang:1.24-alpine AS development
+
+# Install development dependencies
+RUN apk add --no-cache \
+    git \
+    ca-certificates \
+    gcc \
+    musl-dev \
+    make \
+    sqlite-dev \
+    curl \
+    bash
+
+# Install development tools
+# Note: air@latest requires Go 1.25+, pin to v1.52.3 for Go 1.23 compatibility
+RUN go install github.com/air-verse/air@v1.52.3 && \
+    go install github.com/swaggo/swag/cmd/swag@latest
+
+# Create non-root user
+RUN addgroup -g 1000 nexus && \
+    adduser -u 1000 -G nexus -s /bin/bash -D nexus
+
+# Create directories and set permissions for Go cache
+RUN mkdir -p /app/data /app/logs && \
+    chown -R nexus:nexus /app && \
+    chown -R nexus:nexus /go
+
+WORKDIR /app
+
+# Environment variables for development
+ENV GIN_MODE=debug
+ENV PORT=8080
+ENV LOG_LEVEL=debug
+ENV DB_DRIVER=sqlite
+ENV DB_PATH=/app/data/nexus.db
+ENV CACHE_DRIVER=memory
+
+# Expose ports (8080 for API, 2345 for delve debugger)
+EXPOSE 8080 2345
+
+# Switch to non-root user
+USER nexus
+
+# Default command for development (using air for hot reload)
+CMD ["air", "-c", ".air.toml"]
+
+# ============================================
+# Stage 3: Runtime (DEFAULT - used by Railway/production)
 # ============================================
 FROM alpine:3.19 AS runtime
 
@@ -114,52 +166,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Run the application
 ENTRYPOINT ["/app/nexus-api"]
-
-# ============================================
-# Stage 3: Development (optional)
-# ============================================
-FROM golang:1.24-alpine AS development
-
-# Install development dependencies
-RUN apk add --no-cache \
-    git \
-    ca-certificates \
-    gcc \
-    musl-dev \
-    make \
-    sqlite-dev \
-    curl \
-    bash
-
-# Install development tools
-# Note: air@latest requires Go 1.25+, pin to v1.52.3 for Go 1.23 compatibility
-RUN go install github.com/air-verse/air@v1.52.3 && \
-    go install github.com/swaggo/swag/cmd/swag@latest
-
-# Create non-root user
-RUN addgroup -g 1000 nexus && \
-    adduser -u 1000 -G nexus -s /bin/bash -D nexus
-
-# Create directories and set permissions for Go cache
-RUN mkdir -p /app/data /app/logs && \
-    chown -R nexus:nexus /app && \
-    chown -R nexus:nexus /go
-
-WORKDIR /app
-
-# Environment variables for development
-ENV GIN_MODE=debug
-ENV PORT=8080
-ENV LOG_LEVEL=debug
-ENV DB_DRIVER=sqlite
-ENV DB_PATH=/app/data/nexus.db
-ENV CACHE_DRIVER=memory
-
-# Expose ports (8080 for API, 2345 for delve debugger)
-EXPOSE 8080 2345
-
-# Switch to non-root user
-USER nexus
-
-# Default command for development (using air for hot reload)
-CMD ["air", "-c", ".air.toml"]
