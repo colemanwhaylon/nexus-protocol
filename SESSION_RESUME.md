@@ -1,31 +1,40 @@
 # Nexus Protocol - Session Resume Document
 
-**Last Updated**: 2026-01-04 (Session 15 - Database-Driven Contract Addresses)
+**Last Updated**: 2026-01-04 (Session 16 - Comprehensive Dev Setup Script)
 **Current Branch**: `feature/m1-frontend-integration`
 **Working Directory**: `/home/whaylon/Downloads/Blockchain/nexus-protocol`
 
 ---
 
-## PRIORITY: Test NFT Minting
+## ONE-COMMAND DEV SETUP
 
-### Quick Start Command
+### Quick Start (Single Command!)
 ```bash
-# Start Docker stack (from infrastructure/docker directory)
-cd /home/whaylon/Downloads/Blockchain/nexus-protocol/infrastructure/docker
-docker compose --profile dev up -d
+# Complete fresh setup - recycles containers, deploys, initializes, tests
+./scripts/dev-setup.sh
 
-# Deploy contracts to fresh Anvil
-cd /home/whaylon/Downloads/Blockchain/nexus-protocol/contracts
-/home/whaylon/.foundry/bin/forge script script/DeployLocal.s.sol --rpc-url http://localhost:8545 --broadcast
+# Skip container recycling (use existing containers)
+./scripts/dev-setup.sh --skip-recycle
 
-# Register contracts in database (NO CODE CHANGES NEEDED!)
-python3 script/post_deploy.py --chain-id 31337
-
-# Access the app (frontend auto-loads addresses from API)
-# Frontend: http://localhost:3000/nft/mint
-# Anvil RPC: http://localhost:8545
-# API: http://localhost:8080
+# Skip pre-tests
+./scripts/dev-setup.sh --skip-tests
 ```
+
+### What dev-setup.sh Does
+1. **Recycles Docker containers** - Stops, removes volumes, restarts fresh
+2. **Waits for services** - Anvil, API, Postgres all healthy
+3. **Deploys contracts** - Runs `forge script DeployLocal.s.sol`
+4. **Registers in database** - Runs `post_deploy.py` (no code changes!)
+5. **Initializes contracts** - Runs `InitializeLocal.s.sol`:
+   - NFT: Sets sale phase to Public, price to 0.01 ETH
+   - Token: Self-delegates deployer for governance voting
+   - KYC: Whitelists deployer address
+6. **Pre-tests features** - Verifies all features work before you touch the browser
+
+### Access Points
+- **Frontend**: http://localhost:3000
+- **API**: http://localhost:8080
+- **Anvil RPC**: http://localhost:8545
 
 ### Before Minting
 1. **Clear MetaMask activity data** - Anvil was restarted, nonce cache is stale
@@ -116,13 +125,13 @@ Running with `docker compose --profile dev up -d`:
 
 ---
 
-## Files Updated This Session
+## Files Updated This Session (Session 16)
 
 | File | Change |
 |------|--------|
-| `frontend/lib/contracts/addresses.ts` | Updated with new Anvil contract addresses |
-| `frontend/app/staking/page.tsx` | Added error handling (previous session) |
-| `frontend/hooks/useStaking.ts` | Added error handling (previous session) |
+| `scripts/dev-setup.sh` | **NEW** - One-command dev environment setup |
+| `contracts/script/InitializeLocal.s.sol` | **NEW** - Contract initialization script |
+| `infrastructure/docker/init-db.sql` | Fixed partial unique index SQL syntax |
 
 ---
 
@@ -279,13 +288,35 @@ docker compose --profile dev down
 
 ## Notes
 
-1. **Anvil Resets**: When Anvil restarts, contracts must be redeployed and addresses.ts updated
+1. **One-Command Setup**: Use `./scripts/dev-setup.sh` for complete fresh environment
 2. **MetaMask Cache**: Clear activity data after Anvil restart
 3. **Foundry Path**: `/home/whaylon/.foundry/bin/forge`
 4. **Docker Directory**: Run compose commands from `infrastructure/docker/`
 5. **Volume Mounts**: Frontend code is mounted, changes reflect after container restart
+6. **Contract Initialization**: `InitializeLocal.s.sol` activates NFT, governance, and KYC
 
 ---
+
+## Session 16 Summary
+
+- **One-command dev setup complete!**
+- Created comprehensive `scripts/dev-setup.sh` that:
+  - Recycles Docker containers with fresh volumes
+  - Deploys all contracts to Anvil
+  - Registers contracts in database via API
+  - Initializes contracts for immediate use
+  - Pre-tests all features (NFT, governance, KYC, staking)
+- Created `contracts/script/InitializeLocal.s.sol`:
+  - Sets NFT sale phase to Public
+  - Sets mint price to 0.01 ETH
+  - Self-delegates deployer for governance voting power
+  - Whitelists deployer in KYC registry
+- Fixed SQL syntax error in `init-db.sql`:
+  - PostgreSQL doesn't support inline `WHERE` in UNIQUE constraints
+  - Converted to separate `CREATE UNIQUE INDEX ... WHERE` statement
+- Fixed display formatting in dev-setup.sh:
+  - Changed from `bc` (syntax errors) to `cast from-wei`
+- **All pre-tests pass**: NFT minting, governance voting, KYC, staking
 
 ## Session 15 Summary
 
