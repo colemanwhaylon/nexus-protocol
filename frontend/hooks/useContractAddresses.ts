@@ -55,8 +55,13 @@ export function useContractAddresses() {
     isFetching,
     error: error as Error | null,
     refetch,
-    // Helper: check if a specific contract is available
+    chainId,
+    // Helper: check if a specific contract is available (only false when loaded but missing)
     hasContract: (name: string) => !isLoading && !!data?.[name],
+    // Helper: check if contracts are still loading
+    isContractsLoading: isLoading,
+    // Helper: check if loaded and contract exists (use for conditional rendering after load)
+    isContractReady: (name: string) => !isLoading && !error && !!data?.[name],
     // Helper: get a specific address or undefined
     getAddress: (name: string) => data?.[name] as Address | undefined,
   };

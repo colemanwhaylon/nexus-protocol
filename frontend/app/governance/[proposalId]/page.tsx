@@ -234,13 +234,19 @@ export default function ProposalDetailPage({ params }: Props) {
     setLoadError(null);
 
     try {
+      // Get the current block number to calculate a safe range
+      // Most RPC providers limit getLogs to ~50000 blocks
+      const latestBlock = await publicClient.getBlockNumber();
+      const maxBlockRange = 45000n; // Stay under the 50000 limit
+      const fromBlock = latestBlock > maxBlockRange ? latestBlock - maxBlockRange : 0n;
+
       // Get ProposalCreated event for this specific proposal
       const logs = await publicClient.getLogs({
         address: governorAddress,
         event: parseAbiItem(
           "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
         ),
-        fromBlock: "earliest",
+        fromBlock,
         toBlock: "latest",
       });
 

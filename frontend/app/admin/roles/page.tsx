@@ -141,11 +141,17 @@ export default function RolesPage() {
     setIsLoadingEvents(true);
 
     try {
+      // Get the current block number to calculate a safe range
+      // Most RPC providers limit getLogs to ~50000 blocks
+      const currentBlock = await publicClient.getBlockNumber();
+      const maxBlockRange = 45000n; // Stay under the 50000 limit
+      const fromBlock = currentBlock > maxBlockRange ? currentBlock - maxBlockRange : 0n;
+
       // Fetch RoleGranted events
       const grantedLogs = await publicClient.getLogs({
         address: accessControlAddress as Address,
         event: parseAbiItem(ROLE_EVENTS.RoleGranted),
-        fromBlock: 'earliest',
+        fromBlock,
         toBlock: 'latest',
       });
 
@@ -153,7 +159,7 @@ export default function RolesPage() {
       const revokedLogs = await publicClient.getLogs({
         address: accessControlAddress as Address,
         event: parseAbiItem(ROLE_EVENTS.RoleRevoked),
-        fromBlock: 'earliest',
+        fromBlock,
         toBlock: 'latest',
       });
 

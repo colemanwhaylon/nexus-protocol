@@ -118,7 +118,7 @@ export default function GovernancePage() {
   const { address: userAddress } = useAccount();
   useChainId(); // Required for wagmi context
   const publicClient = usePublicClient();
-  const { addresses, hasContract } = useContractAddresses();
+  const { addresses, isLoading: isLoadingAddresses, hasContract } = useContractAddresses();
 
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [isLoadingProposals, setIsLoadingProposals] = useState(true);
@@ -127,8 +127,11 @@ export default function GovernancePage() {
 
   const governorAddress = addresses.nexusGovernor;
   const tokenAddress = addresses.nexusToken;
-  const isGovernorDeployed = hasContract('nexusGovernor');
-  const isTokenDeployed = hasContract('nexusToken');
+  // Only show "not deployed" after addresses have loaded
+  const isGovernorDeployed = !isLoadingAddresses && hasContract('nexusGovernor');
+  const isTokenDeployed = !isLoadingAddresses && hasContract('nexusToken');
+  // Show loading state while addresses are being fetched
+  const isAddressesReady = !isLoadingAddresses && !!governorAddress;
 
   // Read user's voting power
   const { data: votingPower, isLoading: isLoadingVotingPower } = useReadContract({
@@ -178,7 +181,7 @@ export default function GovernancePage() {
 
   // Fetch proposals from contract events
   const fetchProposals = useCallback(async () => {
-    if (!publicClient || !isGovernorDeployed) {
+    if (!publicClient || !isAddressesReady) {
       setIsLoadingProposals(false);
       return;
     }
@@ -186,13 +189,19 @@ export default function GovernancePage() {
     setIsLoadingProposals(true);
 
     try {
+      // Get the current block number to calculate a safe range
+      // Most RPC providers limit getLogs to ~50000 blocks
+      const currentBlock = await publicClient.getBlockNumber();
+      const maxBlockRange = 45000n; // Stay under the 50000 limit
+      const fromBlock = currentBlock > maxBlockRange ? currentBlock - maxBlockRange : 0n;
+
       // Get ProposalCreated events from the governor contract
       const logs = await publicClient.getLogs({
         address: governorAddress,
         event: parseAbiItem(
           "event ProposalCreated(uint256 proposalId, address proposer, address[] targets, uint256[] values, string[] signatures, bytes[] calldatas, uint256 voteStart, uint256 voteEnd, string description)"
         ),
-        fromBlock: "earliest",
+        fromBlock,
         toBlock: "latest",
       });
 
@@ -250,7 +259,7 @@ export default function GovernancePage() {
     } finally {
       setIsLoadingProposals(false);
     }
-  }, [publicClient, governorAddress, isGovernorDeployed]);
+  }, [publicClient, governorAddress, isAddressesReady]);
 
   // Fetch proposals on mount and when dependencies change
   useEffect(() => {
@@ -314,8 +323,17 @@ export default function GovernancePage() {
         </div>
       </div>
 
-      {/* Governor not deployed warning */}
-      {!isGovernorDeployed && (
+      {/* Loading addresses state */}
+      {isLoadingAddresses && (
+        <div className="mb-6 p-4 bg-blue-100 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 rounded-lg">
+          <p className="text-blue-800 dark:text-blue-200">
+            Loading contract addresses...
+          </p>
+        </div>
+      )}
+
+      {/* Governor not deployed warning - only show after addresses loaded */}
+      {!isLoadingAddresses && !isGovernorDeployed && (
         <div className="mb-6 p-4 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg">
           <p className="text-yellow-800 dark:text-yellow-200">
             The Governor contract is not yet deployed on this network. Governance features will be available after deployment.

@@ -25,10 +25,11 @@ const nftAbi = [
 export default function GalleryPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
-  const { addresses } = useContractAddresses();
+  const { addresses, isLoading: isLoadingAddresses } = useContractAddresses();
   const nftAddress = addresses.nexusNFT as `0x${string}`;
 
-  const { balance, totalSupply, maxSupply } = useNFT();
+  const { balance, totalSupply, maxSupply, isAddressesLoading } = useNFT();
+  const isContractReady = !isLoadingAddresses && !isAddressesLoading && !!nftAddress;
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [favoriteTokenIds, setFavoriteTokenIds] = useState<string[]>([]);
 
@@ -37,11 +38,14 @@ export default function GalleryPage() {
     isConnected,
     address,
     nftAddress,
+    isLoadingAddresses,
+    isAddressesLoading,
+    isContractReady,
     balance: balance?.toString(),
     balanceType: typeof balance,
     isLoadingTokens,
     totalSupply: totalSupply?.toString(),
-    willRenderCards: isConnected && !isLoadingTokens && balance && balance > 0n,
+    willRenderCards: isConnected && isContractReady && !isLoadingTokens && balance && balance > 0n,
   });
 
   // Handle NFT selection (navigate to detail page)
@@ -120,6 +124,13 @@ export default function GalleryPage() {
               <p className="text-muted-foreground mb-4">
                 Connect your wallet to view your NFTs.
               </p>
+            </div>
+          ) : !isContractReady ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground mb-4">
+                Loading NFT contract...
+              </p>
+              <NFTGrid isLoading={true} columns={4} />
             </div>
           ) : isLoadingTokens ? (
             <NFTGrid isLoading={true} columns={4} />
