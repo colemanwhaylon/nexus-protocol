@@ -197,7 +197,29 @@ cache/
 # pnpm store (should use global store, not project-local)
 frontend/.pnpm-store/
 
-# Claude plans (auto-generated)
-.claude/plans/
+# Claude plans and internal dev files
+.claude/
+CLAUDE.md
+*/CLAUDE.md
 frontend/tsconfig.tsbuildinfo
 candelete/
+
+# Internal development scripts (keep locally, hide from public)
+scripts/dev-setup.sh
+scripts/test_governance.py
+scripts/test_governance_delegation.py
+
+# Internal documentation (keep locally, hide from public)
+documentation/DEPENDENCY_AUDIT.md
+documentation/DEPLOYMENT_RUNBOOK.md
+documentation/FRONTEND_COMPLETION_PLAN.md
+documentation/INCIDENT_RESPONSE.md
+documentation/MONETIZATION.md
+documentation/MONITORING_PLAYBOOK.md
+documentation/NFT_USER_UPLOAD_ROADMAP.md
+documentation/SECURITY_CHECKLIST.md
+documentation/SECURITY_REVIEW_AFTER.md
+documentation/SECURITY_REVIEW_BEFORE.md
+documentation/SESSION_9_ACCOMPLISHMENTS.md
+documentation/SKILL_GAP_ANALYSIS.md
+documentation/UPGRADE_SAFETY.md
