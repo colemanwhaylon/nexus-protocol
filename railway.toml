@@ -1,0 +1,20 @@
+# Railway configuration for Nexus Protocol Backend
+# This file tells Railway how to build and deploy
+
+[build]
+# Use the production Dockerfile with the runtime target
+dockerfilePath = "infrastructure/docker/Dockerfile"
+# Specify the runtime stage (not development which uses air)
+dockerTarget = "runtime"
+
+[deploy]
+# Health check endpoint
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+
+# Number of replicas
+numReplicas = 1
+
+# Restart policy
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
