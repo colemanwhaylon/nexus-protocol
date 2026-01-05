@@ -20,17 +20,16 @@ const anvil = defineChain({
   testnet: true,
 });
 
+// Build chains array based on environment
+// IMPORTANT: First chain in array becomes the default when no wallet connected
+const chains = process.env.NODE_ENV === 'production'
+  ? [sepolia, mainnet] as const  // Production: Sepolia first (testnet), then mainnet
+  : [anvil, sepolia] as const;    // Development: Anvil first (local), then Sepolia
+
 export const wagmiConfig = getDefaultConfig({
   appName: 'Nexus Protocol',
   projectId,
-  chains: [
-    // Development (Anvil with chain ID 31337)
-    anvil,
-    // Testnet
-    sepolia,
-    // Mainnet (for production)
-    ...(process.env.NODE_ENV === 'production' ? [mainnet] : []),
-  ],
+  chains,
   transports: {
     [anvil.id]: http('http://127.0.0.1:8545'),
     [sepolia.id]: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://eth-sepolia.public.blastapi.io'),

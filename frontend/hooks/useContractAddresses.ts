@@ -20,6 +20,7 @@ import {
   type ContractMappingResponse,
   type NetworkConfigResponse,
 } from '@/lib/api/contracts';
+import { getDefaultChainId, CHAIN_IDS } from '@/lib/wagmi';
 
 // ============================================================================
 // Main Hook: Contract Addresses
@@ -27,10 +28,16 @@ import {
 
 /**
  * Hook to fetch contract addresses from database.
- * NO HARDCODED FALLBACKS - properly handle loading/error states.
+ * Uses environment-aware chainId to ensure production uses Sepolia.
  */
 export function useContractAddresses() {
-  const chainId = useChainId();
+  const wagmiChainId = useChainId();
+
+  // In production, if wagmi returns localhost chainId (no wallet connected),
+  // use the environment-appropriate default instead
+  const chainId = (process.env.NODE_ENV === 'production' && wagmiChainId === CHAIN_IDS.LOCALHOST)
+    ? getDefaultChainId()
+    : wagmiChainId;
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['contractAddresses', chainId],
@@ -83,7 +90,12 @@ export function useContractAddress(contractName: string) {
  * Useful for admin pages that need to show all possible contracts.
  */
 export function useDeploymentConfig() {
-  const chainId = useChainId();
+  const wagmiChainId = useChainId();
+
+  // In production, if wagmi returns localhost chainId, use the environment default
+  const chainId = (process.env.NODE_ENV === 'production' && wagmiChainId === CHAIN_IDS.LOCALHOST)
+    ? getDefaultChainId()
+    : wagmiChainId;
 
   const { data, isLoading, error, refetch, isFetching } = useQuery<DeploymentConfig>({
     queryKey: ['deploymentConfig', chainId],
