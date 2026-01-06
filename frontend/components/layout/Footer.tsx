@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Github, Twitter, MessageCircle } from 'lucide-react';
+import { Github, Twitter, Linkedin, Globe, Mail } from 'lucide-react';
 
 const footerLinks = {
   protocol: [
@@ -23,8 +23,10 @@ const footerLinks = {
 
 const socialLinks = [
   { name: 'GitHub', href: 'https://github.com/colemanwhaylon/nexus-protocol', icon: Github },
-  { name: 'Twitter', href: 'https://twitter.com', icon: Twitter },
-  { name: 'Discord', href: 'https://discord.com', icon: MessageCircle },
+  { name: 'X', href: 'https://x.com/anitconsultant', icon: Twitter },
+  { name: 'LinkedIn', href: 'https://www.linkedin.com/in/anitconsultant/', icon: Linkedin },
+  { name: 'Website', href: 'https://anitconsultant.com/', icon: Globe },
+  { name: 'Email', href: 'mailto:it@anitconsultant.com', icon: Mail },
 ];
 
 export function Footer() {
@@ -114,7 +116,7 @@ export function Footer() {
         {/* Copyright */}
         <div className="mt-12 border-t pt-8">
           <p className="text-center text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Nexus Protocol. All rights reserved.
+            &copy; 2026 Nexus Protocol. All rights reserved, AnITConsultant, LLC
           </p>
         </div>
       </div>
