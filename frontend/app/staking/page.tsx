@@ -234,7 +234,8 @@ export default function StakingPage() {
             <CardTitle className="text-sm font-medium">APY</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-500">12.5%</p>
+            <p className="text-2xl font-bold text-green-500">Variable</p>
+            <p className="text-xs text-muted-foreground mt-1">Based on rewards pool</p>
           </CardContent>
         </Card>
 

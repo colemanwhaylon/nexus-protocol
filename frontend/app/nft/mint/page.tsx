@@ -105,12 +105,14 @@ export default function MintPage() {
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-muted-foreground">
-              <li>• 10% boost to staking rewards</li>
-              <li>• 1.5x governance voting power</li>
-              <li>• Access to exclusive features</li>
-              <li>• Early access to new protocol features</li>
-              <li>• Community events and airdrops</li>
+              <li>• Exclusive Nexus Genesis collectible</li>
+              <li>• On-chain proof of early supporter status</li>
+              <li>• Access to holder-only community channels</li>
+              <li>• Priority for future airdrops and events</li>
             </ul>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-4">
+              Future protocol upgrades may introduce staking boosts and voting multipliers for NFT holders.
+            </p>
           </CardContent>
         </Card>
       </div>

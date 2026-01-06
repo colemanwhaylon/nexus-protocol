@@ -6,14 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 const features = [
   {
     title: 'Staking',
-    description: 'Stake your NEXUS tokens to earn rewards with up to 20% APY',
+    description: 'Stake your NEXUS tokens to earn rewards and participate in governance',
     icon: Coins,
     href: '/staking',
     color: 'text-blue-500',
   },
   {
     title: 'NFT Collection',
-    description: 'Mint exclusive Nexus Genesis NFTs with staking boost benefits',
+    description: 'Mint exclusive Nexus Genesis NFTs and join the community',
     icon: Image,
     href: '/nft',
     color: 'text-purple-500',
@@ -72,7 +72,7 @@ export default function Home() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Staking APY</CardDescription>
-            <CardTitle className="text-3xl">20%</CardTitle>
+            <CardTitle className="text-3xl">Variable</CardTitle>
           </CardHeader>
         </Card>
         <Card>

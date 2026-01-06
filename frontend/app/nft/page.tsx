@@ -64,13 +64,14 @@ export default function NFTPage() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             Collection Info
-            <Badge variant="outline">Coming Soon</Badge>
+            <Badge variant="default">Live</Badge>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            Nexus NFTs provide exclusive benefits including boosted staking rewards,
-            governance voting multipliers, and access to protocol features.
+            Nexus Genesis NFTs are exclusive collectibles in the Nexus ecosystem.
+            Future protocol upgrades may introduce holder benefits such as boosted
+            staking rewards and governance voting multipliers.
           </p>
         </CardContent>
       </Card>
