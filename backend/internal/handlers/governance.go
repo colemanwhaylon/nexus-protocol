@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"math/big"
@@ -11,21 +12,25 @@ import (
 	"sync"
 	"time"
 
+	"github.com/colemanwhaylon/nexus-protocol/backend/internal/repository"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 // GovernanceHandler handles governance-related API endpoints
 type GovernanceHandler struct {
-	logger    *zap.Logger
-	mu        sync.RWMutex
-	proposals map[string]*Proposal
-	votes     map[string]map[string]*Vote // proposalID -> voterAddress -> Vote
-	// Governance parameters
-	votingDelay    time.Duration // Delay before voting starts
-	votingPeriod   time.Duration // How long voting lasts
-	quorumPercent  uint64        // Quorum percentage (e.g., 4 = 4%)
-	proposalThreshold *big.Int   // Minimum tokens to create proposal
+	logger     *zap.Logger
+	configRepo repository.GovernanceConfigRepository
+	chainID    int64
+	mu         sync.RWMutex
+	proposals  map[string]*Proposal
+	votes      map[string]map[string]*Vote // proposalID -> voterAddress -> Vote
+	// Governance parameters (cached from database)
+	votingDelay       time.Duration // Delay before voting starts
+	votingPeriod      time.Duration // How long voting lasts
+	quorumPercent     uint64        // Quorum percentage (e.g., 4 = 4%)
+	proposalThreshold *big.Int      // Minimum tokens to create proposal
+	timelockDelay     time.Duration // Timelock execution delay
 }
 
 // ProposalState represents the state of a proposal
@@ -153,23 +158,103 @@ type GovernanceParamsResponse struct {
 }
 
 // NewGovernanceHandler creates a new governance handler
-func NewGovernanceHandler(logger *zap.Logger) *GovernanceHandler {
-	threshold, _ := new(big.Int).SetString("100000000000000000000000", 10) // 100k tokens with 18 decimals
+func NewGovernanceHandler(logger *zap.Logger, configRepo repository.GovernanceConfigRepository, chainID int64) *GovernanceHandler {
+	// Default values (fallback if database unavailable)
+	threshold, _ := new(big.Int).SetString("100000000000000000000", 10) // 100 tokens with 18 decimals (demo-friendly)
 
 	h := &GovernanceHandler{
 		logger:            logger,
+		configRepo:        configRepo,
+		chainID:           chainID,
 		proposals:         make(map[string]*Proposal),
 		votes:             make(map[string]map[string]*Vote),
-		votingDelay:       1 * time.Hour,  // 1 hour delay before voting starts
-		votingPeriod:      7 * 24 * time.Hour, // 7 days voting period
-		quorumPercent:     4, // 4% quorum
+		votingDelay:       1 * time.Minute,       // 1 minute delay (demo-friendly)
+		votingPeriod:      10 * time.Minute,      // 10 minutes voting period (demo-friendly)
+		quorumPercent:     4,                     // 4% quorum
 		proposalThreshold: threshold,
+		timelockDelay:     1 * time.Minute,       // 1 minute timelock (demo-friendly)
 	}
+
+	// Load configuration from database
+	h.loadConfigFromDatabase()
 
 	// Seed demo proposals
 	h.seedDemoProposals()
 
 	return h
+}
+
+// loadConfigFromDatabase loads governance parameters from the database
+func (h *GovernanceHandler) loadConfigFromDatabase() {
+	if h.configRepo == nil {
+		h.logger.Warn("config repository not available, using default values")
+		return
+	}
+
+	ctx, cancel := contextWithTimeout()
+	defer cancel()
+
+	configs, err := h.configRepo.ListConfigs(ctx, h.chainID, true)
+	if err != nil {
+		h.logger.Warn("failed to load governance configs from database, using defaults",
+			zap.Error(err),
+			zap.Int64("chain_id", h.chainID),
+		)
+		return
+	}
+
+	for _, config := range configs {
+		switch config.ConfigKey {
+		case "proposal_threshold":
+			if config.ValueWei != nil {
+				h.proposalThreshold = config.ValueWei
+				h.logger.Info("loaded proposal_threshold from database",
+					zap.String("value", config.GetDisplayValue()),
+				)
+			}
+		case "voting_delay":
+			if config.ValueNumber != nil {
+				// Value is in blocks, convert to time (assuming ~12s per block)
+				h.votingDelay = time.Duration(*config.ValueNumber) * 12 * time.Second
+				h.logger.Info("loaded voting_delay from database",
+					zap.String("value", config.GetDisplayValue()),
+				)
+			}
+		case "voting_period":
+			if config.ValueNumber != nil {
+				// Value is in blocks, convert to time (assuming ~12s per block)
+				h.votingPeriod = time.Duration(*config.ValueNumber) * 12 * time.Second
+				h.logger.Info("loaded voting_period from database",
+					zap.String("value", config.GetDisplayValue()),
+				)
+			}
+		case "quorum_percent":
+			if config.ValuePercent != nil {
+				h.quorumPercent = uint64(*config.ValuePercent)
+				h.logger.Info("loaded quorum_percent from database",
+					zap.String("value", config.GetDisplayValue()),
+				)
+			}
+		case "timelock_delay":
+			if config.ValueNumber != nil {
+				// Value is in seconds
+				h.timelockDelay = time.Duration(*config.ValueNumber) * time.Second
+				h.logger.Info("loaded timelock_delay from database",
+					zap.String("value", config.GetDisplayValue()),
+				)
+			}
+		}
+	}
+
+	h.logger.Info("governance config loaded from database",
+		zap.Int64("chain_id", h.chainID),
+		zap.Int("configs_loaded", len(configs)),
+	)
+}
+
+// contextWithTimeout returns a context with a default timeout
+func contextWithTimeout() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 5*time.Second)
 }
 
 // seedDemoProposals initializes demo proposals for testing
@@ -644,7 +729,7 @@ func (h *GovernanceHandler) GetGovernanceParams(c *gin.Context) {
 		VotingPeriod:      h.votingPeriod.String(),
 		QuorumPercent:     h.quorumPercent,
 		ProposalThreshold: h.proposalThreshold.String(),
-		TimelockDelay:     "48h", // 48 hours timelock delay
+		TimelockDelay:     h.timelockDelay.String(),
 	})
 }
 
@@ -684,7 +769,7 @@ func (h *GovernanceHandler) QueueProposal(c *gin.Context) {
 	}
 
 	now := time.Now()
-	eta := now.Add(48 * time.Hour) // 48 hour timelock delay
+	eta := now.Add(h.timelockDelay) // Configurable timelock delay
 	proposal.State = ProposalStateQueued
 	proposal.QueuedAt = &now
 	proposal.Eta = &eta
@@ -943,5 +1028,404 @@ func (h *GovernanceHandler) Delegate(c *gin.Context) {
 		"from":           from,
 		"to":             to,
 		"message":        "Voting power delegated successfully",
+	})
+}
+
+// ========== Governance Config Endpoints ==========
+
+// GovernanceConfigResponse wraps a single config response
+type GovernanceConfigResponse struct {
+	Success bool                        `json:"success"`
+	Config  *repository.GovernanceConfig `json:"config,omitempty"`
+	Message string                      `json:"message,omitempty"`
+}
+
+// GovernanceConfigListResponse wraps a list of configs response
+type GovernanceConfigListResponse struct {
+	Success bool                          `json:"success"`
+	Configs []*repository.GovernanceConfig `json:"configs"`
+	ChainID int64                         `json:"chain_id"`
+	Total   int                           `json:"total"`
+	Message string                        `json:"message,omitempty"`
+}
+
+// GovernanceConfigHistoryResponse wraps a config history response
+type GovernanceConfigHistoryResponse struct {
+	Success   bool                                     `json:"success"`
+	ConfigKey string                                   `json:"config_key"`
+	ChainID   int64                                    `json:"chain_id"`
+	History   []*repository.GovernanceConfigHistoryEntry `json:"history"`
+	Total     int                                      `json:"total"`
+	Message   string                                   `json:"message,omitempty"`
+}
+
+// UpdateGovernanceConfigRequest represents a config update request
+type UpdateGovernanceConfigRequest struct {
+	ValueWei     string   `json:"value_wei,omitempty"`     // Wei amount as string
+	ValueNumber  *int64   `json:"value_number,omitempty"`  // Numeric value
+	ValuePercent *float64 `json:"value_percent,omitempty"` // Percentage value
+	ValueString  *string  `json:"value_string,omitempty"`  // String value
+	IsActive     *bool    `json:"is_active,omitempty"`     // Active status
+	UpdatedBy    string   `json:"updated_by"`              // Admin address
+}
+
+// ListGovernanceConfigs handles GET /api/v1/governance/config
+// @Summary List all governance configs
+// @Description Returns all governance configuration parameters for the current chain
+// @Tags governance-config
+// @Produce json
+// @Param active_only query bool false "Filter to active configs only (default: true)"
+// @Success 200 {object} GovernanceConfigListResponse
+// @Router /api/v1/governance/config [get]
+func (h *GovernanceHandler) ListGovernanceConfigs(c *gin.Context) {
+	if h.configRepo == nil {
+		c.JSON(http.StatusServiceUnavailable, GovernanceConfigListResponse{
+			Success: false,
+			Message: "Governance config repository not available",
+		})
+		return
+	}
+
+	activeOnly := c.DefaultQuery("active_only", "true") == "true"
+
+	ctx, cancel := contextWithTimeout()
+	defer cancel()
+
+	configs, err := h.configRepo.ListConfigs(ctx, h.chainID, activeOnly)
+	if err != nil {
+		h.logger.Error("failed to list governance configs", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, GovernanceConfigListResponse{
+			Success: false,
+			Message: "Failed to retrieve governance configs",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, GovernanceConfigListResponse{
+		Success: true,
+		Configs: configs,
+		ChainID: h.chainID,
+		Total:   len(configs),
+	})
+}
+
+// GetGovernanceConfig handles GET /api/v1/governance/config/:key
+// @Summary Get a governance config by key
+// @Description Returns a specific governance configuration parameter
+// @Tags governance-config
+// @Produce json
+// @Param key path string true "Config key (e.g., proposal_threshold)"
+// @Success 200 {object} GovernanceConfigResponse
+// @Failure 404 {object} GovernanceConfigResponse
+// @Router /api/v1/governance/config/{key} [get]
+func (h *GovernanceHandler) GetGovernanceConfig(c *gin.Context) {
+	if h.configRepo == nil {
+		c.JSON(http.StatusServiceUnavailable, GovernanceConfigResponse{
+			Success: false,
+			Message: "Governance config repository not available",
+		})
+		return
+	}
+
+	configKey := c.Param("key")
+
+	ctx, cancel := contextWithTimeout()
+	defer cancel()
+
+	config, err := h.configRepo.GetConfig(ctx, configKey, h.chainID)
+	if err != nil {
+		if err == repository.ErrGovernanceConfigNotFound {
+			c.JSON(http.StatusNotFound, GovernanceConfigResponse{
+				Success: false,
+				Message: "Governance config not found: " + configKey,
+			})
+			return
+		}
+		h.logger.Error("failed to get governance config", zap.Error(err), zap.String("key", configKey))
+		c.JSON(http.StatusInternalServerError, GovernanceConfigResponse{
+			Success: false,
+			Message: "Failed to retrieve governance config",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, GovernanceConfigResponse{
+		Success: true,
+		Config:  config,
+	})
+}
+
+// UpdateGovernanceConfig handles PUT /api/v1/governance/config/:key
+// @Summary Update a governance config
+// @Description Updates a governance configuration parameter (admin only)
+// @Tags governance-config
+// @Accept json
+// @Produce json
+// @Param key path string true "Config key (e.g., proposal_threshold)"
+// @Param request body UpdateGovernanceConfigRequest true "Update config request"
+// @Success 200 {object} GovernanceConfigResponse
+// @Failure 400 {object} GovernanceConfigResponse
+// @Failure 404 {object} GovernanceConfigResponse
+// @Router /api/v1/governance/config/{key} [put]
+func (h *GovernanceHandler) UpdateGovernanceConfig(c *gin.Context) {
+	if h.configRepo == nil {
+		c.JSON(http.StatusServiceUnavailable, GovernanceConfigResponse{
+			Success: false,
+			Message: "Governance config repository not available",
+		})
+		return
+	}
+
+	configKey := c.Param("key")
+
+	var req UpdateGovernanceConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, GovernanceConfigResponse{
+			Success: false,
+			Message: "Invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	// Validate updater address
+	if !isValidAddress(req.UpdatedBy) {
+		c.JSON(http.StatusBadRequest, GovernanceConfigResponse{
+			Success: false,
+			Message: "Invalid updated_by address format",
+		})
+		return
+	}
+
+	// Build update struct
+	update := &repository.GovernanceConfigUpdate{
+		UpdatedBy:    strings.ToLower(req.UpdatedBy),
+		ValueNumber:  req.ValueNumber,
+		ValuePercent: req.ValuePercent,
+		ValueString:  req.ValueString,
+		IsActive:     req.IsActive,
+	}
+
+	// Parse wei value if provided
+	if req.ValueWei != "" {
+		valueWei, ok := new(big.Int).SetString(req.ValueWei, 10)
+		if !ok {
+			c.JSON(http.StatusBadRequest, GovernanceConfigResponse{
+				Success: false,
+				Message: "Invalid value_wei format: must be a valid integer string",
+			})
+			return
+		}
+		update.ValueWei = valueWei
+	}
+
+	ctx, cancel := contextWithTimeout()
+	defer cancel()
+
+	err := h.configRepo.UpdateConfig(ctx, configKey, h.chainID, update)
+	if err != nil {
+		if err == repository.ErrGovernanceConfigNotFound {
+			c.JSON(http.StatusNotFound, GovernanceConfigResponse{
+				Success: false,
+				Message: "Governance config not found: " + configKey,
+			})
+			return
+		}
+		h.logger.Error("failed to update governance config",
+			zap.Error(err),
+			zap.String("key", configKey),
+			zap.String("updated_by", req.UpdatedBy),
+		)
+		c.JSON(http.StatusInternalServerError, GovernanceConfigResponse{
+			Success: false,
+			Message: "Failed to update governance config",
+		})
+		return
+	}
+
+	// Reload config from database to get updated values
+	config, _ := h.configRepo.GetConfig(ctx, configKey, h.chainID)
+
+	// Reload cached values in handler
+	h.loadConfigFromDatabase()
+
+	h.logger.Info("governance config updated",
+		zap.String("key", configKey),
+		zap.String("updated_by", req.UpdatedBy),
+		zap.Int64("chain_id", h.chainID),
+	)
+
+	c.JSON(http.StatusOK, GovernanceConfigResponse{
+		Success: true,
+		Config:  config,
+		Message: "Governance config updated successfully. Note: Changes need to be synced to smart contract.",
+	})
+}
+
+// GetGovernanceConfigHistory handles GET /api/v1/governance/config/:key/history
+// @Summary Get governance config change history
+// @Description Returns the audit trail for a governance configuration parameter
+// @Tags governance-config
+// @Produce json
+// @Param key path string true "Config key (e.g., proposal_threshold)"
+// @Param limit query int false "Number of history entries (default: 10, max: 100)"
+// @Success 200 {object} GovernanceConfigHistoryResponse
+// @Failure 404 {object} GovernanceConfigHistoryResponse
+// @Router /api/v1/governance/config/{key}/history [get]
+func (h *GovernanceHandler) GetGovernanceConfigHistory(c *gin.Context) {
+	if h.configRepo == nil {
+		c.JSON(http.StatusServiceUnavailable, GovernanceConfigHistoryResponse{
+			Success: false,
+			Message: "Governance config repository not available",
+		})
+		return
+	}
+
+	configKey := c.Param("key")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if limit < 1 || limit > 100 {
+		limit = 10
+	}
+
+	ctx, cancel := contextWithTimeout()
+	defer cancel()
+
+	// First check if config exists
+	_, err := h.configRepo.GetConfig(ctx, configKey, h.chainID)
+	if err != nil {
+		if err == repository.ErrGovernanceConfigNotFound {
+			c.JSON(http.StatusNotFound, GovernanceConfigHistoryResponse{
+				Success: false,
+				Message: "Governance config not found: " + configKey,
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, GovernanceConfigHistoryResponse{
+			Success: false,
+			Message: "Failed to retrieve governance config",
+		})
+		return
+	}
+
+	history, err := h.configRepo.GetConfigHistory(ctx, configKey, h.chainID, limit)
+	if err != nil {
+		h.logger.Error("failed to get governance config history", zap.Error(err), zap.String("key", configKey))
+		c.JSON(http.StatusInternalServerError, GovernanceConfigHistoryResponse{
+			Success: false,
+			Message: "Failed to retrieve config history",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, GovernanceConfigHistoryResponse{
+		Success:   true,
+		ConfigKey: configKey,
+		ChainID:   h.chainID,
+		History:   history,
+		Total:     len(history),
+	})
+}
+
+// SyncGovernanceConfig handles POST /api/v1/governance/config/:key/sync
+// @Summary Sync governance config to smart contract
+// @Description Marks a governance config as synced after smart contract update
+// @Tags governance-config
+// @Accept json
+// @Produce json
+// @Param key path string true "Config key (e.g., proposal_threshold)"
+// @Param request body map[string]string true "Sync request with tx_hash"
+// @Success 200 {object} GovernanceConfigResponse
+// @Failure 400 {object} GovernanceConfigResponse
+// @Failure 404 {object} GovernanceConfigResponse
+// @Router /api/v1/governance/config/{key}/sync [post]
+func (h *GovernanceHandler) SyncGovernanceConfig(c *gin.Context) {
+	if h.configRepo == nil {
+		c.JSON(http.StatusServiceUnavailable, GovernanceConfigResponse{
+			Success: false,
+			Message: "Governance config repository not available",
+		})
+		return
+	}
+
+	configKey := c.Param("key")
+
+	var req struct {
+		TxHash string `json:"tx_hash" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, GovernanceConfigResponse{
+			Success: false,
+			Message: "Invalid request: tx_hash is required",
+		})
+		return
+	}
+
+	// Validate tx hash format (0x + 64 hex characters)
+	if len(req.TxHash) != 66 || !strings.HasPrefix(req.TxHash, "0x") {
+		c.JSON(http.StatusBadRequest, GovernanceConfigResponse{
+			Success: false,
+			Message: "Invalid tx_hash format: must be 0x followed by 64 hex characters",
+		})
+		return
+	}
+
+	ctx, cancel := contextWithTimeout()
+	defer cancel()
+
+	err := h.configRepo.MarkSynced(ctx, configKey, h.chainID, req.TxHash)
+	if err != nil {
+		if err == repository.ErrGovernanceConfigNotFound {
+			c.JSON(http.StatusNotFound, GovernanceConfigResponse{
+				Success: false,
+				Message: "Governance config not found: " + configKey,
+			})
+			return
+		}
+		h.logger.Error("failed to mark governance config as synced",
+			zap.Error(err),
+			zap.String("key", configKey),
+			zap.String("tx_hash", req.TxHash),
+		)
+		c.JSON(http.StatusInternalServerError, GovernanceConfigResponse{
+			Success: false,
+			Message: "Failed to mark config as synced",
+		})
+		return
+	}
+
+	// Get updated config
+	config, _ := h.configRepo.GetConfig(ctx, configKey, h.chainID)
+
+	h.logger.Info("governance config marked as synced",
+		zap.String("key", configKey),
+		zap.String("tx_hash", req.TxHash),
+		zap.Int64("chain_id", h.chainID),
+	)
+
+	c.JSON(http.StatusOK, GovernanceConfigResponse{
+		Success: true,
+		Config:  config,
+		Message: "Governance config marked as synced with smart contract",
+	})
+}
+
+// ReloadGovernanceConfig handles POST /api/v1/governance/config/reload
+// @Summary Reload governance configs from database
+// @Description Reloads all governance configuration from database into memory cache
+// @Tags governance-config
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/governance/config/reload [post]
+func (h *GovernanceHandler) ReloadGovernanceConfig(c *gin.Context) {
+	h.loadConfigFromDatabase()
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":            true,
+		"message":            "Governance config reloaded from database",
+		"chain_id":           h.chainID,
+		"voting_delay":       h.votingDelay.String(),
+		"voting_period":      h.votingPeriod.String(),
+		"quorum_percent":     h.quorumPercent,
+		"proposal_threshold": h.proposalThreshold.String(),
+		"timelock_delay":     h.timelockDelay.String(),
 	})
 }

@@ -112,6 +112,88 @@ CREATE INDEX idx_vote_proposal ON votes(proposal_id);
 CREATE INDEX idx_vote_voter ON votes(voter);
 
 -- ============================================
+-- Governance Configuration Tables (Database-Driven)
+-- ============================================
+
+-- Governance configuration parameters
+-- Stores all configurable governance settings (threshold, voting period, etc.)
+-- This allows changing governance params via DB updates instead of redeploying contracts
+CREATE TABLE IF NOT EXISTS governance_config (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    config_key VARCHAR(50) NOT NULL,              -- 'proposal_threshold', 'voting_delay', etc.
+    config_name VARCHAR(100) NOT NULL,            -- Display name
+    description TEXT,
+
+    -- Value storage (flexible for different types)
+    value_wei NUMERIC(78, 0),                     -- Wei value for token amounts (e.g., 100 NXS = 100 * 10^18)
+    value_number BIGINT,                          -- Numeric value (blocks, seconds, etc.)
+    value_percent DECIMAL(10, 4),                 -- Percentage value (e.g., 4.0000 for 4%)
+    value_string VARCHAR(255),                    -- String value for any other config
+
+    -- Value type for frontend display
+    value_type VARCHAR(20) NOT NULL,              -- 'wei', 'blocks', 'seconds', 'percent', 'string'
+    unit_label VARCHAR(20),                       -- 'NXS', 'blocks', 'seconds', '%', etc.
+
+    -- Chain-specific (governance params may differ per network)
+    chain_id BIGINT NOT NULL,  -- Network chain ID (31337=localhost, 11155111=sepolia)
+
+    -- Sync status with smart contract
+    contract_synced BOOLEAN NOT NULL DEFAULT FALSE,
+    last_sync_tx VARCHAR(66),                     -- Tx hash of last sync to contract
+    last_sync_at TIMESTAMPTZ,
+
+    -- Status
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    -- Audit
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by VARCHAR(42),                       -- Admin address who made change
+
+    -- Unique constraint: one config key per chain
+    CONSTRAINT governance_config_key_chain_unique UNIQUE (config_key, chain_id)
+);
+
+CREATE INDEX idx_governance_config_key ON governance_config(config_key);
+CREATE INDEX idx_governance_config_chain ON governance_config(chain_id);
+CREATE INDEX idx_governance_config_active ON governance_config(is_active);
+CREATE INDEX idx_governance_config_synced ON governance_config(contract_synced);
+
+-- Governance config history for audit trail
+CREATE TABLE IF NOT EXISTS governance_config_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    governance_config_id UUID NOT NULL REFERENCES governance_config(id) ON DELETE CASCADE,
+
+    -- Previous values
+    old_value_wei NUMERIC(78, 0),
+    old_value_number BIGINT,
+    old_value_percent DECIMAL(10, 4),
+    old_value_string VARCHAR(255),
+
+    -- New values
+    new_value_wei NUMERIC(78, 0),
+    new_value_number BIGINT,
+    new_value_percent DECIMAL(10, 4),
+    new_value_string VARCHAR(255),
+
+    -- Sync status at time of change
+    was_synced BOOLEAN,
+    sync_tx VARCHAR(66),
+
+    -- Who and when
+    changed_by VARCHAR(42) NOT NULL,
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    change_reason TEXT,
+
+    -- Audit timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_governance_config_history_config ON governance_config_history(governance_config_id);
+CREATE INDEX idx_governance_config_history_changed_at ON governance_config_history(changed_at);
+
+-- ============================================
 -- NFT Tables
 -- ============================================
 
@@ -475,6 +557,17 @@ CREATE TRIGGER update_kyc_verifications_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Triggers for governance config tables
+CREATE TRIGGER update_governance_config_updated_at
+    BEFORE UPDATE ON governance_config
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_governance_config_history_updated_at
+    BEFORE UPDATE ON governance_config_history
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- ============================================
 -- Pricing History Auto-Logging
 -- ============================================
@@ -520,6 +613,49 @@ CREATE TRIGGER update_pricing_history_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================
+-- Governance Config History Auto-Logging
+-- ============================================
+
+-- Function to automatically log governance config changes
+CREATE OR REPLACE FUNCTION log_governance_config_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only log if value-related fields changed
+    IF OLD.value_wei IS DISTINCT FROM NEW.value_wei
+       OR OLD.value_number IS DISTINCT FROM NEW.value_number
+       OR OLD.value_percent IS DISTINCT FROM NEW.value_percent
+       OR OLD.value_string IS DISTINCT FROM NEW.value_string THEN
+
+        INSERT INTO governance_config_history (
+            governance_config_id,
+            old_value_wei, old_value_number, old_value_percent, old_value_string,
+            new_value_wei, new_value_number, new_value_percent, new_value_string,
+            was_synced, sync_tx,
+            changed_by, change_reason
+        ) VALUES (
+            NEW.id,
+            OLD.value_wei, OLD.value_number, OLD.value_percent, OLD.value_string,
+            NEW.value_wei, NEW.value_number, NEW.value_percent, NEW.value_string,
+            OLD.contract_synced, OLD.last_sync_tx,
+            COALESCE(NEW.updated_by, 'system'),
+            'Governance config update'
+        );
+
+        -- Reset sync status when value changes
+        NEW.contract_synced := FALSE;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply governance config history trigger (BEFORE so we can reset sync status)
+CREATE TRIGGER log_governance_config_changes
+    BEFORE UPDATE ON governance_config
+    FOR EACH ROW
+    EXECUTE FUNCTION log_governance_config_change();
+
+-- ============================================
 -- Seed Data (for demo/testing)
 -- ============================================
 
@@ -552,6 +688,33 @@ INSERT INTO pricing (service_code, service_name, description, cost_usd, cost_pro
     -- Governance proposal fee (existing)
     ('governance_proposal', 'Governance Proposal Fee', 'Fee for submitting governance proposals (refundable if passed)', 0, 'platform', 10.00, 0.00333, 100, 0, true)
 ON CONFLICT (service_code) DO NOTHING;
+
+-- Insert governance config seed data for localhost (31337)
+-- Demo-friendly values: 100 NXS threshold instead of 100,000 NXS
+INSERT INTO governance_config (config_key, config_name, description, value_wei, value_number, value_percent, value_type, unit_label, chain_id, is_active)
+VALUES
+    -- Proposal threshold: 100 NXS (100 * 10^18 wei) - demo-friendly
+    ('proposal_threshold', 'Proposal Threshold', 'Minimum tokens required to create a governance proposal', 100000000000000000000, NULL, NULL, 'wei', 'NXS', 31337, true),
+    -- Voting delay: 1 block - proposals go active almost immediately
+    ('voting_delay', 'Voting Delay', 'Number of blocks after proposal creation before voting starts', NULL, 1, NULL, 'blocks', 'blocks', 31337, true),
+    -- Voting period: 100 blocks - short for demo (~20 minutes on mainnet, instant on localhost)
+    ('voting_period', 'Voting Period', 'Number of blocks that voting remains open', NULL, 100, NULL, 'blocks', 'blocks', 31337, true),
+    -- Quorum: 4% of total supply must vote for proposal to pass
+    ('quorum_percent', 'Quorum Percentage', 'Minimum percentage of total supply that must vote for a proposal to be valid', NULL, NULL, 4.0000, 'percent', '%', 31337, true),
+    -- Timelock delay: 60 seconds - fast for demo
+    ('timelock_delay', 'Timelock Delay', 'Seconds to wait after proposal passes before it can be executed', NULL, 60, NULL, 'seconds', 'sec', 31337, true)
+ON CONFLICT ON CONSTRAINT governance_config_key_chain_unique DO NOTHING;
+
+-- Insert governance config seed data for Sepolia (11155111)
+-- Same demo-friendly values for testnet
+INSERT INTO governance_config (config_key, config_name, description, value_wei, value_number, value_percent, value_type, unit_label, chain_id, is_active)
+VALUES
+    ('proposal_threshold', 'Proposal Threshold', 'Minimum tokens required to create a governance proposal', 100000000000000000000, NULL, NULL, 'wei', 'NXS', 11155111, true),
+    ('voting_delay', 'Voting Delay', 'Number of blocks after proposal creation before voting starts', NULL, 1, NULL, 'blocks', 'blocks', 11155111, true),
+    ('voting_period', 'Voting Period', 'Number of blocks that voting remains open', NULL, 100, NULL, 'blocks', 'blocks', 11155111, true),
+    ('quorum_percent', 'Quorum Percentage', 'Minimum percentage of total supply that must vote for a proposal to be valid', NULL, NULL, 4.0000, 'percent', '%', 11155111, true),
+    ('timelock_delay', 'Timelock Delay', 'Seconds to wait after proposal passes before it can be executed', NULL, 60, NULL, 'seconds', 'sec', 11155111, true)
+ON CONFLICT ON CONSTRAINT governance_config_key_chain_unique DO NOTHING;
 
 -- ============================================
 -- Meta-Transactions (ERC-2771 Relayer)

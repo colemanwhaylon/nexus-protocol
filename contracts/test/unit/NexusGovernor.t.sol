@@ -86,8 +86,16 @@ contract NexusGovernorTest is Test {
         // Deploy timelock with 48 hour delay
         timelock = new NexusTimelock(TIMELOCK_DELAY, proposers, executors, admin);
 
-        // Deploy governor
-        governor = new NexusGovernor(IVotes(address(token)), timelock);
+        // Deploy governor (testnet mode with admin override)
+        governor = new NexusGovernor(
+            IVotes(address(token)),
+            timelock,
+            admin,              // admin for testnet
+            true,               // isTestnet
+            VOTING_DELAY,       // votingDelay
+            VOTING_PERIOD,      // votingPeriod
+            PROPOSAL_THRESHOLD  // proposalThreshold
+        );
 
         // Grant proposer role to governor
         timelock.grantRole(timelock.PROPOSER_ROLE(), address(governor));
@@ -129,7 +137,9 @@ contract NexusGovernorTest is Test {
         assertEq(governor.proposalThreshold(), PROPOSAL_THRESHOLD);
         assertEq(governor.quorumNumerator(), QUORUM_PERCENTAGE);
         assertEq(governor.timelock(), address(timelock));
-        assertEq(governor.governanceToken(), address(token));
+        // Check testnet admin override state
+        assertEq(governor.isTestnet(), true);
+        assertEq(governor.admin(), admin);
     }
 
     function test_Deployment_RevertInvalidToken() public {
@@ -141,12 +151,48 @@ contract NexusGovernorTest is Test {
         NexusTimelock newTimelock = new NexusTimelock(TIMELOCK_DELAY, proposers, executors, admin);
 
         vm.expectRevert(); // OpenZeppelin GovernorVotes reverts before our check
-        new NexusGovernor(IVotes(address(0)), newTimelock);
+        new NexusGovernor(
+            IVotes(address(0)),
+            newTimelock,
+            admin,
+            true,
+            VOTING_DELAY,
+            VOTING_PERIOD,
+            PROPOSAL_THRESHOLD
+        );
     }
 
     function test_Deployment_RevertInvalidTimelock() public {
         vm.expectRevert(NexusGovernor.InvalidTimelock.selector);
-        new NexusGovernor(IVotes(address(token)), TimelockController(payable(address(0))));
+        new NexusGovernor(
+            IVotes(address(token)),
+            TimelockController(payable(address(0))),
+            admin,
+            true,
+            VOTING_DELAY,
+            VOTING_PERIOD,
+            PROPOSAL_THRESHOLD
+        );
+    }
+
+    function test_Deployment_RevertInvalidAdmin_WhenTestnet() public {
+        address[] memory proposers = new address[](1);
+        address[] memory executors = new address[](1);
+        proposers[0] = address(governor);
+        executors[0] = address(0);
+
+        NexusTimelock newTimelock = new NexusTimelock(TIMELOCK_DELAY, proposers, executors, admin);
+
+        vm.expectRevert(NexusGovernor.InvalidAdmin.selector);
+        new NexusGovernor(
+            IVotes(address(token)),
+            newTimelock,
+            address(0), // Invalid admin when isTestnet=true
+            true,       // isTestnet
+            VOTING_DELAY,
+            VOTING_PERIOD,
+            PROPOSAL_THRESHOLD
+        );
     }
 
     // ============ Proposal Creation Tests ============
@@ -354,7 +400,15 @@ contract NexusGovernorTest is Test {
 
         NexusTimelock newTimelock = new NexusTimelock(TIMELOCK_DELAY, proposers, executors, admin);
 
-        NexusGovernor newGovernor = new NexusGovernor(IVotes(address(newToken)), newTimelock);
+        NexusGovernor newGovernor = new NexusGovernor(
+            IVotes(address(newToken)),
+            newTimelock,
+            admin,
+            true,
+            VOTING_DELAY,
+            VOTING_PERIOD,
+            PROPOSAL_THRESHOLD
+        );
         newTimelock.grantRole(newTimelock.PROPOSER_ROLE(), address(newGovernor));
         newTimelock.grantRole(newTimelock.EXECUTOR_ROLE(), address(newGovernor));
 
@@ -591,37 +645,32 @@ contract NexusGovernorTest is Test {
         vm.prank(voter2);
         governor.castVote(proposalId, 0); // Against
 
-        (
-            uint256 snapshot,
-            uint256 deadline,
-            uint256 forVotes,
-            uint256 againstVotes,
-            uint256 abstainVotes,
-            bool executed
-        ) = governor.getProposalDetails(proposalId);
+        // Use standard Governor view functions
+        uint256 snapshot = governor.proposalSnapshot(proposalId);
+        uint256 deadline = governor.proposalDeadline(proposalId);
+        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) = governor.proposalVotes(proposalId);
 
         assertGt(snapshot, 0);
         assertGt(deadline, snapshot);
         assertEq(forVotes, VOTER_BALANCE);
         assertEq(againstVotes, VOTER_BALANCE);
         assertEq(abstainVotes, 0);
-        assertFalse(executed);
+        // Proposal is still active, not executed
+        assertEq(uint256(governor.state(proposalId)), uint256(IGovernor.ProposalState.Active));
     }
 
-    function test_GetGovernanceConfig() public view {
+    function test_GetGovernanceParameters() public view {
         (
             uint256 _votingDelay,
             uint256 _votingPeriod,
             uint256 _proposalThreshold,
-            uint256 _quorumNumerator,
-            address _timelock
-        ) = governor.getGovernanceConfig();
+            uint256 _quorumNumerator
+        ) = governor.getGovernanceParameters();
 
         assertEq(_votingDelay, VOTING_DELAY);
         assertEq(_votingPeriod, VOTING_PERIOD);
         assertEq(_proposalThreshold, PROPOSAL_THRESHOLD);
         assertEq(_quorumNumerator, QUORUM_PERCENTAGE);
-        assertEq(_timelock, address(timelock));
     }
 
     function test_HasVoted() public {

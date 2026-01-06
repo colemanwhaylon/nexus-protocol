@@ -104,7 +104,21 @@ contract DeploySepolia is Script {
 
         // 10. Deploy NexusGovernor
         console.log("Deploying NexusGovernor...");
-        NexusGovernor governor = new NexusGovernor(IVotes(address(token)), timelock);
+        // For Sepolia testnet: enable admin override with demo-friendly values
+        // - admin: deployer (can adjust governance params for testing)
+        // - isTestnet: true (enables admin override)
+        // - votingDelay: 1 block (fast for testing)
+        // - votingPeriod: 100 blocks (~20 minutes at 12s/block)
+        // - proposalThreshold: 100 tokens (demo-friendly)
+        NexusGovernor governor = new NexusGovernor(
+            IVotes(address(token)),
+            timelock,
+            deployer,     // admin
+            true,         // isTestnet
+            1,            // votingDelay (1 block)
+            100,          // votingPeriod (100 blocks)
+            100 * 10**18  // proposalThreshold (100 tokens)
+        );
         console.log("NexusGovernor deployed at:", address(governor));
 
         // 11. Grant Governor the PROPOSER_ROLE on Timelock

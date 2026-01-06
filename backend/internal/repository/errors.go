@@ -36,6 +36,11 @@ var (
 	ErrMetaTxInvalidSig     = errors.New("invalid meta-transaction signature")
 	ErrMetaTxAlreadyRelayed = errors.New("meta-transaction already relayed")
 
+	// Governance config errors
+	ErrGovernanceConfigNotFound = errors.New("governance config not found")
+	ErrGovernanceConfigInactive = errors.New("governance config is inactive")
+	ErrInvalidConfigKey         = errors.New("invalid governance config key")
+
 	// Contract address errors
 	ErrNetworkNotFound          = errors.New("network configuration not found")
 	ErrNetworkNotActive         = errors.New("network is not active")

@@ -88,6 +88,7 @@ func main() {
 	paymentRepo := postgres.NewPostgresPaymentRepo(db)
 	relayerRepo := postgres.NewPostgresRelayerRepo(db)
 	contractRepo := postgres.NewPostgresContractRepo(db)
+	governanceConfigRepo := postgres.NewPostgresGovernanceConfigRepo(db)
 
 	// Create handlers with injected dependencies
 	healthHandler := handlers.NewHealthHandler(logger, version, commit, buildDate)
@@ -101,6 +102,7 @@ func main() {
 		relayerHandler = nil
 	}
 	contractHandler := handlers.NewContractHandler(contractRepo, logger)
+	governanceHandler := handlers.NewGovernanceHandler(logger, governanceConfigRepo, cfg.ChainID)
 
 	// Setup router
 	router := gin.New()
@@ -189,6 +191,38 @@ func main() {
 			contracts.GET("/:chainId/:name", contractHandler.GetContract)
 			contracts.POST("", contractHandler.UpsertContract)
 			contracts.GET("/history/:id", contractHandler.GetContractHistory)
+		}
+
+		// Governance routes
+		governance := api.Group("/governance")
+		{
+			// Proposal routes
+			governance.POST("/proposals", governanceHandler.CreateProposal)
+			governance.GET("/proposals", governanceHandler.ListProposals)
+			governance.GET("/proposals/:id", governanceHandler.GetProposal)
+			governance.GET("/proposals/:id/votes", governanceHandler.GetVotes)
+			governance.POST("/proposals/:id/queue", governanceHandler.QueueProposal)
+			governance.POST("/proposals/:id/execute", governanceHandler.ExecuteProposal)
+			governance.POST("/proposals/:id/cancel", governanceHandler.CancelProposal)
+
+			// Voting routes
+			governance.POST("/vote", governanceHandler.CastVote)
+			governance.GET("/voting-power/:address", governanceHandler.GetVotingPower)
+			governance.POST("/delegate", governanceHandler.Delegate)
+
+			// Params route (returns cached config values)
+			governance.GET("/params", governanceHandler.GetGovernanceParams)
+
+			// Governance config routes (database-driven)
+			config := governance.Group("/config")
+			{
+				config.GET("", governanceHandler.ListGovernanceConfigs)
+				config.GET("/:key", governanceHandler.GetGovernanceConfig)
+				config.PUT("/:key", governanceHandler.UpdateGovernanceConfig) // TODO: Add admin auth middleware
+				config.GET("/:key/history", governanceHandler.GetGovernanceConfigHistory)
+				config.POST("/:key/sync", governanceHandler.SyncGovernanceConfig) // TODO: Add admin auth middleware
+				config.POST("/reload", governanceHandler.ReloadGovernanceConfig)  // TODO: Add admin auth middleware
+			}
 		}
 	}
 

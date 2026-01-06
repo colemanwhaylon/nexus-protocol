@@ -38,6 +38,7 @@ const adminNavItems: NavItem[] = [
   { name: 'Overview', href: '/admin', icon: LayoutDashboard },
   { name: 'Compliance', href: '/admin/compliance', icon: Shield },
   { name: 'Pricing', href: '/admin/pricing', icon: DollarSign },
+  { name: 'Governance Config', href: '/admin/governance', icon: Vote },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Emergency', href: '/admin/emergency', icon: AlertTriangle },
   { name: 'Roles', href: '/admin/roles', icon: Settings },

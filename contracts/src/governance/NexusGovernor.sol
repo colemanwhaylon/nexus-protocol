@@ -60,6 +60,15 @@ contract NexusGovernor is
     /// @notice Default quorum numerator (4% of total supply)
     uint256 public constant DEFAULT_QUORUM_NUMERATOR = 4;
 
+    // ============ Admin Override State (Testnet Only) ============
+
+    /// @notice Flag indicating if this contract is deployed on testnet
+    /// @dev When true, admin can override governance parameters directly
+    bool public immutable isTestnet;
+
+    /// @notice Admin address that can override parameters (testnet only)
+    address public immutable admin;
+
     // ============ Events - SEC-013 ============
 
     /// @notice Emitted when governance parameters are initialized
@@ -115,6 +124,21 @@ contract NexusGovernor is
         string reason
     );
 
+    /// @notice Emitted when admin overrides proposal threshold (testnet only)
+    /// @param oldThreshold Previous threshold value
+    /// @param newThreshold New threshold value
+    event ProposalThresholdUpdatedByAdmin(uint256 oldThreshold, uint256 newThreshold);
+
+    /// @notice Emitted when admin overrides voting delay (testnet only)
+    /// @param oldDelay Previous voting delay in blocks
+    /// @param newDelay New voting delay in blocks
+    event VotingDelayUpdatedByAdmin(uint256 oldDelay, uint256 newDelay);
+
+    /// @notice Emitted when admin overrides voting period (testnet only)
+    /// @param oldPeriod Previous voting period in blocks
+    /// @param newPeriod New voting period in blocks
+    event VotingPeriodUpdatedByAdmin(uint256 oldPeriod, uint256 newPeriod);
+
     // ============ Errors ============
 
     /// @notice Thrown when zero address is provided for token
@@ -129,40 +153,69 @@ contract NexusGovernor is
     /// @notice Thrown when proposal is in invalid state for operation
     error InvalidProposalState(uint256 proposalId, ProposalState current, ProposalState required);
 
+    /// @notice Thrown when admin override is attempted on mainnet
+    error AdminOverrideNotAllowed();
+
+    /// @notice Thrown when caller is not the admin
+    error OnlyAdmin();
+
+    /// @notice Thrown when zero address is provided for admin
+    error InvalidAdmin();
+
     // ============ Constructor ============
 
     /**
-     * @notice Initializes the NexusGovernor with default governance parameters
-     * @dev Sets up all Governor extensions with production-ready defaults:
-     *      - Voting Delay: 1 day (~7200 blocks)
-     *      - Voting Period: 7 days (~50400 blocks)
-     *      - Proposal Threshold: 100,000 NXS tokens
+     * @notice Initializes the NexusGovernor with governance parameters
+     * @dev Sets up all Governor extensions. On testnet, admin can override parameters.
+     *      Default values:
+     *      - Voting Delay: 1 day (~7200 blocks) OR custom for testnet
+     *      - Voting Period: 7 days (~50400 blocks) OR custom for testnet
+     *      - Proposal Threshold: 100,000 NXS tokens OR custom for testnet
      *      - Quorum: 4% of total supply
      *
      * @param token_ The NexusToken (ERC20Votes) contract address
      * @param timelock_ The TimelockController contract address
+     * @param admin_ Admin address for testnet parameter overrides (can be zero on mainnet)
+     * @param isTestnet_ If true, enables admin override functionality
+     * @param initialVotingDelay_ Initial voting delay in blocks (use 0 for default)
+     * @param initialVotingPeriod_ Initial voting period in blocks (use 0 for default)
+     * @param initialProposalThreshold_ Initial proposal threshold (use 0 for default)
      *
      * Requirements:
      * - token_ must not be zero address
      * - timelock_ must not be zero address
+     * - admin_ must not be zero address if isTestnet_ is true
      */
     constructor(
         IVotes token_,
-        TimelockController timelock_
+        TimelockController timelock_,
+        address admin_,
+        bool isTestnet_,
+        uint48 initialVotingDelay_,
+        uint32 initialVotingPeriod_,
+        uint256 initialProposalThreshold_
     )
         Governor("NexusGovernor")
-        GovernorSettings(DEFAULT_VOTING_DELAY, DEFAULT_VOTING_PERIOD, DEFAULT_PROPOSAL_THRESHOLD)
+        GovernorSettings(
+            initialVotingDelay_ > 0 ? initialVotingDelay_ : DEFAULT_VOTING_DELAY,
+            initialVotingPeriod_ > 0 ? initialVotingPeriod_ : DEFAULT_VOTING_PERIOD,
+            initialProposalThreshold_ > 0 ? initialProposalThreshold_ : DEFAULT_PROPOSAL_THRESHOLD
+        )
         GovernorVotes(token_)
         GovernorVotesQuorumFraction(DEFAULT_QUORUM_NUMERATOR)
         GovernorTimelockControl(timelock_)
     {
         if (address(token_) == address(0)) revert InvalidToken();
         if (address(timelock_) == address(0)) revert InvalidTimelock();
+        if (isTestnet_ && admin_ == address(0)) revert InvalidAdmin();
+
+        isTestnet = isTestnet_;
+        admin = admin_;
 
         emit GovernorInitialized(
-            DEFAULT_VOTING_DELAY,
-            DEFAULT_VOTING_PERIOD,
-            DEFAULT_PROPOSAL_THRESHOLD,
+            initialVotingDelay_ > 0 ? initialVotingDelay_ : DEFAULT_VOTING_DELAY,
+            initialVotingPeriod_ > 0 ? initialVotingPeriod_ : DEFAULT_VOTING_PERIOD,
+            initialProposalThreshold_ > 0 ? initialProposalThreshold_ : DEFAULT_PROPOSAL_THRESHOLD,
             DEFAULT_QUORUM_NUMERATOR
         );
     }
@@ -434,5 +487,64 @@ contract NexusGovernor is
         emit VoteCastWithDetails(account, proposalId, support, weight, reason);
 
         return weight;
+    }
+
+    // ============ Admin Override Functions (Testnet Only) ============
+
+    /**
+     * @notice Admin override to set proposal threshold (testnet only)
+     * @dev Allows admin to bypass governance for parameter changes on testnet
+     * @param newThreshold New proposal threshold in tokens (with decimals)
+     *
+     * Requirements:
+     * - Contract must be deployed on testnet (isTestnet = true)
+     * - Caller must be the admin address
+     */
+    function setProposalThresholdAdmin(uint256 newThreshold) external {
+        if (!isTestnet) revert AdminOverrideNotAllowed();
+        if (_msgSender() != admin) revert OnlyAdmin();
+
+        uint256 oldThreshold = proposalThreshold();
+        _setProposalThreshold(newThreshold);
+
+        emit ProposalThresholdUpdatedByAdmin(oldThreshold, newThreshold);
+    }
+
+    /**
+     * @notice Admin override to set voting delay (testnet only)
+     * @dev Allows admin to bypass governance for parameter changes on testnet
+     * @param newVotingDelay New voting delay in blocks
+     *
+     * Requirements:
+     * - Contract must be deployed on testnet (isTestnet = true)
+     * - Caller must be the admin address
+     */
+    function setVotingDelayAdmin(uint48 newVotingDelay) external {
+        if (!isTestnet) revert AdminOverrideNotAllowed();
+        if (_msgSender() != admin) revert OnlyAdmin();
+
+        uint256 oldDelay = votingDelay();
+        _setVotingDelay(newVotingDelay);
+
+        emit VotingDelayUpdatedByAdmin(oldDelay, newVotingDelay);
+    }
+
+    /**
+     * @notice Admin override to set voting period (testnet only)
+     * @dev Allows admin to bypass governance for parameter changes on testnet
+     * @param newVotingPeriod New voting period in blocks
+     *
+     * Requirements:
+     * - Contract must be deployed on testnet (isTestnet = true)
+     * - Caller must be the admin address
+     */
+    function setVotingPeriodAdmin(uint32 newVotingPeriod) external {
+        if (!isTestnet) revert AdminOverrideNotAllowed();
+        if (_msgSender() != admin) revert OnlyAdmin();
+
+        uint256 oldPeriod = votingPeriod();
+        _setVotingPeriod(newVotingPeriod);
+
+        emit VotingPeriodUpdatedByAdmin(oldPeriod, newVotingPeriod);
     }
 }
