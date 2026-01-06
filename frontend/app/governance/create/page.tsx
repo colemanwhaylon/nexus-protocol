@@ -43,6 +43,8 @@ export default function CreateProposalPage() {
 
   // Track proposal title for notification
   const proposalTitleRef = useRef<string>("");
+  // Prevent duplicate notification calls
+  const notificationSentRef = useRef(false);
 
   const tokenAddress = addresses.nexusToken;
   const isGovernorDeployed = hasContract('nexusGovernor');
@@ -72,7 +74,10 @@ export default function CreateProposalPage() {
 
   // Trigger notification and redirect after successful creation
   useEffect(() => {
-    if (isSuccess) {
+    if (isSuccess && !notificationSentRef.current) {
+      // Mark as sent to prevent duplicate calls
+      notificationSentRef.current = true;
+
       // Show notification
       notifyProposalCreated("new", proposalTitleRef.current, hash);
 
@@ -94,6 +99,8 @@ export default function CreateProposalPage() {
 
     // Store title for notification
     proposalTitleRef.current = title;
+    // Reset notification flag for new submission
+    notificationSentRef.current = false;
 
     // Reset any previous errors
     reset();
