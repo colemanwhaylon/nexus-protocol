@@ -509,7 +509,7 @@ function ConfigCard({ config, onEdit, onViewHistory, onSync }: ConfigCardProps) 
 }
 
 export default function GovernanceConfigPage() {
-  const { isConnected, address } = useAccount();
+  const { isConnected } = useAccount();
   const {
     configs,
     configHistory,
@@ -521,7 +521,6 @@ export default function GovernanceConfigPage() {
     syncVotingDelay,
     syncVotingPeriod,
     refresh,
-    displayToWei,
     isLoading,
     isUpdating,
     isSyncing,
