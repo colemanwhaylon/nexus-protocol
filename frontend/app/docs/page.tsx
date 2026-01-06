@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { BookOpen, Coins, Shield, Vote, Layers, Server, Lock, Code } from "lucide-react";
+import { BookOpen, Coins, Shield, Vote, Layers, Code } from "lucide-react";
 
 const docSections = [
   {

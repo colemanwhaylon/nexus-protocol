@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Bug, ExternalLink, Shield, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Bug, ExternalLink, Shield, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function BugBountyPage() {
