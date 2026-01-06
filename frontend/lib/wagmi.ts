@@ -32,7 +32,7 @@ export const wagmiConfig = getDefaultConfig({
   chains,
   transports: {
     [anvil.id]: http('http://127.0.0.1:8545'),
-    [sepolia.id]: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://eth-sepolia.public.blastapi.io'),
+    [sepolia.id]: http(process.env.NEXT_PUBLIC_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com'),
     [mainnet.id]: http(),
   },
   ssr: true,
