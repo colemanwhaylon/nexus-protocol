@@ -1,7 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd frontend && pnpm build",
-  "outputDirectory": "frontend/.next",
-  "installCommand": "cd frontend && pnpm install",
-  "framework": "nextjs"
+  "version": 2,
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_API_URL": "https://lddtgmolwkbgqsxgbdjw.supabase.co/functions/v1"
+    }
+  }
 }
