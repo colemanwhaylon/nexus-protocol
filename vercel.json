@@ -3,7 +3,6 @@
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/.next",
   "installCommand": "cd frontend && npm install",
-  "framework": "nextjs",
   "build": {
     "env": {
       "NEXT_PUBLIC_API_URL": "https://lddtgmolwkbgqsxgbdjw.supabase.co/functions/v1"
