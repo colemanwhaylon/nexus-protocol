@@ -13,6 +13,19 @@ import {
   type NotificationType,
 } from '@/stores/notificationStore';
 import { cn } from '@/lib/utils';
+import { useChainId } from 'wagmi';
+
+function getExplorerUrl(chainId: number | undefined, txHash: string): string {
+  switch (chainId) {
+    case 1:
+      return `https://etherscan.io/tx/${txHash}`;
+    case 11155111:
+      return `https://sepolia.etherscan.io/tx/${txHash}`;
+    default:
+      // Default to Sepolia for testnet development
+      return `https://sepolia.etherscan.io/tx/${txHash}`;
+  }
+}
 
 const typeStyles: Record<NotificationType, { bg: string; text: string; icon: string }> = {
   success: { bg: 'bg-green-500/10', text: 'text-green-500', icon: '✓' },
@@ -25,9 +38,11 @@ const typeStyles: Record<NotificationType, { bg: string; text: string; icon: str
 function NotificationItem({
   notification,
   onCopy,
+  chainId,
 }: {
   notification: Notification;
   onCopy: (text: string) => void;
+  chainId: number | undefined;
 }) {
   const { removeNotification } = useNotificationStore();
   const style = typeStyles[notification.type];
@@ -60,7 +75,7 @@ function NotificationItem({
             <span className="text-xs text-muted-foreground">{timeAgo}</span>
             {notification.txHash && (
               <a
-                href={`https://etherscan.io/tx/${notification.txHash}`}
+                href={getExplorerUrl(chainId, notification.txHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline flex items-center gap-1"
@@ -100,6 +115,7 @@ function NotificationItem({
 export function NotificationCenter() {
   const { notifications, isOpen, setIsOpen, clearAll, markAllAsRead } = useNotificationStore();
   const [copied, setCopied] = useState(false);
+  const chainId = useChainId();
 
   // Close on escape
   useEffect(() => {
@@ -211,6 +227,7 @@ export function NotificationCenter() {
                   key={notification.id}
                   notification={notification}
                   onCopy={handleCopy}
+                  chainId={chainId}
                 />
               ))
             )}
