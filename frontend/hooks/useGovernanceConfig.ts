@@ -5,10 +5,11 @@ import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagm
 import { useContractAddresses } from './useContractAddresses';
 
 // API base URL for governance config
-// Uses NEXT_PUBLIC_GOVERNANCE_API_URL if set, otherwise falls back to Supabase Edge Functions
+// Uses NEXT_PUBLIC_API_URL if set, otherwise falls back to Supabase Edge Functions
+// Note: contracts.ts adds /api/v1/... to this URL, so don't include /api here
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_GOVERNANCE_API_URL ||
-  'https://lddtgmolwkbgqsxgbdjw.supabase.co/functions/v1/api';
+  process.env.NEXT_PUBLIC_API_URL ||
+  'https://lddtgmolwkbgqsxgbdjw.supabase.co/functions/v1';
 
 // NexusGovernor ABI for admin functions
 const GOVERNOR_ADMIN_ABI = [
