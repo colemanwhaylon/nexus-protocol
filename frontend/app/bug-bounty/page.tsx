@@ -75,33 +75,33 @@ export default function BugBountyPage() {
                   <td className="py-2 px-3">
                     <Badge variant="destructive">Critical</Badge>
                   </td>
-                  <td className="py-2 px-3">$50,000 - $100,000</td>
-                  <td className="py-2 px-3">$10,000 - $25,000</td>
-                  <td className="py-2 px-3">$5,000 - $15,000</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-2 px-3">
                     <Badge variant="destructive" className="bg-orange-500">High</Badge>
                   </td>
-                  <td className="py-2 px-3">$10,000 - $50,000</td>
-                  <td className="py-2 px-3">$5,000 - $10,000</td>
-                  <td className="py-2 px-3">$2,500 - $5,000</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-2 px-3">
                     <Badge variant="outline" className="border-yellow-500 text-yellow-600">Medium</Badge>
                   </td>
-                  <td className="py-2 px-3">$2,500 - $10,000</td>
-                  <td className="py-2 px-3">$1,000 - $5,000</td>
-                  <td className="py-2 px-3">$500 - $2,500</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-2 px-3">
                     <Badge variant="outline">Low</Badge>
                   </td>
-                  <td className="py-2 px-3">$500 - $2,500</td>
-                  <td className="py-2 px-3">$250 - $1,000</td>
-                  <td className="py-2 px-3">$100 - $500</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
+                  <td className="py-2 px-3">1 Starbucks Coffee</td>
                 </tr>
               </tbody>
             </table>

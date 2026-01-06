@@ -366,8 +366,8 @@ export default function TermsOfServicePage() {
               <p><strong>AnITConsultant, LLC</strong></p>
               <p>
                 Email:{" "}
-                <Link href="mailto:legal@anitconsultant.com" className="text-primary hover:underline">
-                  legal@anitconsultant.com
+                <Link href="mailto:it@anitconsultant.com" className="text-primary hover:underline">
+                  it@anitconsultant.com
                 </Link>
               </p>
               <p>

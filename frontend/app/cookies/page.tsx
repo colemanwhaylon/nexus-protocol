@@ -415,8 +415,8 @@ export default function CookiePolicyPage() {
               <p><strong>AnITConsultant, LLC</strong></p>
               <p>
                 Email:{" "}
-                <Link href="mailto:privacy@anitconsultant.com" className="text-primary hover:underline">
-                  privacy@anitconsultant.com
+                <Link href="mailto:it@anitconsultant.com" className="text-primary hover:underline">
+                  it@anitconsultant.com
                 </Link>
               </p>
               <p>

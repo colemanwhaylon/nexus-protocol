@@ -60,7 +60,7 @@ export default function PrivacyPolicyPage() {
             </p>
             <div className="bg-muted/50 p-4 rounded-lg">
               <p><strong>AnITConsultant, LLC</strong></p>
-              <p>Email: <Link href="mailto:privacy@anitconsultant.com" className="text-primary hover:underline">privacy@anitconsultant.com</Link></p>
+              <p>Email: <Link href="mailto:it@anitconsultant.com" className="text-primary hover:underline">it@anitconsultant.com</Link></p>
               <p>Website: <Link href="https://anitconsultant.com" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">anitconsultant.com</Link></p>
             </div>
           </CardContent>
@@ -363,8 +363,8 @@ export default function PrivacyPolicyPage() {
             </div>
             <p className="mt-4">
               To exercise any of these rights, please contact us at{" "}
-              <Link href="mailto:privacy@anitconsultant.com" className="text-primary hover:underline">
-                privacy@anitconsultant.com
+              <Link href="mailto:it@anitconsultant.com" className="text-primary hover:underline">
+                it@anitconsultant.com
               </Link>
               . We will respond within 30 days.
             </p>
@@ -396,8 +396,8 @@ export default function PrivacyPolicyPage() {
             <p>
               We do not sell personal information. To exercise your CCPA rights, contact us
               at{" "}
-              <Link href="mailto:privacy@anitconsultant.com" className="text-primary hover:underline">
-                privacy@anitconsultant.com
+              <Link href="mailto:it@anitconsultant.com" className="text-primary hover:underline">
+                it@anitconsultant.com
               </Link>
               .
             </p>
@@ -455,8 +455,8 @@ export default function PrivacyPolicyPage() {
               <p><strong>Data Protection Contact</strong></p>
               <p>
                 Email:{" "}
-                <Link href="mailto:privacy@anitconsultant.com" className="text-primary hover:underline">
-                  privacy@anitconsultant.com
+                <Link href="mailto:it@anitconsultant.com" className="text-primary hover:underline">
+                  it@anitconsultant.com
                 </Link>
               </p>
               <p>
