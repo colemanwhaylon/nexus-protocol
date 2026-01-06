@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft, Share2, ExternalLink, AlertTriangle, Loader2 } from "lucide-react";
@@ -25,10 +26,6 @@ import { parseAbiItem } from "viem";
 import type { Address } from "viem";
 
 type VoteType = "for" | "against" | "abstain";
-
-interface Props {
-  params: { proposalId: string };
-}
 
 // Governor ABI for reading proposal data
 const governorAbi = [
@@ -148,7 +145,10 @@ const stateDisplayMap: Record<number, ProposalData["state"]> = {
   7: "Executed",
 };
 
-export default function ProposalDetailPage({ params }: Props) {
+export default function ProposalDetailPage() {
+  const params = useParams();
+  const proposalId = params.proposalId as string;
+
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
@@ -185,7 +185,7 @@ export default function ProposalDetailPage({ params }: Props) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [currentVote, setCurrentVote] = useState<VoteType | undefined>();
 
-  const proposalIdBigInt = BigInt(params.proposalId);
+  const proposalIdBigInt = BigInt(proposalId);
 
   const {
     castVote,
@@ -252,7 +252,7 @@ export default function ProposalDetailPage({ params }: Props) {
 
       // Find the log for this proposal ID
       const proposalLog = logs.find(
-        (log) => log.args.proposalId?.toString() === params.proposalId
+        (log) => log.args.proposalId?.toString() === proposalId
       );
 
       if (!proposalLog) {
@@ -369,7 +369,7 @@ export default function ProposalDetailPage({ params }: Props) {
     } finally {
       setIsLoading(false);
     }
-  }, [publicClient, governorAddress, isGovernorDeployed, params.proposalId]);
+  }, [publicClient, governorAddress, isGovernorDeployed, proposalId]);
 
   // Fetch proposal on mount
   useEffect(() => {
@@ -442,12 +442,14 @@ export default function ProposalDetailPage({ params }: Props) {
   };
 
   const getExplorerUrl = () => {
+    // Link to the Governor contract with events log tab to see the proposal
     const baseUrl = chainId === 1
       ? "https://etherscan.io"
       : chainId === 11155111
         ? "https://sepolia.etherscan.io"
         : "";
-    return baseUrl ? `${baseUrl}/tx/${params.proposalId}` : "#";
+    // Show the Governor contract's events tab - users can find the ProposalCreated event
+    return baseUrl && governorAddress ? `${baseUrl}/address/${governorAddress}#events` : "#";
   };
 
   const isTransacting = isPending || isConfirming;
