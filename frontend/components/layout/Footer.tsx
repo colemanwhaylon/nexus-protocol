@@ -1,7 +1,16 @@
+"use client";
+
 import Link from 'next/link';
 import { Github, Twitter, Linkedin, Globe, Mail } from 'lucide-react';
+import { useCookieConsent } from '@/components/features/CookieConsent';
 
-const footerLinks = {
+interface FooterLink {
+  name: string;
+  href: string;
+  isAction?: boolean;
+}
+
+const footerLinks: { protocol: FooterLink[]; resources: FooterLink[]; legal: FooterLink[] } = {
   protocol: [
     { name: 'Staking', href: '/staking' },
     { name: 'NFT Collection', href: '/nft' },
@@ -18,6 +27,7 @@ const footerLinks = {
     { name: 'Terms of Service', href: '/terms' },
     { name: 'Privacy Policy', href: '/privacy' },
     { name: 'Cookie Policy', href: '/cookies' },
+    { name: 'Cookie Settings', href: '#cookie-settings', isAction: true },
   ],
 };
 
@@ -30,6 +40,14 @@ const socialLinks = [
 ];
 
 export function Footer() {
+  const { resetConsent } = useCookieConsent();
+
+  const handleLegalClick = (href: string, isAction?: boolean) => {
+    if (isAction && href === '#cookie-settings') {
+      resetConsent();
+    }
+  };
+
   return (
     <footer className="border-t bg-background">
       <div className="container py-12">
@@ -101,12 +119,21 @@ export function Footer() {
             <ul className="mt-4 space-y-3">
               {footerLinks.legal.map((item) => (
                 <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    {item.name}
-                  </Link>
+                  {item.isAction ? (
+                    <button
+                      onClick={() => handleLegalClick(item.href, item.isAction)}
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {item.name}
+                    </button>
+                  ) : (
+                    <Link
+                      href={item.href}
+                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {item.name}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
