@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, RefreshCw } from "lucide-react";
@@ -114,16 +115,20 @@ const stateMap: Record<number, ProposalState> = {
   7: "executed",
 };
 
-export default function GovernancePage() {
+function GovernancePageContent() {
   const { address: userAddress } = useAccount();
   useChainId(); // Required for wagmi context
   const publicClient = usePublicClient();
+  const searchParams = useSearchParams();
   const { addresses, isLoading: isLoadingAddresses, hasContract } = useContractAddresses();
 
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [isLoadingProposals, setIsLoadingProposals] = useState(true);
   const [isDelegating, setIsDelegating] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Get refresh param (used to trigger refetch after proposal creation)
+  const refreshParam = searchParams.get("refresh");
 
   const governorAddress = addresses.nexusGovernor;
   const tokenAddress = addresses.nexusToken;
@@ -262,9 +267,10 @@ export default function GovernancePage() {
   }, [publicClient, governorAddress, isAddressesReady]);
 
   // Fetch proposals on mount and when dependencies change
+  // Also refetch when refreshParam changes (e.g., after creating a proposal)
   useEffect(() => {
     fetchProposals();
-  }, [fetchProposals]);
+  }, [fetchProposals, refreshParam]);
 
   // Manual refresh function with visual feedback
   const handleRefresh = useCallback(async () => {
@@ -397,5 +403,20 @@ export default function GovernancePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Wrapper with Suspense for useSearchParams
+export default function GovernancePage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center h-64">
+          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    }>
+      <GovernancePageContent />
+    </Suspense>
   );
 }

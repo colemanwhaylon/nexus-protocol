@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 } from "wagmi";
 import { useContractAddresses } from "@/hooks/useContractAddresses";
 import { useGovernance } from "@/hooks/useGovernance";
+import { useNotifications } from "@/hooks/useNotifications";
 import { parseEther } from "viem";
 import type { Address } from "viem";
 
@@ -38,6 +39,10 @@ export default function CreateProposalPage() {
   const router = useRouter();
   const { address: userAddress, isConnected } = useAccount();
   const { addresses, hasContract } = useContractAddresses();
+  const { notifyProposalCreated } = useNotifications();
+
+  // Track proposal title for notification
+  const proposalTitleRef = useRef<string>("");
 
   const tokenAddress = addresses.nexusToken;
   const isGovernorDeployed = hasContract('nexusGovernor');
@@ -49,6 +54,7 @@ export default function CreateProposalPage() {
     isPending,
     isConfirming,
     isSuccess,
+    hash,
     error: writeError,
     reset,
   } = useGovernance();
@@ -64,16 +70,20 @@ export default function CreateProposalPage() {
     },
   });
 
-  // Redirect to governance page after successful creation
+  // Trigger notification and redirect after successful creation
   useEffect(() => {
     if (isSuccess) {
+      // Show notification
+      notifyProposalCreated("new", proposalTitleRef.current, hash);
+
       // Small delay to allow for transaction confirmation
       const timer = setTimeout(() => {
-        router.push("/governance");
+        // Add timestamp to force refetch on governance page
+        router.push(`/governance?refresh=${Date.now()}`);
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [isSuccess, router]);
+  }, [isSuccess, router, hash, notifyProposalCreated]);
 
   const handleSubmit = async (
     title: string,
@@ -81,6 +91,9 @@ export default function CreateProposalPage() {
     actions: ProposalAction[]
   ) => {
     if (!isGovernorDeployed) return;
+
+    // Store title for notification
+    proposalTitleRef.current = title;
 
     // Reset any previous errors
     reset();
