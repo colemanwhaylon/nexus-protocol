@@ -261,7 +261,7 @@ export default function ProposalDetailPage() {
         return;
       }
 
-      const proposalId = proposalLog.args.proposalId as bigint;
+      const proposalIdFromEvent = proposalLog.args.proposalId as bigint;
       const description = proposalLog.args.description as string;
       const targets = proposalLog.args.targets as Address[];
       const values = proposalLog.args.values as bigint[];
@@ -273,14 +273,14 @@ export default function ProposalDetailPage() {
 
       // Extract title from description (first line or before ##)
       const titleMatch = description.match(/^#\s*(.+)/m);
-      const title = titleMatch ? titleMatch[1] : description.split("\n")[0] || `Proposal #${proposalId.toString()}`;
+      const title = titleMatch ? titleMatch[1] : description.split("\n")[0] || `Proposal #${proposalIdFromEvent.toString()}`;
 
       // Get proposal state
       const stateResult = await publicClient.readContract({
         address: governorAddress,
         abi: governorAbi,
         functionName: "state",
-        args: [proposalId],
+        args: [proposalIdFromEvent],
       });
 
       // Get proposal eta (execution timestamp) if queued
@@ -292,7 +292,7 @@ export default function ProposalDetailPage() {
             address: governorAddress,
             abi: governorAbi,
             functionName: "proposalEta",
-            args: [proposalId],
+            args: [proposalIdFromEvent],
           });
           eta = Number(etaResult);
         } catch (e) {
@@ -305,7 +305,7 @@ export default function ProposalDetailPage() {
         address: governorAddress,
         abi: governorAbi,
         functionName: "proposalVotes",
-        args: [proposalId],
+        args: [proposalIdFromEvent],
       });
 
       const [againstVotes, forVotes, abstainVotes] = votesResult as [bigint, bigint, bigint];
@@ -342,7 +342,7 @@ export default function ProposalDetailPage() {
       const votingStartedAt = currentTimestamp - (blocksSinceVoteStart * 12);
 
       setProposal({
-        id: proposalId.toString(),
+        id: proposalIdFromEvent.toString(),
         title,
         description,
         proposer,
