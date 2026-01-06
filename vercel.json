@@ -4,7 +4,12 @@
   "builds": [
     {
       "src": "frontend/package.json",
-      "use": "@vercel/next"
+      "use": "@vercel/next",
+      "config": {
+        "buildEnvVars": {
+          "NEXT_PUBLIC_API_URL": "https://lddtgmolwkbgqsxgbdjw.supabase.co/functions/v1/api"
+        }
+      }
     }
   ],
   "routes": [
