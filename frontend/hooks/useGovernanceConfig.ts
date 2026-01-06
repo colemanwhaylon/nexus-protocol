@@ -4,8 +4,11 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useContractAddresses } from './useContractAddresses';
 
-// API base URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+// API base URL for governance config
+// Uses NEXT_PUBLIC_GOVERNANCE_API_URL if set, otherwise falls back to Supabase Edge Functions
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_GOVERNANCE_API_URL ||
+  'https://lddtgmolwkbgqsxgbdjw.supabase.co/functions/v1/api';
 
 // NexusGovernor ABI for admin functions
 const GOVERNOR_ADMIN_ABI = [
@@ -155,8 +158,10 @@ export function useGovernanceConfig(options: UseGovernanceConfigOptions = {}) {
     setError(null);
 
     try {
+      // Include chainId in the request for the Supabase Edge Function
+      const targetChainId = chainId || 11155111; // Default to Sepolia
       const response = await fetch(
-        `${API_BASE_URL}/api/v1/governance/config?active_only=${activeOnly}`
+        `${API_BASE_URL}/api/v1/governance/config?active_only=${activeOnly}&chainId=${targetChainId}`
       );
       const data: ApiResponse<{ configs: GovernanceConfig[]; chain_id: number; total: number }> & {
         configs?: GovernanceConfig[];
@@ -177,12 +182,13 @@ export function useGovernanceConfig(options: UseGovernanceConfigOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [chainId]);
 
   // Fetch single config
   const fetchConfigByKey = useCallback(async (configKey: string): Promise<GovernanceConfig | null> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/governance/config/${configKey}`);
+      const targetChainId = chainId || 11155111;
+      const response = await fetch(`${API_BASE_URL}/api/v1/governance/config/${configKey}?chainId=${targetChainId}`);
       const data: ApiResponse<GovernanceConfig> & { config?: GovernanceConfig } = await response.json();
 
       if (data.success) {
@@ -192,7 +198,7 @@ export function useGovernanceConfig(options: UseGovernanceConfigOptions = {}) {
     } catch {
       return null;
     }
-  }, []);
+  }, [chainId]);
 
   // Update config in database
   const updateConfig = useCallback(
@@ -206,7 +212,8 @@ export function useGovernanceConfig(options: UseGovernanceConfigOptions = {}) {
       setError(null);
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/governance/config/${configKey}`, {
+        const targetChainId = chainId || 11155111;
+        const response = await fetch(`${API_BASE_URL}/api/v1/governance/config/${configKey}?chainId=${targetChainId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -240,7 +247,7 @@ export function useGovernanceConfig(options: UseGovernanceConfigOptions = {}) {
         setIsUpdating(false);
       }
     },
-    [address]
+    [address, chainId]
   );
 
   // Fetch config history
