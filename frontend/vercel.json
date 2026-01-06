@@ -3,5 +3,10 @@
   "framework": "nextjs",
   "buildCommand": "pnpm build",
   "outputDirectory": ".next",
-  "installCommand": "pnpm install"
+  "installCommand": "pnpm install",
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_API_URL": "https://lddtgmolwkbgqsxgbdjw.supabase.co/functions/v1"
+    }
+  }
 }
