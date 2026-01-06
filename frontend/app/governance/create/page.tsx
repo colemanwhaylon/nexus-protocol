@@ -249,12 +249,16 @@ export default function CreateProposalPage() {
               </div>
 
               <div className="pt-2 border-t">
-                <h4 className="font-medium mb-1">Voting Process</h4>
+                <h4 className="font-medium mb-2">Voting Process</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>- Voting period: 7 days</li>
+                  <li>- Voting delay: 1 block after creation</li>
+                  <li>- Voting period: ~20 minutes (100 blocks)</li>
                   <li>- Quorum required: 4% of total supply</li>
-                  <li>- Timelock delay: 48 hours</li>
+                  <li>- Timelock delay: 60 seconds</li>
                 </ul>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                  * Testnet values for rapid testing. Mainnet will use longer periods.
+                </p>
               </div>
             </CardContent>
           </Card>
