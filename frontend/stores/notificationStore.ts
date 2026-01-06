@@ -82,6 +82,19 @@ export const useNotificationStore = create<NotificationState>()(
           read: false,
         };
 
+        // Deduplicate: Check if same txHash was added in last 5 seconds
+        const existingNotifications = get().notifications;
+        if (notification.txHash) {
+          const recentDuplicate = existingNotifications.find(
+            (n) => n.txHash === notification.txHash &&
+                   Date.now() - n.timestamp < 5000
+          );
+          if (recentDuplicate) {
+            console.log('[Nexus] Skipping duplicate notification for tx:', notification.txHash);
+            return; // Skip duplicate
+          }
+        }
+
         // Log for Claude Chrome extension
         logForClaude(notification);
 
