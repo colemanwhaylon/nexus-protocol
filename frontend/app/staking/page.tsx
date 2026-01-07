@@ -43,6 +43,7 @@ export default function StakingPage() {
   const {
     allowance,
     approve,
+    hash: approvalHash,
     isPending: isApprovePending,
     isConfirmed: isApproveConfirmed,
     refetch: refetchAllowance,
@@ -76,13 +77,13 @@ export default function StakingPage() {
     if (isApproveConfirmed) {
       refetchAllowance();
       setShowApprovalSuccess(true);
-      notifyApproval(stakeAmount || '0');
+      notifyApproval(stakeAmount || '0', approvalHash);
       // Hide success message after 3 seconds
       const timer = setTimeout(() => setShowApprovalSuccess(false), 3000);
       return () => clearTimeout(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isApproveConfirmed, refetchAllowance]);
+  }, [isApproveConfirmed, refetchAllowance, approvalHash]);
 
   // Refetch after successful stake/unstake/delegate
   useEffect(() => {

@@ -88,24 +88,29 @@ tools/**/*.rs.bk
 tools/Cargo.lock
 
 # =============================================================================
-# PYTHON / SCRIPTS
+# PYTHON / VIRTUAL ENVIRONMENTS (Global)
 # =============================================================================
-scripts/__pycache__/
-scripts/*.py[cod]
-scripts/*$py.class
-scripts/.Python
-scripts/venv/
-scripts/env/
-scripts/.venv/
-scripts/ENV/
-scripts/*.egg-info/
-scripts/dist/
-scripts/build/
-scripts/.eggs/
-scripts/*.egg
+# Virtual environments anywhere in repo
+.venv/
+venv/
+env/
+ENV/
+.Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
 
-# Jupyter
+# Scripts-specific
 scripts/.ipynb_checkpoints/
+
+# Documentation virtual environment
+documentation/.venv/
+documentation/venv/
 
 # =============================================================================
 # NODE.JS / FRONTEND
@@ -204,12 +209,16 @@ CLAUDE.md
 frontend/tsconfig.tsbuildinfo
 candelete/
 
+# Playwright MCP (browser automation screenshots/artifacts)
+.playwright-mcp/
+
 # Internal development scripts (keep locally, hide from public)
 scripts/dev-setup.sh
 scripts/test_governance.py
 scripts/test_governance_delegation.py
 
 # Internal documentation (keep locally, hide from public)
+documentation/answer3.md
 documentation/DEPENDENCY_AUDIT.md
 documentation/DEPLOYMENT_RUNBOOK.md
 documentation/FRONTEND_COMPLETION_PLAN.md
