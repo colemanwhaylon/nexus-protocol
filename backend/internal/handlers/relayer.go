@@ -27,18 +27,18 @@ import (
 // RelayerHandler handles meta-transaction relay endpoints
 type RelayerHandler struct {
 	repo            repository.RelayerRepository
+	configRepo      repository.AppConfigRepository
 	logger          *zap.Logger
 	ethClient       *ethclient.Client
 	forwarderAddr   common.Address
 	relayerKey      *ecdsa.PrivateKey
 	chainID         *big.Int
-	maxGasPrice     *big.Int
-	minGasPrice     *big.Int
 }
 
 // NewRelayerHandler creates a new relayer handler with injected dependencies
 func NewRelayerHandler(
 	repo repository.RelayerRepository,
+	configRepo repository.AppConfigRepository,
 	logger *zap.Logger,
 ) (*RelayerHandler, error) {
 	// Connect to Ethereum node
@@ -78,25 +78,14 @@ func NewRelayerHandler(
 	}
 	forwarderAddr := common.HexToAddress(forwarderAddrHex)
 
-	// Gas price limits (configurable)
-	maxGasPrice := big.NewInt(100e9)  // 100 gwei default max
-	minGasPrice := big.NewInt(1e9)    // 1 gwei default min
-
-	if maxGasPriceEnv := os.Getenv("MAX_GAS_PRICE_GWEI"); maxGasPriceEnv != "" {
-		if val, ok := new(big.Int).SetString(maxGasPriceEnv, 10); ok {
-			maxGasPrice = new(big.Int).Mul(val, big.NewInt(1e9))
-		}
-	}
-
 	return &RelayerHandler{
 		repo:          repo,
+		configRepo:    configRepo,
 		logger:        logger,
 		ethClient:     client,
 		forwarderAddr: forwarderAddr,
 		relayerKey:    relayerKey,
 		chainID:       chainID,
-		maxGasPrice:   maxGasPrice,
-		minGasPrice:   minGasPrice,
 	}, nil
 }
 
@@ -550,12 +539,28 @@ func (h *RelayerHandler) submitToChain(ctx context.Context, req RelayRequest, me
 		return "", fmt.Errorf("failed to get gas price: %w", err)
 	}
 
+	// Load gas price limits from database (with fallback defaults)
+	maxGasPriceGwei := int64(100) // Default 100 gwei
+	minGasPriceGwei := int64(1)   // Default 1 gwei
+
+	if h.configRepo != nil {
+		if val, err := h.configRepo.GetNumber(ctx, "relayer", "max_gas_price_gwei", h.chainID.Int64()); err == nil {
+			maxGasPriceGwei = val
+		}
+		if val, err := h.configRepo.GetNumber(ctx, "relayer", "min_gas_price_gwei", h.chainID.Int64()); err == nil {
+			minGasPriceGwei = val
+		}
+	}
+
+	maxGasPrice := new(big.Int).Mul(big.NewInt(maxGasPriceGwei), big.NewInt(1e9))
+	minGasPrice := new(big.Int).Mul(big.NewInt(minGasPriceGwei), big.NewInt(1e9))
+
 	// Check gas price limits
-	if gasPrice.Cmp(h.maxGasPrice) > 0 {
+	if gasPrice.Cmp(maxGasPrice) > 0 {
 		return "", fmt.Errorf("gas price too high: %s gwei", new(big.Int).Div(gasPrice, big.NewInt(1e9)))
 	}
-	if gasPrice.Cmp(h.minGasPrice) < 0 {
-		gasPrice = h.minGasPrice
+	if gasPrice.Cmp(minGasPrice) < 0 {
+		gasPrice = minGasPrice
 	}
 
 	// Get relayer address and nonce

@@ -89,13 +89,14 @@ func main() {
 	relayerRepo := postgres.NewPostgresRelayerRepo(db)
 	contractRepo := postgres.NewPostgresContractRepo(db)
 	governanceConfigRepo := postgres.NewPostgresGovernanceConfigRepo(db)
+	appConfigRepo := postgres.NewPostgresAppConfigRepo(db)
 
 	// Create handlers with injected dependencies
 	healthHandler := handlers.NewHealthHandler(logger, version, commit, buildDate)
 	pricingHandler := handlers.NewPricingHandler(pricingRepo, logger)
 	paymentHandler := handlers.NewPaymentHandler(paymentRepo, pricingRepo, logger)
-	sumsubHandler := handlers.NewSumsubHandler(paymentRepo, pricingRepo, logger)
-	relayerHandler, err := handlers.NewRelayerHandler(relayerRepo, logger)
+	sumsubHandler := handlers.NewSumsubHandler(paymentRepo, pricingRepo, appConfigRepo, logger, cfg.ChainID)
+	relayerHandler, err := handlers.NewRelayerHandler(relayerRepo, appConfigRepo, logger)
 	if err != nil {
 		// Relayer is optional in dev mode - warn but continue
 		logger.Warn("relayer handler disabled", zap.Error(err))
@@ -103,6 +104,7 @@ func main() {
 	}
 	contractHandler := handlers.NewContractHandler(contractRepo, logger)
 	governanceHandler := handlers.NewGovernanceHandler(logger, governanceConfigRepo, cfg.ChainID)
+	appConfigHandler := handlers.NewAppConfigHandler(appConfigRepo, logger)
 
 	// Setup router
 	router := gin.New()
@@ -191,6 +193,18 @@ func main() {
 			contracts.GET("/:chainId/:name", contractHandler.GetContract)
 			contracts.POST("", contractHandler.UpsertContract)
 			contracts.GET("/history/:id", contractHandler.GetContractHistory)
+		}
+
+		// App config routes (database-driven configuration)
+		config := api.Group("/config")
+		{
+			config.GET("", appConfigHandler.ListAll)
+			config.POST("", appConfigHandler.CreateConfig) // TODO: Add admin auth middleware
+			config.GET("/:namespace", appConfigHandler.ListByNamespace)
+			config.GET("/:namespace/:key", appConfigHandler.GetConfig)
+			config.PUT("/:namespace/:key", appConfigHandler.UpdateConfig)       // TODO: Add admin auth middleware
+			config.DELETE("/:namespace/:key", appConfigHandler.DeleteConfig)    // TODO: Add admin auth middleware
+			config.GET("/:namespace/:key/history", appConfigHandler.GetConfigHistory)
 		}
 
 		// Governance routes

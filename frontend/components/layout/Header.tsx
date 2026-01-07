@@ -14,6 +14,7 @@ const navigation = [
   { name: 'Staking', href: '/staking' },
   { name: 'NFT', href: '/nft' },
   { name: 'Governance', href: '/governance' },
+  { name: 'About', href: '/about' },
 ];
 
 export function Header() {

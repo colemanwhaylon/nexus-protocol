@@ -22,6 +22,7 @@ const footerLinks: { protocol: FooterLink[]; resources: FooterLink[]; legal: Foo
     { name: 'Tokenomics', href: '/tokenomics' },
     { name: 'Security Audits', href: '/security' },
     { name: 'Bug Bounty', href: '/bug-bounty' },
+    { name: 'About', href: '/about' },
   ],
   legal: [
     { name: 'Terms of Service', href: '/terms' },
@@ -36,7 +37,7 @@ const socialLinks = [
   { name: 'X', href: 'https://x.com/anitconsultant', icon: Twitter },
   { name: 'LinkedIn', href: 'https://www.linkedin.com/in/anitconsultant/', icon: Linkedin },
   { name: 'Website', href: 'https://anitconsultant.com/', icon: Globe },
-  { name: 'Email', href: 'mailto:it@anitconsultant.com', icon: Mail },
+  { name: 'Email', href: 'mailto:colemanwhaylon@yahoo.com', icon: Mail },
 ];
 
 export function Footer() {

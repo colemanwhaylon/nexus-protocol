@@ -194,6 +194,76 @@ CREATE INDEX idx_governance_config_history_config ON governance_config_history(g
 CREATE INDEX idx_governance_config_history_changed_at ON governance_config_history(changed_at);
 
 -- ============================================
+-- Application Configuration (Unified Static Config)
+-- ============================================
+
+-- General application configuration table
+-- Stores all configurable values that don't fit in specialized tables
+-- Uses namespace + key pattern for flexible configuration
+CREATE TABLE IF NOT EXISTS app_config (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    namespace VARCHAR(50) NOT NULL,              -- 'nft', 'token', 'staking', 'kyc', 'relayer', 'api'
+    config_key VARCHAR(100) NOT NULL,            -- 'mint_price', 'max_supply', etc.
+    value_type VARCHAR(20) NOT NULL,             -- 'string', 'number', 'wei', 'address', 'boolean', 'json'
+
+    -- Value storage (use appropriate column based on value_type)
+    value_string TEXT,                           -- For strings, addresses, URLs, JSON
+    value_number BIGINT,                         -- For integers
+    value_wei NUMERIC(78, 0),                    -- For wei amounts (up to 2^256)
+    value_boolean BOOLEAN,                       -- For boolean flags
+
+    -- Metadata
+    description TEXT,                            -- Human-readable description
+    is_secret BOOLEAN NOT NULL DEFAULT FALSE,    -- If true, mask in UI
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,     -- Soft delete
+
+    -- Chain-specific (some configs may differ per network)
+    chain_id BIGINT NOT NULL DEFAULT 0,          -- 0 = all chains, otherwise specific chain
+
+    -- Audit
+    updated_by VARCHAR(42),                      -- Admin address who changed it
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- Unique constraint: one config key per namespace per chain
+    CONSTRAINT app_config_namespace_key_chain_unique UNIQUE (namespace, config_key, chain_id)
+);
+
+CREATE INDEX idx_app_config_namespace ON app_config(namespace);
+CREATE INDEX idx_app_config_key ON app_config(config_key);
+CREATE INDEX idx_app_config_chain ON app_config(chain_id);
+CREATE INDEX idx_app_config_active ON app_config(is_active);
+
+-- App config history for audit trail
+CREATE TABLE IF NOT EXISTS app_config_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    app_config_id UUID NOT NULL REFERENCES app_config(id) ON DELETE CASCADE,
+
+    -- Previous values
+    old_value_string TEXT,
+    old_value_number BIGINT,
+    old_value_wei NUMERIC(78, 0),
+    old_value_boolean BOOLEAN,
+
+    -- New values
+    new_value_string TEXT,
+    new_value_number BIGINT,
+    new_value_wei NUMERIC(78, 0),
+    new_value_boolean BOOLEAN,
+
+    -- Who and when
+    changed_by VARCHAR(42) NOT NULL,
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    change_reason TEXT,
+
+    -- Audit timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_app_config_history_config ON app_config_history(app_config_id);
+CREATE INDEX idx_app_config_history_changed_at ON app_config_history(changed_at);
+
+-- ============================================
 -- NFT Tables
 -- ============================================
 
@@ -568,6 +638,50 @@ CREATE TRIGGER update_governance_config_history_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+-- Triggers for app_config tables
+CREATE TRIGGER update_app_config_updated_at
+    BEFORE UPDATE ON app_config
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- App Config History Auto-Logging
+-- ============================================
+
+-- Function to automatically log app config changes
+CREATE OR REPLACE FUNCTION log_app_config_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only log if value-related fields changed
+    IF OLD.value_string IS DISTINCT FROM NEW.value_string
+       OR OLD.value_number IS DISTINCT FROM NEW.value_number
+       OR OLD.value_wei IS DISTINCT FROM NEW.value_wei
+       OR OLD.value_boolean IS DISTINCT FROM NEW.value_boolean THEN
+
+        INSERT INTO app_config_history (
+            app_config_id,
+            old_value_string, old_value_number, old_value_wei, old_value_boolean,
+            new_value_string, new_value_number, new_value_wei, new_value_boolean,
+            changed_by, change_reason
+        ) VALUES (
+            NEW.id,
+            OLD.value_string, OLD.value_number, OLD.value_wei, OLD.value_boolean,
+            NEW.value_string, NEW.value_number, NEW.value_wei, NEW.value_boolean,
+            COALESCE(NEW.updated_by, 'system'),
+            'Config update'
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply app config history trigger
+CREATE TRIGGER log_app_config_changes
+    AFTER UPDATE ON app_config
+    FOR EACH ROW
+    EXECUTE FUNCTION log_app_config_change();
+
 -- ============================================
 -- Pricing History Auto-Logging
 -- ============================================
@@ -715,6 +829,85 @@ VALUES
     ('quorum_percent', 'Quorum Percentage', 'Minimum percentage of total supply that must vote for a proposal to be valid', NULL, NULL, 4.0000, 'percent', '%', 11155111, true),
     ('timelock_delay', 'Timelock Delay', 'Seconds to wait after proposal passes before it can be executed', NULL, 60, NULL, 'seconds', 'sec', 11155111, true)
 ON CONFLICT ON CONSTRAINT governance_config_key_chain_unique DO NOTHING;
+
+-- ============================================
+-- App Config Seed Data (Unified Static Config)
+-- ============================================
+
+-- NFT Configuration (chain_id = 0 means applies to all chains)
+INSERT INTO app_config (namespace, config_key, value_type, value_wei, description, chain_id) VALUES
+    ('nft', 'mint_price', 'wei', 10000000000000000, 'NFT mint price in wei (0.01 ETH for testnet)', 11155111),
+    ('nft', 'mint_price', 'wei', 100000000000000000, 'NFT mint price in wei (0.1 ETH for mainnet)', 1)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+INSERT INTO app_config (namespace, config_key, value_type, value_number, description, chain_id) VALUES
+    ('nft', 'max_supply', 'number', 10000, 'Maximum NFT collection supply', 0),
+    ('nft', 'royalty_bps', 'number', 500, 'Royalty in basis points (500 = 5%)', 0),
+    ('nft', 'max_per_wallet', 'number', 5, 'Maximum NFTs per wallet during public sale', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+INSERT INTO app_config (namespace, config_key, value_type, value_string, description, chain_id) VALUES
+    ('nft', 'base_uri', 'string', 'https://nexus.dapp.academy/metadata/', 'NFT metadata base URI', 0),
+    ('nft', 'contract_uri', 'string', 'https://nexus.dapp.academy/contract-metadata.json', 'OpenSea collection metadata URI', 0),
+    ('nft', 'royalty_receiver', 'address', '0xFc9019b7e35A480445b6Ea50Ab9049dca20695Ab', 'Royalty payment receiver address', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+-- Token Configuration
+INSERT INTO app_config (namespace, config_key, value_type, value_wei, description, chain_id) VALUES
+    ('token', 'total_supply', 'wei', 100000000000000000000000000, 'Total token supply in wei (100M tokens)', 0),
+    ('token', 'initial_liquidity', 'wei', 10000000000000000000000000, 'Initial liquidity pool allocation (10M tokens)', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+INSERT INTO app_config (namespace, config_key, value_type, value_string, description, chain_id) VALUES
+    ('token', 'treasury_address', 'address', '0xFc9019b7e35A480445b6Ea50Ab9049dca20695Ab', 'Treasury wallet address', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+-- Staking Configuration
+INSERT INTO app_config (namespace, config_key, value_type, value_number, description, chain_id) VALUES
+    ('staking', 'unbonding_days', 'number', 7, 'Unbonding period in days', 0),
+    ('staking', 'min_stake_amount', 'number', 100, 'Minimum stake amount in tokens', 0),
+    ('staking', 'max_validators', 'number', 100, 'Maximum number of validators', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+INSERT INTO app_config (namespace, config_key, value_type, value_wei, description, chain_id) VALUES
+    ('staking', 'min_stake_wei', 'wei', 100000000000000000000, 'Minimum stake in wei (100 tokens)', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+-- Relayer Configuration
+INSERT INTO app_config (namespace, config_key, value_type, value_number, description, chain_id) VALUES
+    ('relayer', 'gas_price_multiplier', 'number', 120, 'Gas price multiplier in percent (120 = 1.2x)', 0),
+    ('relayer', 'max_gas_price_gwei', 'number', 100, 'Maximum gas price in gwei', 0),
+    ('relayer', 'min_gas_price_gwei', 'number', 1, 'Minimum gas price in gwei', 0),
+    ('relayer', 'max_retries', 'number', 3, 'Maximum retry attempts for failed transactions', 0),
+    ('relayer', 'tx_timeout_seconds', 'number', 120, 'Transaction confirmation timeout in seconds', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+-- API Configuration
+INSERT INTO app_config (namespace, config_key, value_type, value_string, description, chain_id) VALUES
+    ('api', 'metadata_base_url', 'string', 'https://nexus.dapp.academy', 'Base URL for metadata and API', 0),
+    ('api', 'cors_origins', 'json', '["https://nexus.dapp.academy", "http://localhost:3000"]', 'Allowed CORS origins (JSON array)', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+INSERT INTO app_config (namespace, config_key, value_type, value_number, description, chain_id) VALUES
+    ('api', 'rate_limit_per_minute', 'number', 60, 'API rate limit per minute per IP', 0),
+    ('api', 'max_page_size', 'number', 100, 'Maximum page size for paginated endpoints', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+-- KYC Configuration
+INSERT INTO app_config (namespace, config_key, value_type, value_number, description, chain_id) VALUES
+    ('kyc', 'verification_expiry_days', 'number', 365, 'Days until KYC verification expires', 0),
+    ('kyc', 'max_daily_verifications', 'number', 1000, 'Maximum KYC verifications per day', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+INSERT INTO app_config (namespace, config_key, value_type, value_boolean, description, chain_id) VALUES
+    ('kyc', 'require_kyc_for_staking', 'boolean', false, 'Require KYC to stake tokens', 0),
+    ('kyc', 'require_kyc_for_governance', 'boolean', false, 'Require KYC to participate in governance', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
+
+INSERT INTO app_config (namespace, config_key, value_type, value_string, description, chain_id) VALUES
+    ('kyc', 'sumsub_base_url', 'string', 'https://api.sumsub.com', 'Sumsub API base URL', 0),
+    ('kyc', 'sumsub_level_name', 'string', 'basic-kyc-level', 'Sumsub KYC verification level name', 0)
+ON CONFLICT ON CONSTRAINT app_config_namespace_key_chain_unique DO NOTHING;
 
 -- ============================================
 -- Meta-Transactions (ERC-2771 Relayer)

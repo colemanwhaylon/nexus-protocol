@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -23,27 +24,31 @@ import (
 type SumsubHandler struct {
 	paymentRepo   repository.PaymentRepository
 	pricingRepo   repository.PricingRepository
+	configRepo    repository.AppConfigRepository
 	logger        *zap.Logger
 	appToken      string
 	secretKey     string
 	webhookSecret string
-	baseURL       string
+	chainID       int64
 }
 
 // NewSumsubHandler creates a new Sumsub handler with injected dependencies
 func NewSumsubHandler(
 	paymentRepo repository.PaymentRepository,
 	pricingRepo repository.PricingRepository,
+	configRepo repository.AppConfigRepository,
 	logger *zap.Logger,
+	chainID int64,
 ) *SumsubHandler {
 	return &SumsubHandler{
 		paymentRepo:   paymentRepo,
 		pricingRepo:   pricingRepo,
+		configRepo:    configRepo,
 		logger:        logger,
 		appToken:      os.Getenv("SUMSUB_APP_TOKEN"),
 		secretKey:     os.Getenv("SUMSUB_SECRET_KEY"),
 		webhookSecret: os.Getenv("SUMSUB_WEBHOOK_SECRET"),
-		baseURL:       "https://api.sumsub.com",
+		chainID:       chainID,
 	}
 }
 
@@ -443,9 +448,33 @@ func (h *SumsubHandler) HandleWebhook(c *gin.Context) {
 	c.JSON(http.StatusOK, SumsubResponse{Success: true})
 }
 
+// getSumsubBaseURL returns the Sumsub base URL from config or default
+func (h *SumsubHandler) getSumsubBaseURL(ctx context.Context) string {
+	if h.configRepo != nil {
+		if url, err := h.configRepo.GetString(ctx, "kyc", "sumsub_base_url", h.chainID); err == nil && url != "" {
+			return url
+		}
+	}
+	return "https://api.sumsub.com" // Default fallback
+}
+
+// getSumsubLevelName returns the KYC level name from config or default
+func (h *SumsubHandler) getSumsubLevelName(ctx context.Context) string {
+	if h.configRepo != nil {
+		if level, err := h.configRepo.GetString(ctx, "kyc", "sumsub_level_name", h.chainID); err == nil && level != "" {
+			return level
+		}
+	}
+	return "basic-kyc-level" // Default fallback
+}
+
 // createSumsubApplicant creates an applicant in Sumsub
 func (h *SumsubHandler) createSumsubApplicant(externalUserID string) (*SumsubApplicant, error) {
-	url := h.baseURL + "/resources/applicants?levelName=basic-kyc-level"
+	ctx := context.Background()
+	baseURL := h.getSumsubBaseURL(ctx)
+	levelName := h.getSumsubLevelName(ctx)
+
+	url := baseURL + "/resources/applicants?levelName=" + levelName
 
 	body := fmt.Sprintf(`{"externalUserId":"%s"}`, externalUserID)
 
@@ -478,7 +507,11 @@ func (h *SumsubHandler) createSumsubApplicant(externalUserID string) (*SumsubApp
 
 // getSumsubAccessToken gets an access token for the WebSDK
 func (h *SumsubHandler) getSumsubAccessToken(externalUserID string) (*SumsubAccessToken, error) {
-	url := fmt.Sprintf("%s/resources/accessTokens?userId=%s&levelName=basic-kyc-level", h.baseURL, externalUserID)
+	ctx := context.Background()
+	baseURL := h.getSumsubBaseURL(ctx)
+	levelName := h.getSumsubLevelName(ctx)
+
+	url := fmt.Sprintf("%s/resources/accessTokens?userId=%s&levelName=%s", baseURL, externalUserID, levelName)
 
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {

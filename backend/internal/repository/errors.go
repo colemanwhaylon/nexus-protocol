@@ -41,6 +41,12 @@ var (
 	ErrGovernanceConfigInactive = errors.New("governance config is inactive")
 	ErrInvalidConfigKey         = errors.New("invalid governance config key")
 
+	// App config errors
+	ErrAppConfigNotFound  = errors.New("app config not found")
+	ErrAppConfigInactive  = errors.New("app config is inactive")
+	ErrInvalidNamespace   = errors.New("invalid app config namespace")
+	ErrInvalidValueType   = errors.New("invalid app config value type")
+
 	// Contract address errors
 	ErrNetworkNotFound          = errors.New("network configuration not found")
 	ErrNetworkNotActive         = errors.New("network is not active")
