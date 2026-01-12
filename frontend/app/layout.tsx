@@ -11,15 +11,33 @@ import { CookieConsentBanner } from '@/components/features/CookieConsent';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Nexus Protocol | DeFi + NFT + Governance Platform',
+  title: 'Nexus Protocol - Enterprise DeFi + NFT + Security Token Platform',
   description:
-    'Stake tokens, mint NFTs, and participate in governance with Nexus Protocol - a comprehensive DeFi platform built on Ethereum.',
+    'Enterprise DeFi platform with 23 smart contracts demonstrating institutional-grade security. Tokens: ERC-20 (Snapshots, Votes, Flash Mint), ERC-721A, ERC-1400 security tokens. DeFi: Staking with slashing (875 LOC), streaming rewards (1,076 LOC), vesting. Governance: OpenZeppelin Governor + 48-hour timelock + N-of-M MultiSig. Security: 0 Critical/High findings, 98.5% coverage, Echidna + Certora verification. Stack: Solidity 0.8.24 | Foundry | Go 1.24 | Next.js 14 | PostgreSQL | K8s',
   keywords: ['DeFi', 'NFT', 'Staking', 'Governance', 'Ethereum', 'Web3'],
   authors: [{ name: 'Nexus Protocol Team' }],
+  metadataBase: new URL('https://nexus.dapp.academy'),
   openGraph: {
-    title: 'Nexus Protocol',
-    description: 'DeFi + NFT + Governance Platform',
+    title: 'Nexus Protocol - Enterprise DeFi + NFT + Security Token Platform',
+    description:
+      'Enterprise DeFi platform with 23 smart contracts demonstrating institutional-grade security. Tokens: ERC-20 (Snapshots, Votes, Flash Mint), ERC-721A, ERC-1400 security tokens. DeFi: Staking with slashing (875 LOC), streaming rewards (1,076 LOC), vesting. Governance: OpenZeppelin Governor + 48-hour timelock + N-of-M MultiSig. Security: 0 Critical/High findings, 98.5% coverage, Echidna + Certora verification. Stack: Solidity 0.8.24 | Foundry | Go 1.24 | Next.js 14 | PostgreSQL | K8s',
     type: 'website',
+    url: 'https://nexus.dapp.academy',
+    images: [
+      {
+        url: 'https://nexus.dapp.academy/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Nexus Protocol - Enterprise DeFi + NFT + Security Token Platform',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Nexus Protocol - Enterprise DeFi + NFT + Security Token Platform',
+    description:
+      'Enterprise DeFi platform with 23 smart contracts demonstrating institutional-grade security. Tokens: ERC-20 (Snapshots, Votes, Flash Mint), ERC-721A, ERC-1400 security tokens. DeFi: Staking with slashing (875 LOC), streaming rewards (1,076 LOC), vesting. Governance: OpenZeppelin Governor + 48-hour timelock + N-of-M MultiSig. Security: 0 Critical/High findings, 98.5% coverage, Echidna + Certora verification. Stack: Solidity 0.8.24 | Foundry | Go 1.24 | Next.js 14 | PostgreSQL | K8s',
+    images: ['https://nexus.dapp.academy/og-image.png'],
   },
 };
 
