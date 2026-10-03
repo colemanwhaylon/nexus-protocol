@@ -384,7 +384,7 @@ This project demonstrates expertise in:
 
 | Project | Description |
 |---|---|
-| [Meridian Vault](https://github.com/colemanwhaylon/meridian-vault-showcase) | Institutional RWA tokenization platform: ERC-3643, ERC-1400, MPC custody (Fireblocks, Turnkey, DFNS), Hyperledger Besu |
+| [Meridian Vault](https://github.com/colemanwhaylon/meridian-vault-showcase) | Institutional RWA tokenization: ERC-3643 and ERC-4626/7540, Rust custody signer (Fireblocks, Turnkey, AWS KMS), Go + Kafka compliance pipeline with an AI compliance analyst, Hyperledger Besu |
 
 ## Contributing
 
