@@ -10,7 +10,7 @@
 
 Nexus Protocol is a full-stack blockchain platform featuring:
 
-- **Core Token Contracts**: ERC-20 with snapshots/permit/votes, ERC-721A for gas-efficient NFTs, ERC-1400 security tokens
+- **Core Token Contracts**: ERC-20 with snapshots/permit/votes/flash mint, ERC-721A for gas-efficient NFTs, ERC-1400-inspired security tokens
 - **DeFi Mechanics**: Staking with slashing, streaming rewards, vesting schedules, Merkle airdrops
 - **DAO Governance**: OpenZeppelin Governor, Timelock, MultiSig wallet
 - **Enterprise Compliance**: KYC/AML registry, RBAC, emergency controls, custody patterns
@@ -115,11 +115,29 @@ nexus-protocol/
 └── documentation/             # Project documentation
 ```
 
+## ERC Standards Implemented
+
+| Standard | Contract | Implementation | Sepolia |
+|---|---|---|---|
+| **ERC-20** | `NexusToken`, `NexusSecurityToken` | OpenZeppelin ERC20 base | [NexusToken](https://sepolia.etherscan.io/address/0xc495a8ecd63daa5282a4ff3ba58a177b34a36e9e) |
+| **EIP-2612** (Permit) | `NexusToken`, `NexusSecurityToken` | Gasless approvals via signed messages | [NexusToken](https://sepolia.etherscan.io/address/0xc495a8ecd63daa5282a4ff3ba58a177b34a36e9e) |
+| **ERC-5805 / ERC-6372** (Votes, Clock) | `NexusToken`, `NexusGovernor` | ERC20Votes delegation and checkpoints consumed by OpenZeppelin Governor | [NexusGovernor](https://sepolia.etherscan.io/address/0x4fda98c98f9bfcd524e337ede8f2dd90ed409fec) |
+| **ERC-3156** (Flash Loans) | `NexusToken` | ERC20FlashMint lender | [NexusToken](https://sepolia.etherscan.io/address/0xc495a8ecd63daa5282a4ff3ba58a177b34a36e9e) |
+| **ERC-721** (via ERC-721A) | `NexusNFT` | Gas-efficient batch minting, reveal, soulbound option | [NexusNFT](https://sepolia.etherscan.io/address/0x1616ff52b872a343a9ae0766184245f380c99913) |
+| **ERC-2981** (Royalties) | `NexusNFT` | On-chain royalty info | [NexusNFT](https://sepolia.etherscan.io/address/0x1616ff52b872a343a9ae0766184245f380c99913) |
+| **ERC-1400** (inspired) | `NexusSecurityToken` | Partitions (tranches), `canTransfer` validation, document hashes, forced transfers, controller operations, KYC whitelist | Not yet deployed |
+| **ERC-2771** (Meta-transactions) | `NexusForwarder` | Trusted forwarder with EIP-712 typed signatures and nonces | [NexusForwarder](https://sepolia.etherscan.io/address/0x88b8bb0f0f712b49b274025e9ac4657bc4db036d) |
+| **EIP-712** (Typed Data) | `NexusForwarder`, Permit | Structured signing domain | n/a |
+| **ERC-1967 / ERC-1822** (UUPS) | `upgradeable/*` | UUPS proxies for token, staking and bridge | n/a |
+| **ERC-165** | `NexusNFT` and access control | Interface detection | n/a |
+
+Full address list: [documentation/DEPLOYMENTS.md](documentation/DEPLOYMENTS.md). For the institutional RWA successor built on ERC-3643, see [Meridian Vault](https://github.com/colemanwhaylon/meridian-vault-showcase).
+
 ## Core Contracts
 
 ### NexusToken (ERC-20)
 Full-featured ERC-20 with:
-- ERC20Snapshot for governance snapshots
+- Checkpoint-based snapshots (`snapshot()`, `balanceOfAt()`)
 - ERC20Permit (EIP-2612) for gasless approvals
 - ERC20Votes for delegation
 - Blocklist functionality
@@ -133,7 +151,7 @@ Gas-efficient NFT with:
 - Soulbound option
 - IPFS metadata integration
 
-### NexusSecurityToken (ERC-1400)
+### NexusSecurityToken (ERC-1400 inspired)
 Enterprise security token with:
 - Partition-based holdings
 - Transfer restrictions with whitelist
@@ -361,6 +379,12 @@ This project demonstrates expertise in:
 | Enterprise/Compliance | RBAC, KYC/AML, Audit trail, DvP settlement, Circuit breakers |
 | Backend/Infrastructure | Go, Python, Rust, Cloud, Docker/K8s, CI/CD, Monitoring |
 | Security Process | Threat modeling, Self-audit, Incident response |
+
+## Related Projects
+
+| Project | Description |
+|---|---|
+| [Meridian Vault](https://github.com/colemanwhaylon/meridian-vault-showcase) | Institutional RWA tokenization platform: ERC-3643, ERC-1400, MPC custody (Fireblocks, Turnkey, DFNS), Hyperledger Besu |
 
 ## Contributing
 
